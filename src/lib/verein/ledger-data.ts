@@ -757,7 +757,7 @@ async function earlierOpenYears(tx: Tx, year: number): Promise<number[]> {
 }
 
 export async function applyFiscalAction(admin: LedgerRoleActor, year: number, input: FiscalActionInput): Promise<void> {
-  if (!canCloseFiscalYear(admin.roles)) throw new ApiError(403, "FORBIDDEN", "Geschäftsjahre schliessen oder öffnen dürfen nur der Kassier und der Präsident.");
+  if (!canCloseFiscalYear(admin.roles)) throw new ApiError(403, "FORBIDDEN", "Geschäftsjahre schliessen oder öffnen dürfen nur Rollen mit Schreibrecht in der Kassa (Voreinstellung: Kassier und Präsident).");
   const fiscal = await getFiscalStart();
   const range = fiscalYearRange(year, fiscal);
   const today = todayZurich();

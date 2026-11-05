@@ -293,7 +293,7 @@ test("permissions: Rollenmatrix", () => {
   assert.ok(!can(["AKTUAR"], "ledger"));
   assert.ok(!can(["AKTUAR"], "fees"));
   assert.ok(can(["PRAESIDENT"], "members", "write"));
-  assert.ok(can(["PRAESIDENT"], "ledger", "read") && !can(["PRAESIDENT"], "ledger", "write"));
+  assert.ok(can(["PRAESIDENT"], "ledger", "write"), "Präsident darf buchen und Konten ändern (Voreinstellung)");
   assert.ok(can(["VIZEPRAESIDENT"], "verein_settings", "read") && !can(["VIZEPRAESIDENT"], "verein_settings", "write"));
   assert.ok(can(["EDITOR"], "website", "write") && !can(["EDITOR"], "members") && !can(["EDITOR"], "system"));
   // Revisor: nur lesend

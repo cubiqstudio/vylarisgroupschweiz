@@ -380,11 +380,12 @@ export function reversalText(original: { voucherNo: string; text: string }, reas
 export const canWriteLedger = (roles: readonly string[]): boolean => canAccess(roles, "ledger", "write");
 
 /**
- * Geschäftsjahr abschliessen, wieder öffnen oder genehmigen: Kassier (Schreibrecht in der Kassa) und Präsident sowie Inhaber und
- * Administration. Revisor, Vize-Präsident und übrige Rollen nur lesen.
+ * Geschäftsjahr abschliessen, wieder öffnen oder genehmigen: wer in der Kassa schreiben darf. Voreinstellung: Kassier, Präsident sowie
+ * Inhaber und Administration; Revisor, Vize-Präsident und übrige Rollen nur lesen. Die Rechte sind in der Verwaltung einstellbar
+ * («Rollen und Rechte»), deshalb hängt das Recht allein am Schreibrecht für «ledger» (keine zweite, feste Liste).
  */
 export function canCloseFiscalYear(roles: readonly string[]): boolean {
-  return canWriteLedger(roles) || roles.includes("PRAESIDENT");
+  return canWriteLedger(roles);
 }
 
 // ---- Abschluss ---------------------------------------------------------------------------------------------------------------

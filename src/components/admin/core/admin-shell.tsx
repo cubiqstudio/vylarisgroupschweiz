@@ -27,6 +27,7 @@ import {
   ScrollText,
   UserCog,
   Building2,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,7 +36,7 @@ import { LogoutButton } from "./logout-button";
 import { ThemeSwitch } from "@/components/theme/theme-switch";
 import { ToastProvider } from "./toast";
 import { rolesLabel } from "./styles";
-import { filterNav, type AdminNavGroup, type AdminNavLink } from "@/lib/verein/permissions";
+import { filterNavByLevels, type AdminNavGroup, type AdminNavLink, type LevelMap } from "@/lib/verein/permissions";
 
 type BadgeKey = "tickets" | "licenses" | "applications";
 type NavItem = AdminNavLink & { icon: LucideIcon; badge?: BadgeKey };
@@ -73,6 +74,7 @@ const NAV: AdminNavGroup<NavItem>[] = [
       { href: "/admin/verein", label: "Vereinseinstellungen", icon: Building2, module: "verein_settings" },
       { href: "/admin/verein/protokoll", label: "Änderungsprotokoll", icon: ScrollText, module: "audit" },
       { href: "/admin/verein/zugaenge", label: "Zugänge und Rollen", icon: UserCog, module: "system" },
+      { href: "/admin/verein/rollen", label: "Rollen und Rechte", icon: SlidersHorizontal, module: "system" },
       { href: "/admin/settings", label: "Einstellungen", icon: Settings, module: "system" },
       { href: "/admin/account", label: "Mein Konto", icon: KeyRound, module: "self" },
     ],
@@ -90,7 +92,8 @@ export function AdminShell({
   badges,
   children,
 }: {
-  user: { name: string; email: string; roles: readonly string[] };
+  /** `levels`: wirksame Stufe je Modul, vom Server aus der (einstellbaren) Rechtematrix berechnet (levelsFor). */
+  user: { name: string; email: string; roles: readonly string[]; levels: LevelMap };
   /** Zähler für die Hinweise in der Navigation: offene Tickets, wartende Lizenz-Anträge, offene Mitgliedsanträge. */
   badges: Partial<Record<BadgeKey, number>>;
   children: ReactNode;
@@ -98,7 +101,7 @@ export function AdminShell({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  const groups = filterNav(NAV, user.roles);
+  const groups = filterNavByLevels(NAV, user.levels);
   // Aktiv ist der Eintrag mit dem längsten passenden Pfad (so bleibt «Vereinseinstellungen» auf /admin/verein/protokoll inaktiv).
   const allHrefs = groups.flatMap((g) => g.items.map((i) => i.href));
   const activeHref = allHrefs

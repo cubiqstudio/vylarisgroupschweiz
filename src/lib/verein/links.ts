@@ -13,4 +13,5 @@ export function publicUrl(path: string, params?: Record<string, string>): string
 export const memberPortalUrl = (sub = ""): string => publicUrl(`/account/verein${sub ? `/${sub.replace(/^\/+/, "")}` : ""}`);
 export const eventUrl = (eventId: string): string => publicUrl(`/anlaesse/${encodeURIComponent(eventId)}`);
 export const eventCancelUrl = (eventId: string, token: string): string => publicUrl(`/anlaesse/${encodeURIComponent(eventId)}/abmelden`, { token });
+export const eventConfirmUrl = (token: string): string => publicUrl(`/anlaesse/bestaetigen/${encodeURIComponent(token)}`);
 export const joinUrl = (): string => publicUrl("/mitglied-werden");

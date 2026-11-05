@@ -80,7 +80,7 @@ export default async function MemberDetailPage({ params }: Props) {
     phone: m.phone,
     communicationPref: m.communicationPref,
     membershipTypeId: m.membershipTypeId ?? "",
-    boardNotes: m.boardNotes,
+    boardNotes: showNotes ? m.boardNotes : "",
   };
 
   const officeDto = (o: (typeof m.offices)[number]): OfficeDTO => ({

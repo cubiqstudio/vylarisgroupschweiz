@@ -2,10 +2,10 @@ import { ApiError, handle } from "@/lib/api";
 import { getCurrentAdmin } from "@/lib/auth";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getDocumentFile } from "@/lib/verein/documents-data";
-import { canView, downloadFileName, parseVersionParam, type DocumentAudience } from "@/lib/verein/documents-lib";
+import { adminAudience, canView, downloadFileName, isStaffAudience, parseVersionParam, type DocumentAudience } from "@/lib/verein/documents-lib";
 import { downloadHeaders } from "@/lib/verein/files";
 import { requireActiveMember } from "@/lib/verein/guard";
-import { canAccess } from "@/lib/verein/permissions";
+import { canAccess, canSeeBoardDocuments } from "@/lib/verein/permissions";
 import { idSchema } from "@/lib/verein/validation";
 import type { IdContext } from "../../../_lib/http";
 
@@ -17,7 +17,7 @@ const notFound = () => new ApiError(404, "NOT_FOUND", "Dokument nicht gefunden."
  * Dokument herunterladen (öffentlich, für Mitglieder oder Verwaltung). Die Sichtbarkeit wird hier serverseitig erzwungen:
  *  - OEFFENTLICH: jede Person, nur die aktuelle Fassung, nicht archiviert.
  *  - MITGLIEDER: nur aktive Mitglieder (Status AKTIV) oder die Verwaltung.
- *  - VORSTAND: nur die Verwaltung (Admin mit Leserecht auf Dokumente); sonst 404.
+ *  - VORSTAND: nur die Verwaltung mit Leserecht auf Dokumente UND dem Einzelrecht «Dokumente „Nur Vorstand“ sehen»; sonst 404.
  * Frühere Versionen und archivierte Dokumente liefert die Route nur der Verwaltung.
  */
 export const GET = handle(async (req: Request, { params }: IdContext) => {
@@ -31,7 +31,7 @@ export const GET = handle(async (req: Request, { params }: IdContext) => {
   const admin = await getCurrentAdmin();
   let audience: DocumentAudience;
   if (admin && !admin.mustChangePassword && canAccess(admin.roles, "documents", "read")) {
-    audience = "BOARD";
+    audience = adminAudience(canSeeBoardDocuments(admin.roles));
   } else if (file.visibility === "OEFFENTLICH") {
     audience = "PUBLIC";
   } else if (file.visibility === "MITGLIEDER") {
@@ -41,7 +41,7 @@ export const GET = handle(async (req: Request, { params }: IdContext) => {
     throw notFound();
   }
   if (!canView(audience, file.visibility, file.archivedAt)) throw notFound();
-  if (audience !== "BOARD" && !file.isCurrent) throw notFound();
+  if (!isStaffAudience(audience) && !file.isCurrent) throw notFound();
 
   const name = downloadFileName(file.title, file.version, file.fileName, file.isCurrent);
   return new Response(new Uint8Array(file.data), { status: 200, headers: downloadHeaders(name, file.mimeType, file.sizeBytes) });

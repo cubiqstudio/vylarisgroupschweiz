@@ -11,6 +11,7 @@ import { isSameContent, nextVersionNumber, visibilitiesFor, type DocumentAudienc
 import type { DocumentCreateInput, DocumentPatchInput } from "./documents-schemas";
 import type { UploadCheck } from "./files";
 import { searchWhere } from "./pagination";
+import { canSeeBoardDocuments } from "./permissions";
 
 type Tx = Prisma.TransactionClient;
 type Upload = Extract<UploadCheck, { ok: true }>;
@@ -39,18 +40,35 @@ const listSelect = {
 
 export type DocumentRow = Prisma.DocumentGetPayload<{ select: typeof listSelect }>;
 
-function listWhere(filters: DocumentFilters): Prisma.DocumentWhereInput {
+/**
+ * Einschränkung auf das, was die Person sehen darf: Dokumente «Nur Vorstand» nur mit dem Einzelrecht «boardDocuments» (einstellbar je
+ * Rolle, siehe permissions.ts). Gilt für Liste, Suche, Zähler, Einzelansicht und Download – serverseitig, nicht nur in der Anzeige.
+ */
+const boardOnly = (canSeeBoard: boolean): Prisma.DocumentWhereInput => (canSeeBoard ? {} : { visibility: { not: "VORSTAND" } });
+
+function listWhere(filters: DocumentFilters, canSeeBoard: boolean): Prisma.DocumentWhereInput {
   return {
-    ...(filters.q ? searchWhere(filters.q, ["title", "description"]) : {}),
-    ...(filters.category ? { category: filters.category } : {}),
-    ...(filters.visibility ? { visibility: filters.visibility } : {}),
-    archivedAt: filters.archived ? { not: null } : null,
+    AND: [
+      boardOnly(canSeeBoard),
+      {
+        ...(filters.q ? searchWhere(filters.q, ["title", "description"]) : {}),
+        ...(filters.category ? { category: filters.category } : {}),
+        ...(filters.visibility ? { visibility: filters.visibility } : {}),
+        archivedAt: filters.archived ? { not: null } : null,
+      },
+    ],
   };
 }
 
-/** Dokumentliste der Verwaltung (ohne Dateiinhalt), neueste Änderung zuerst. */
-export async function listDocuments(filters: DocumentFilters, skip: number, take: number): Promise<{ rows: DocumentRow[]; total: number }> {
-  const where = listWhere(filters);
+/** Darf diese Person Dokumente «Nur Vorstand» sehen? (Wirksame Matrix aus `admin.roles`.) */
+export const adminSeesBoardDocuments = (admin: { roles: readonly string[] }): boolean => canSeeBoardDocuments(admin.roles);
+
+/**
+ * Dokumentliste der Verwaltung (ohne Dateiinhalt), neueste Änderung zuerst. `canSeeBoard`: Dokumente «Nur Vorstand» einschliessen
+ * (adminSeesBoardDocuments); Pflichtangabe, damit sie nie vergessen wird.
+ */
+export async function listDocuments(filters: DocumentFilters, skip: number, take: number, canSeeBoard: boolean): Promise<{ rows: DocumentRow[]; total: number }> {
+  const where = listWhere(filters, canSeeBoard);
   const [rows, total] = await Promise.all([
     db.document.findMany({ where, orderBy: [{ updatedAt: "desc" }, { title: "asc" }], skip, take, select: listSelect }),
     db.document.count({ where }),
@@ -59,15 +77,19 @@ export async function listDocuments(filters: DocumentFilters, skip: number, take
 }
 
 /** Anzahl aktiver und archivierter Dokumente (für die Filterchips). */
-export async function documentCounts(): Promise<{ active: number; archived: number }> {
-  const [active, archived] = await Promise.all([db.document.count({ where: { archivedAt: null } }), db.document.count({ where: { archivedAt: { not: null } } })]);
+export async function documentCounts(canSeeBoard: boolean): Promise<{ active: number; archived: number }> {
+  const scope = boardOnly(canSeeBoard);
+  const [active, archived] = await Promise.all([
+    db.document.count({ where: { AND: [scope, { archivedAt: null }] } }),
+    db.document.count({ where: { AND: [scope, { archivedAt: { not: null } }] } }),
+  ]);
   return { active, archived };
 }
 
 /** Ein Dokument mit allen Versionen (nur Metadaten). */
-export async function getDocumentDetail(id: string) {
-  return db.document.findUnique({
-    where: { id },
+export async function getDocumentDetail(id: string, canSeeBoard: boolean) {
+  return db.document.findFirst({
+    where: { AND: [{ id }, boardOnly(canSeeBoard)] },
     select: {
       id: true,
       title: true,
@@ -100,8 +122,16 @@ async function requireMeetingRef(tx: Tx, meetingId: string | null | undefined): 
 const describe = (d: { title: string; category: string; visibility: string }) =>
   `«${d.title}» (${DOCUMENT_CATEGORY_LABEL[d.category as DocumentCategory] ?? d.category}, ${DOCUMENT_VISIBILITY_LABEL[d.visibility as DocumentVisibility] ?? d.visibility})`;
 
+/** «Nur Vorstand» ohne das Einzelrecht: weder sehen noch anlegen noch ändern (Antwort wie «nicht gefunden»). */
+function assertBoardAllowed(admin: { roles: readonly string[] }, visibility: string, create = false): void {
+  if (visibility !== "VORSTAND" || canSeeBoardDocuments(admin.roles)) return;
+  if (create) throw new ApiError(403, "FORBIDDEN", "Dokumente «Nur Vorstand» dürfen nur Rollen mit diesem Recht anlegen oder zugänglich machen.");
+  notFound();
+}
+
 /** Neues Dokument mit Version 1. */
 export async function createDocument(admin: CurrentAdmin, input: DocumentCreateInput, file: Upload) {
+  assertBoardAllowed(admin, input.visibility, true);
   return db.$transaction(async (tx) => {
     await requireMeetingRef(tx, input.meetingId);
     const doc = await tx.document.create({
@@ -145,6 +175,7 @@ export async function addDocumentVersion(admin: CurrentAdmin, id: string, file: 
   return db.$transaction(async (tx) => {
     const doc = await tx.document.findUnique({ where: { id }, select: { id: true, title: true, category: true, visibility: true, currentVersion: true } });
     if (!doc) return notFound();
+    assertBoardAllowed(admin, doc.visibility);
     const [current, all] = await Promise.all([
       tx.documentVersion.findFirst({ where: { documentId: id, version: doc.currentVersion }, select: { sha256: true } }),
       tx.documentVersion.findMany({ where: { documentId: id }, select: { version: true } }),
@@ -185,6 +216,8 @@ export async function updateDocument(admin: CurrentAdmin, id: string, patch: Doc
   return db.$transaction(async (tx) => {
     const before = await tx.document.findUnique({ where: { id }, select: { title: true, description: true, category: true, visibility: true, meetingId: true, archivedAt: true } });
     if (!before) return notFound();
+    assertBoardAllowed(admin, before.visibility);
+    if (patch.visibility !== undefined) assertBoardAllowed(admin, patch.visibility, true);
     if (patch.meetingId !== undefined) await requireMeetingRef(tx, patch.meetingId);
     const { archived, ...rest } = patch;
     const data: Prisma.DocumentUncheckedUpdateInput = { ...rest };
@@ -211,6 +244,7 @@ export async function deleteDocument(admin: CurrentAdmin, id: string) {
   return db.$transaction(async (tx) => {
     const doc = await tx.document.findUnique({ where: { id }, select: { id: true, title: true, category: true, visibility: true, _count: { select: { versions: true } } } });
     if (!doc) return notFound();
+    assertBoardAllowed(admin, doc.visibility);
     await tx.document.delete({ where: { id } });
     await logAudit(tx, {
       actor: auditActor(admin),

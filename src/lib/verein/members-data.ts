@@ -249,7 +249,7 @@ async function createMemberTx(tx: Tx, input: NewMember, actor: AuditActor, actio
 
 /** Verwaltung: Mitglied manuell erfassen (aktiv oder als Antrag). Verknüpft ein bestätigtes Website-Konto mit gleicher E-Mail-Adresse. */
 export async function createMemberByAdmin(admin: CurrentAdmin, input: MemberCreateInput) {
-  if (input.boardNotes && !hasBoardRole(admin.roles)) throw new ApiError(403, "FORBIDDEN", "Vorstandsnotizen dürfen nur Mitglieder des Vorstands erfassen.");
+  if (input.boardNotes && !hasBoardRole(admin.roles)) throw new ApiError(403, "FORBIDDEN", "Vorstandsnotizen dürfen nur Rollen mit diesem Recht erfassen.");
   return db.$transaction(async (tx) => {
     const { status, joinedAt, ...fields } = input;
     const member = await createMemberTx(tx, { fields, status, joinedAt }, auditActor(admin), "member.create", (nr) => `Mitglied ${nr} erfasst`);
@@ -299,7 +299,7 @@ export async function createApplication(input: ApplicationInput, now: Date = new
 // ---- Ändern ---------------------------------------------------------------------------------------------------------------
 
 export async function updateMember(admin: CurrentAdmin, id: string, patch: MemberPatchInput) {
-  if (patch.boardNotes !== undefined && !hasBoardRole(admin.roles)) throw new ApiError(403, "FORBIDDEN", "Vorstandsnotizen dürfen nur Mitglieder des Vorstands ändern.");
+  if (patch.boardNotes !== undefined && !hasBoardRole(admin.roles)) throw new ApiError(403, "FORBIDDEN", "Vorstandsnotizen dürfen nur Rollen mit diesem Recht ändern.");
   return db.$transaction(async (tx) => {
     const before = await tx.member.findUnique({ where: { id } });
     if (!before) throw new ApiError(404, "NOT_FOUND", "Mitglied nicht gefunden.");

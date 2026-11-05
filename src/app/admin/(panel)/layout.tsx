@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { requireAdminPage } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/core/admin-shell";
 import { MustChangeBanner } from "@/components/admin/core/must-change-banner";
-import { canAccess } from "@/lib/verein/permissions";
+import { canAccess, levelsFor } from "@/lib/verein/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
 
   return (
     <AdminShell
-      user={{ name: admin.name, email: admin.email, roles: admin.roles }}
+      user={{ name: admin.name, email: admin.email, roles: admin.roles, levels: levelsFor(admin.roles) }}
       badges={{ tickets: openTickets, licenses: pendingKeys + pendingWebspace, applications }}
     >
       {admin.mustChangePassword && <MustChangeBanner />}

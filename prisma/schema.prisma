@@ -839,7 +839,7 @@ model EventRegistration {
   guestName       String    @default("") // Gast (ohne Mitglied)
   guestEmail      String    @default("")
   seats           Int       @default(1) // Personen inkl. Begleitung
-  status          String    @default("ANGEMELDET") // ANGEMELDET | WARTELISTE | ABGESAGT
+  status          String    @default("ANGEMELDET") // UNBESTAETIGT (Gast, E-Mail noch nicht bestätigt, belegt keinen Platz) | ANGEMELDET | WARTELISTE | ABGESAGT
   note            String    @default("")
   cancelTokenHash String    @unique // SHA-256 des Abmelde-Tokens; das Token steht nur in der Bestätigungsmail
   consentAt       DateTime? // Gäste: Einwilligung zur Datenbearbeitung
@@ -847,10 +847,12 @@ model EventRegistration {
   cancelledAt     DateTime?
   attendedAt      DateTime? // Anwesenheit am Anlass (von Hand abgehakt)
   reminderSentAt  DateTime? // Erinnerungsmail verschickt (jede Anmeldung höchstens einmal)
-  createdAt       DateTime  @default(now()) // bestimmt die Reihenfolge auf der Warteliste
+  confirmSentAt   DateTime? // Gäste: letzte Mail mit dem Bestätigungslink (Drosselung des erneuten Versands)
+  createdAt       DateTime  @default(now()) // bestimmt die Reihenfolge auf der Warteliste (bei Gästen: Zeitpunkt der Bestätigung)
 
   @@unique([eventId, memberId])
   @@index([eventId, status, createdAt])
+  @@index([status, createdAt])
   @@index([guestEmail])
 }
 

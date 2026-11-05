@@ -35,7 +35,7 @@ export function FiscalYearActions({
   today: string;
 }) {
   const [mode, setMode] = useState<Mode | null>(null);
-  if (!canClose) return <span className="text-xs text-zinc-500">Nur Kassier und Präsident</span>;
+  if (!canClose) return <span className="text-xs text-zinc-500">Nur mit Schreibrecht in der Kassa</span>;
   return (
     <>
       <div className="flex flex-wrap justify-end gap-1">

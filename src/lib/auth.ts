@@ -5,7 +5,8 @@ import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { db } from "@/lib/db";
 import { SESSION_COOKIE, verifySession, type SessionKind } from "@/lib/session";
-import { effectiveRoles, type AdminRoleValue } from "@/lib/verein/permissions";
+import { effectiveRoles, withMatrix, type AdminRoleValue } from "@/lib/verein/permissions";
+import { getEffectiveMatrix } from "@/lib/verein/permissions-data";
 
 export type CurrentAdmin = {
   id: string;
@@ -45,12 +46,14 @@ export const getCurrentAdmin = cache(async (): Promise<CurrentAdmin | null> => {
   });
   // Nach Passwortänderung ist die Sitzungsversion höher: ältere Sitzungen (z. B. gestohlene Cookies) sind ungültig.
   if (!row || row.sessionVersion !== (session.sv ?? 0)) return null;
+  // Die wirksame Rechtematrix (einstellbar, siehe permissions-data.ts) hängt an der Rollenliste; canAccess & Co. nutzen sie von dort.
+  const matrix = await getEffectiveMatrix();
   return {
     id: row.id,
     email: row.email,
     name: row.name,
     role: row.role,
-    roles: effectiveRoles(row.role, row.extraRoles),
+    roles: withMatrix(effectiveRoles(row.role, row.extraRoles), matrix),
     memberId: row.memberId,
     mustChangePassword: row.mustChangePassword,
   };

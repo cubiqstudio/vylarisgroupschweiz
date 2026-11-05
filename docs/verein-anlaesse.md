@@ -9,9 +9,11 @@ Das Modul Anlässe plant Veranstaltungen des Vereins, nimmt Anmeldungen von Mitg
 | Vorstand | `/admin/events`, `/admin/events/new`, `/admin/events/[id]` | Anlässe anlegen, ändern, kopieren, absagen; Anmeldungen verwalten |
 | Alle | `/anlaesse`, `/anlaesse/[id]` | öffentliche Liste und Detailseite mit Anmeldung (Gäste) bzw. Ein-Klick-Anmeldung (angemeldete Mitglieder) |
 | Alle | `/anlaesse/kalender.ics`, `/anlaesse/[id]/termin.ics` | Kalender-Feed zum Abonnieren, Kalendereintrag eines Anlasses |
+| Gast | `/anlaesse/bestaetigen/[token]` | E-Mail-Adresse bestätigen (Link aus der Mail; erst der Klick auf die Schaltfläche bestätigt) |
 | Gast | `/anlaesse/[id]/abmelden?token=…` | Abmelden über den Link aus der Bestätigungsmail (erst der Klick meldet ab) |
 | Mitglied | `/account/verein/anlaesse` | kommende Anlässe inkl. «nur für Mitglieder», an- und abmelden |
 | System | `POST /api/events/reminders` | Erinnerungsmails (Cron, mit Geheimnis) |
+| Gast | `POST /api/events/[id]/guest`, `POST /api/events/confirm` | Anmeldung absenden, E-Mail-Adresse bestätigen |
 
 Der Block `UpcomingEvents` (`src/components/events/upcoming.tsx`) zeigt die nächsten öffentlichen Anlässe auf der Startseite.
 
@@ -33,9 +35,21 @@ Entwürfe sieht nur der Vorstand. Gäste können sich nur bei öffentlichen Anl�
 - Anmelden und Platzvergabe laufen in einer Transaktion, die den Anlass sperrt: Der letzte Platz wird nie doppelt vergeben.
 - Der Vorstand kann die Kapazität bewusst überschreiten («Trotzdem anmelden»).
 
+## Bestätigung der E-Mail-Adresse (Double-Opt-In für Gäste)
+
+Gäste müssen ihre E-Mail-Adresse bestätigen. Mitglieder im Portal und Anmeldungen, die der Vorstand von Hand einträgt, brauchen das nicht.
+
+1. **Absenden.** Die Anmeldung wird mit Status `UNBESTAETIGT` («E-Mail noch nicht bestätigt») gespeichert. Sie belegt **keinen Platz**, steht **nicht auf der Warteliste** und zählt weder zur Kapazität noch zur Teilnehmerzahl. Die Antwort an das Formular ist immer dieselbe, egal ob die Adresse neu oder schon bekannt ist.
+2. **Mail.** An die Adresse geht ein signierter Link (`/anlaesse/bestaetigen/<Token>`). Das Token besteht aus Anmelde-ID, Ablaufzeit und einer HMAC-SHA256-Signatur (Geheimnis abgeleitet aus `AUTH_SECRET`), enthält keine Personendaten, wird nicht gespeichert und gilt **48 Stunden** ab Eingang (`CONFIRM_TTL_HOURS` in `events-lib.ts`).
+3. **Klick.** Die Seite zeigt nur Anlass und Schaltfläche an (`GET` ändert nichts, damit Mail-Scanner, die Links vorab abrufen, nichts bestätigen). Erst die Schaltfläche löst `POST /api/events/confirm` aus. Dann wird in einer Transaktion, die den Anlass sperrt, ein Platz vergeben oder die Person auf die Warteliste gesetzt (gleichzeitige Bestätigungen überbuchen nie). Die Reihenfolge der Warteliste richtet sich nach dem Zeitpunkt der Bestätigung. Danach geht die Bestätigungsmail mit dem Abmelde-Link hinaus. Ein zweiter Klick ändert nichts («bereits bestätigt»).
+4. **Erneut absenden.** Dieselbe Adresse für denselben Anlass erzeugt keine Dublette. Die Bestätigungsmail geht höchstens alle 5 Minuten erneut hinaus (`CONFIRM_RESEND_MINUTES`; zusätzlich Rate-Limits je IP und Adresse). Fremde offene Angaben werden dabei nicht überschrieben. Ist die alte unbestätigte Anmeldung abgelaufen, ersetzt die neue sie.
+5. **Aufräumen.** Unbestätigte Anmeldungen, die älter als 48 Stunden sind, werden samt Name, Adresse und Bemerkung gelöscht (`purgeExpiredUnconfirmedRegistrations()` in `events-confirm.ts`, Eintrag `registration.purge` im Änderungsprotokoll). Das passiert im täglichen Lauf und zusätzlich beim Öffnen eines Anlasses in der Verwaltung.
+
+Verwaltung: In der Anmeldungsliste stehen unbestätigte Gäste in einem eigenen Abschnitt «E-Mail noch nicht bestätigt» mit Zahl und Filter. Der Vorstand kann eine Anmeldung von Hand bestätigen (z. B. nach einem Anruf; Aktion `confirm`, Eintrag `registration.confirm`): Die Person erhält einen Platz oder kommt auf die Warteliste und bekommt die Bestätigung mit Abmelde-Link. Im CSV-Export steht der Status in der Spalte «Status» («E-Mail noch nicht bestätigt»). Bestehende Anmeldungen aus der Zeit vor der Einführung gelten als bestätigt (Status ändert sich nicht).
+
 ## Abmelde-Link
 
-Bei Gästen steht ein zufälliges Token (256 Bit) nur in der Bestätigungsmail. In der Datenbank liegt der SHA-256-Hash (`cancelTokenHash`). Das Token erlaubt nichts ausser dem Abmelden genau dieser Anmeldung. Meldet sich dieselbe Adresse noch einmal an, wird nichts doppelt gebucht und es geht eine neue Bestätigung mit neuem Link hinaus (der alte Link verfällt). Folgemails (Erinnerung, Nachrücken) verweisen auf den Link in der Bestätigung.
+Bei Gästen steht ein zufälliges Token (256 Bit) nur in der Bestätigungsmail, die nach der Bestätigung der E-Mail-Adresse verschickt wird (vorher gibt es keinen Abmelde-Link). In der Datenbank liegt der SHA-256-Hash (`cancelTokenHash`). Das Token erlaubt nichts ausser dem Abmelden genau dieser Anmeldung. Meldet sich dieselbe Adresse noch einmal an, wird nichts doppelt gebucht und es geht eine neue Bestätigung mit neuem Link hinaus (der alte Link verfällt). Folgemails (Erinnerung, Nachrücken) verweisen auf den Link in der Bestätigung.
 
 ## Erinnerungen
 
@@ -50,7 +64,7 @@ Ohne `EVENTS_CRON_SECRET` (mindestens 24 Zeichen) antwortet die Schnittstelle mi
 
 ## Datenschutz
 
-- Gäste geben Name und E-Mail-Adresse an und bestätigen den Datenschutzhinweis (`consentAt`). Mehr wird nicht erhoben.
+- Gäste geben Name und E-Mail-Adresse an und bestätigen den Datenschutzhinweis (`consentAt`). Mehr wird nicht erhoben. Die Anmeldung gilt erst nach der Bestätigung der E-Mail-Adresse; unbestätigte Anmeldungen werden nach 48 Stunden gelöscht (`confirmSentAt` hält nur den letzten Versand der Bestätigungsmail fest).
 - Teilnehmerlisten (Ansicht und CSV-Export) sehen nur Rollen mit Leserecht auf Anlässe und Mitglieder. Jeder Export steht im Änderungsprotokoll (`export.registrations`). Zellen mit `=`, `+`, `-`, `@` am Anfang werden neutralisiert.
 - Anmeldungen lassen sich einzeln samt Personendaten löschen. Wer den Anlass löscht, löscht auch dessen Anmeldungen.
-- Im Änderungsprotokoll stehen Anlass-Änderungen (`event.*`) und Eingriffe des Vorstands in Anmeldungen (`registration.*`).
+- Im Änderungsprotokoll stehen Anlass-Änderungen (`event.*`) und Eingriffe des Vorstands in Anmeldungen (`registration.*`, darunter `registration.confirm` und das automatische Aufräumen `registration.purge`).

@@ -12,11 +12,38 @@ export const MAX_SEATS_GUEST = 5;
 /** Erinnerungen gehen an Anlässe, die innerhalb dieser Stunden beginnen (siehe isReminderDue). */
 export const REMINDER_WINDOW_HOURS = 36;
 
+/** Gäste müssen ihre E-Mail-Adresse bestätigen: Der Link gilt so viele Stunden; danach wird die unbestätigte Anmeldung gelöscht. */
+export const CONFIRM_TTL_HOURS = 48;
+/** Frühestens nach so vielen Minuten geht für dieselbe Anmeldung erneut eine Bestätigungsmail hinaus (Drosselung). */
+export const CONFIRM_RESEND_MINUTES = 5;
+
 export const EVENT_VIEWS = ["kommend", "vergangen", "entwurf", "abgesagt", "alle"] as const;
 export type EventView = (typeof EVENT_VIEWS)[number];
 export const EVENT_VIEW_LABEL: Record<EventView, string> = { kommend: "Kommende", vergangen: "Vergangene", entwurf: "Entwürfe", abgesagt: "Abgesagte", alle: "Alle" };
 
 // ---- Plätze und Warteliste -----------------------------------------------------------------------------------------
+
+// ---- Bestätigung der E-Mail-Adresse (Gäste) ------------------------------------------------------------------------------
+
+/** Bis wann eine unbestätigte Anmeldung gilt (ab Eingang). */
+export function confirmExpiresAt(createdAt: Date): Date {
+  return new Date(createdAt.getTime() + CONFIRM_TTL_HOURS * 3_600_000);
+}
+
+/** Ist die Frist zur Bestätigung abgelaufen? Genau zum Ablaufzeitpunkt gilt sie bereits als abgelaufen. */
+export function isConfirmationExpired(createdAt: Date, now: Date = new Date()): boolean {
+  return now.getTime() >= confirmExpiresAt(createdAt).getTime();
+}
+
+/** Darf die Bestätigungsmail schon wieder verschickt werden? (Drosselung; `null` = noch nie verschickt.) */
+export function canResendConfirmation(lastSentAt: Date | null, now: Date = new Date()): boolean {
+  return lastSentAt === null || now.getTime() - lastSentAt.getTime() >= CONFIRM_RESEND_MINUTES * 60_000;
+}
+
+/** Stichtag für das Aufräumen: Unbestätigte Anmeldungen, die vor diesem Zeitpunkt eingegangen sind, sind abgelaufen. */
+export function confirmPurgeCutoff(now: Date = new Date()): Date {
+  return new Date(now.getTime() - CONFIRM_TTL_HOURS * 3_600_000);
+}
 
 export type SeatRow = { status: string; seats: number };
 

@@ -17,7 +17,8 @@ const tooMany = (retryAfter: number) =>
 
 /**
  * Anmeldung eines Gastes (ohne Konto) zu einem öffentlichen Anlass, der Gäste zulässt.
- * Bestätigung und Abmelde-Link gehen per Mail an die angegebene Adresse. Honeypot und Rate-Limits gegen Missbrauch.
+ * Double-Opt-In: Die Anmeldung ist zunächst unbestätigt (kein Platz, keine Warteliste); an die angegebene Adresse geht ein Link zur Bestätigung
+ * (48 Stunden gültig). Erst der Klick darauf vergibt Platz oder Warteliste und löst die Mail mit dem Abmelde-Link aus. Honeypot und Rate-Limits gegen Missbrauch.
  * Die Antwort ist für neue und bereits angemeldete Adressen identisch (keine Auskunft über Dritte).
  */
 export const POST = handle(async (req: Request, { params }: IdContext) => {
@@ -45,6 +46,7 @@ export const POST = handle(async (req: Request, { params }: IdContext) => {
 
   await registerForEvent({ eventId: id, who: { kind: "guest", name: input.name, email: input.email, consent: input.consent }, seats: input.seats, note: input.note });
   // Immer dieselbe Antwort, ob die Adresse neu ist oder schon angemeldet war: Wer das Formular missbraucht, erfährt nichts über Dritte.
-  // Der tatsächliche Stand (angemeldet oder Warteliste) steht in der Bestätigungsmail.
+  // Auch eine unbestätigte, noch offene Anmeldung ergibt dieselbe Antwort; die Bestätigungsmail geht dann höchstens alle paar Minuten erneut hinaus.
+  // Der tatsächliche Stand (angemeldet oder Warteliste) steht erst in der Mail nach der Bestätigung.
   return ok({ received: true as const }, 201, { headers: { "Cache-Control": "no-store" } });
 });

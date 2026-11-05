@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, Download, Pencil, RotateCcw, Trash2, UserCheck, UserPlus } from "lucide-react";
+import { Ban, Download, MailCheck, Pencil, RotateCcw, Trash2, UserCheck, UserPlus } from "lucide-react";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Textarea } from "@/components/ui/form";
@@ -29,6 +29,8 @@ export type RegistrationDTO = {
   attended: boolean;
   promoted: boolean;
   reminded: boolean;
+  /** nur bei unbestätigten Gästen: vorformatiert, bis wann der Link gilt und danach gelöscht wird */
+  confirmBy: string | null;
 };
 
 type Props = {
@@ -41,9 +43,9 @@ type Props = {
   registrations: RegistrationDTO[];
 };
 
-type Pending = { kind: "cancel" | "delete" | "force-promote" | "force-restore"; reg: RegistrationDTO } | null;
+type Pending = { kind: "cancel" | "delete" | "confirm" | "force-promote" | "force-restore"; reg: RegistrationDTO } | null;
 
-/** Anmeldungen eines Anlasses: Liste mit Warteliste, von Hand hinzufügen, absagen, nachrücken, Anwesenheit abhaken, CSV-Export. */
+/** Anmeldungen eines Anlasses: Liste mit Warteliste und Gästen ohne bestätigte E-Mail-Adresse, von Hand hinzufügen und bestätigen, absagen, nachrücken, Anwesenheit abhaken, CSV-Export. */
 export function RegistrationManager({ eventId, eventTitle, capacity, cancelled, canWrite, canExport, registrations }: Props) {
   const router = useRouter();
   const toast = useToast();
@@ -52,13 +54,17 @@ export function RegistrationManager({ eventId, eventTitle, capacity, cancelled, 
   const [busy, setBusy] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<RegistrationDTO | null>(null);
+  const [onlyUnconfirmed, setOnlyUnconfirmed] = useState(false);
 
   const base = `/api/admin/events/${encodeURIComponent(eventId)}/registrations`;
   const active = registrations.filter((r) => r.status === "ANGEMELDET");
   const waiting = registrations.filter((r) => r.status === "WARTELISTE");
+  const unconfirmed = registrations.filter((r) => r.status === "UNBESTAETIGT");
   const ended = registrations.filter((r) => r.status === "ABGESAGT");
   const taken = active.reduce((s, r) => s + r.seats, 0);
   const waitingSeats = waiting.reduce((s, r) => s + r.seats, 0);
+  const unconfirmedSeats = unconfirmed.reduce((s, r) => s + r.seats, 0);
+  const showUnconfirmedOnly = onlyUnconfirmed && unconfirmed.length > 0;
   const attended = active.filter((r) => r.attended).reduce((s, r) => s + r.seats, 0);
 
   async function act(reg: RegistrationDTO, body: Record<string, unknown>, success: string, onNoCapacity?: () => void): Promise<boolean> {
@@ -101,7 +107,7 @@ export function RegistrationManager({ eventId, eventTitle, capacity, cancelled, 
 
   const headers = ["Name", "Personen", "Bemerkung", "Angemeldet"];
 
-  function renderTable(rows: RegistrationDTO[], kind: "active" | "waiting" | "ended") {
+  function renderTable(rows: RegistrationDTO[], kind: "active" | "waiting" | "unconfirmed" | "ended") {
     return (
       <div className="overflow-x-auto">
         <table className="w-full min-w-[40rem] text-left text-sm">
@@ -147,6 +153,7 @@ export function RegistrationManager({ eventId, eventTitle, capacity, cancelled, 
                   <div className="text-xs text-zinc-500">
                     {r.isMember ? `Mitglied Nr. ${r.memberNumber ?? "–"}` : "Gast"}
                     {r.email && <span className="break-all"> · {r.email}</span>}
+                    {r.confirmBy && ` · wird gelöscht, falls bis ${r.confirmBy} nicht bestätigt`}
                     {r.promoted && " · nachgerückt"}
                     {r.reminded && " · erinnert"}
                   </div>
@@ -164,6 +171,13 @@ export function RegistrationManager({ eventId, eventTitle, capacity, cancelled, 
                           <span className="sr-only"> ({r.name})</span>
                         </Button>
                       )}
+                      {kind === "unconfirmed" && (
+                        <Button type="button" size="sm" variant="secondary" disabled={busy === r.id || cancelled} onClick={() => setPending({ kind: "confirm", reg: r })}>
+                          <MailCheck className="h-4 w-4" aria-hidden />
+                          Von Hand bestätigen
+                          <span className="sr-only"> ({r.name})</span>
+                        </Button>
+                      )}
                       {kind === "ended" ? (
                         <Button type="button" size="sm" variant="secondary" disabled={busy === r.id || cancelled} onClick={() => act(r, { action: "restore", force: false }, `Die Anmeldung von ${r.name} ist wiederhergestellt.`, () => setPending({ kind: "force-restore", reg: r }))}>
                           <RotateCcw className="h-4 w-4" aria-hidden />
@@ -177,11 +191,13 @@ export function RegistrationManager({ eventId, eventTitle, capacity, cancelled, 
                             Ändern
                             <span className="sr-only"> ({r.name})</span>
                           </Button>
-                          <Button type="button" size="sm" variant="secondary" disabled={busy === r.id} onClick={() => setPending({ kind: "cancel", reg: r })}>
-                            <Ban className="h-4 w-4" aria-hidden />
-                            Absagen
-                            <span className="sr-only"> ({r.name})</span>
-                          </Button>
+                          {kind !== "unconfirmed" && (
+                            <Button type="button" size="sm" variant="secondary" disabled={busy === r.id} onClick={() => setPending({ kind: "cancel", reg: r })}>
+                              <Ban className="h-4 w-4" aria-hidden />
+                              Absagen
+                              <span className="sr-only"> ({r.name})</span>
+                            </Button>
+                          )}
                         </>
                       )}
                       <Button type="button" size="sm" variant="danger" disabled={busy === r.id} onClick={() => setPending({ kind: "delete", reg: r })}>
@@ -211,6 +227,7 @@ export function RegistrationManager({ eventId, eventTitle, capacity, cancelled, 
           <p className="mt-1 text-sm text-zinc-400" aria-live="polite">
             {capacity === null ? `${taken} ${taken === 1 ? "Person" : "Personen"} angemeldet (unbegrenzt)` : `${taken} von ${capacity} Plätzen belegt`}
             {waitingSeats > 0 && ` · ${waitingSeats} ${waitingSeats === 1 ? "Person" : "Personen"} auf der Warteliste`}
+            {unconfirmed.length > 0 && ` · ${unconfirmed.length} ${unconfirmed.length === 1 ? "Anmeldung" : "Anmeldungen"} mit noch nicht bestätigter E-Mail-Adresse (ohne Platz)`}
             {attended > 0 && ` · ${attended} anwesend`}
           </p>
         </div>
@@ -231,6 +248,20 @@ export function RegistrationManager({ eventId, eventTitle, capacity, cancelled, 
         </div>
       </div>
 
+      {unconfirmed.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <button
+            type="button"
+            aria-pressed={showUnconfirmedOnly}
+            onClick={() => setOnlyUnconfirmed((v) => !v)}
+            className={cn("inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium ring-1 ring-inset", showUnconfirmedOnly ? "bg-zinc-900 text-white ring-zinc-700" : "text-zinc-400 ring-zinc-800 hover:text-zinc-100")}
+          >
+            E-Mail noch nicht bestätigt ({unconfirmed.length})
+          </button>
+          {showUnconfirmedOnly && <span className="text-xs text-zinc-500">Nur diese Anmeldungen werden angezeigt. Nochmals klicken zeigt alle.</span>}
+        </div>
+      )}
+
       {capacity !== null && taken > capacity && <Notice variant="warning">Der Anlass ist überbucht ({taken} Personen bei {capacity} Plätzen).</Notice>}
 
       {registrations.length === 0 ? (
@@ -240,12 +271,12 @@ export function RegistrationManager({ eventId, eventTitle, capacity, cancelled, 
         </Card>
       ) : (
         <>
-          {active.length > 0 && (
+          {!showUnconfirmedOnly && active.length > 0 && (
             <Card className="overflow-hidden">
               {renderTable(active, "active")}
             </Card>
           )}
-          {waiting.length > 0 && (
+          {!showUnconfirmedOnly && waiting.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-sm font-semibold text-amber-300">Warteliste ({waiting.length})</h3>
               <p className="text-xs text-zinc-500">Reihenfolge nach Anmeldezeit. Wird ein Platz frei, rückt automatisch nach, wer noch hineinpasst.</p>
@@ -254,7 +285,16 @@ export function RegistrationManager({ eventId, eventTitle, capacity, cancelled, 
               </Card>
             </div>
           )}
-          {ended.length > 0 && (
+          {unconfirmed.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold text-sky-300">E-Mail noch nicht bestätigt ({unconfirmed.length}, {unconfirmedSeats} {unconfirmedSeats === 1 ? "Person" : "Personen"})</h3>
+              <p className="text-xs text-zinc-500">Diese Gäste haben den Link in der Mail noch nicht angeklickt. Sie belegen keinen Platz und stehen nicht auf der Warteliste. Nach 48 Stunden werden die Angaben automatisch gelöscht. Bei einer Anmeldung per Telefon kannst du die Anmeldung von Hand bestätigen.</p>
+              <Card className="overflow-hidden">
+                {renderTable(unconfirmed, "unconfirmed")}
+              </Card>
+            </div>
+          )}
+          {!showUnconfirmedOnly && ended.length > 0 && (
             <details className="group">
               <summary className="cursor-pointer text-sm font-medium text-zinc-400 hover:text-zinc-200">Abgemeldet ({ended.length})</summary>
               <Card className="mt-2 overflow-hidden">
@@ -289,6 +329,15 @@ export function RegistrationManager({ eventId, eventTitle, capacity, cancelled, 
           </div>
         </div>
       </Modal>
+      <ConfirmDialog
+        open={p?.kind === "confirm"}
+        title="E-Mail-Adresse von Hand bestätigen?"
+        description={p ? `Die Anmeldung von ${p.reg.name} (${p.reg.seats} ${p.reg.seats === 1 ? "Person" : "Personen"}) gilt danach, auch ohne Klick auf den Link in der Mail. Es gibt einen Platz oder, wenn der Anlass voll ist, einen Platz auf der Warteliste. Die Person erhält die Bestätigung mit dem Link zum Abmelden. Die Bestätigung kommt ins Änderungsprotokoll.` : ""}
+        confirmLabel="Bestätigen"
+        busy={busy !== null}
+        onConfirm={() => p && act(p.reg, { action: "confirm", force: false, sendMail: true }, `Die Anmeldung von ${p.reg.name} ist bestätigt.`)}
+        onCancel={() => setPending(null)}
+      />
       <ConfirmDialog
         open={p?.kind === "delete"}
         title="Anmeldung löschen?"

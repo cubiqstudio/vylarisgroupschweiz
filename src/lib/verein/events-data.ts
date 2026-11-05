@@ -175,7 +175,7 @@ const adminListSelect = {
   membersOnly: true,
 } as const satisfies Prisma.EventSelect;
 
-export type AdminEventRow = Prisma.EventGetPayload<{ select: typeof adminListSelect }> & { seats: SeatInfo; registrations: number };
+export type AdminEventRow = Prisma.EventGetPayload<{ select: typeof adminListSelect }> & { seats: SeatInfo; registrations: number; /** Gäste mit noch nicht bestätigter E-Mail-Adresse (ohne Platz, nicht in `registrations`) */ unconfirmed: number };
 
 export async function listEventsAdmin(filters: EventFilters, skip: number, take: number, now: Date = new Date()): Promise<{ rows: AdminEventRow[]; total: number }> {
   const where: Prisma.EventWhereInput = { ...viewWhere(filters.view, now), ...(filters.q ? searchWhere(filters.q, ["title", "location"]) : {}) };
@@ -186,10 +186,18 @@ export async function listEventsAdmin(filters: EventFilters, skip: number, take:
   ]);
   const seats = await seatInfoFor(rows);
   const counts = rows.length
-    ? await db.eventRegistration.groupBy({ by: ["eventId"], where: { eventId: { in: rows.map((r) => r.id) }, status: { not: "ABGESAGT" } }, _count: { _all: true } })
+    ? await db.eventRegistration.groupBy({ by: ["eventId", "status"], where: { eventId: { in: rows.map((r) => r.id) }, status: { in: ["ANGEMELDET", "WARTELISTE", "UNBESTAETIGT"] } }, _count: { _all: true } })
     : [];
-  const countOf = new Map(counts.map((c) => [c.eventId, c._count._all]));
-  return { rows: rows.map((r) => ({ ...r, seats: seats.get(r.id) ?? { taken: 0, waiting: 0, left: null }, registrations: countOf.get(r.id) ?? 0 })), total };
+  const countOf = new Map<string, number>();
+  const unconfirmedOf = new Map<string, number>();
+  for (const c of counts) {
+    if (c.status === "UNBESTAETIGT") unconfirmedOf.set(c.eventId, c._count._all);
+    else countOf.set(c.eventId, (countOf.get(c.eventId) ?? 0) + c._count._all);
+  }
+  return {
+    rows: rows.map((r) => ({ ...r, seats: seats.get(r.id) ?? { taken: 0, waiting: 0, left: null }, registrations: countOf.get(r.id) ?? 0, unconfirmed: unconfirmedOf.get(r.id) ?? 0 })),
+    total,
+  };
 }
 
 /** Anzahl Anlässe je Ansicht für die Filter-Chips. */

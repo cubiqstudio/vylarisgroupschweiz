@@ -84,21 +84,32 @@ export function parseVersionParam(value: string | null | undefined): number | nu
 
 // ---- Sichtbarkeit -------------------------------------------------------------------------------------------------
 
-/** Wer ein Dokument sieht: Besucher (nicht angemeldet), Mitglied (aktuell, Status AKTIV), Vorstand/Verwaltung (Admin mit Leserecht). */
-export type DocumentAudience = "PUBLIC" | "MEMBER" | "BOARD";
+/**
+ * Wer ein Dokument sieht: Besucher (nicht angemeldet), Mitglied (aktuell, Status AKTIV), Verwaltung ohne das Einzelrecht
+ * «Dokumente „Nur Vorstand“ sehen» (STAFF) sowie Vorstand/Verwaltung mit diesem Recht (BOARD). STAFF und BOARD sehen auch
+ * archivierte Dokumente und frühere Versionen.
+ */
+export type DocumentAudience = "PUBLIC" | "MEMBER" | "STAFF" | "BOARD";
 
 const VISIBLE: Record<DocumentAudience, readonly DocumentVisibility[]> = {
   PUBLIC: ["OEFFENTLICH"],
   MEMBER: ["OEFFENTLICH", "MITGLIEDER"],
+  STAFF: ["OEFFENTLICH", "MITGLIEDER"],
   BOARD: ["OEFFENTLICH", "MITGLIEDER", "VORSTAND"],
 };
+
+/** Gehört das Publikum zur Verwaltung (sieht archivierte Dokumente und frühere Versionen)? */
+export const isStaffAudience = (audience: DocumentAudience): boolean => audience === "BOARD" || audience === "STAFF";
+
+/** Publikum einer Person mit Leserecht auf «Dokumente»: mit dem Einzelrecht «Nur Vorstand» sehen BOARD, sonst STAFF. */
+export const adminAudience = (canSeeBoardDocuments: boolean): DocumentAudience => (canSeeBoardDocuments ? "BOARD" : "STAFF");
 
 /** Sichtbarkeitsstufen, die ein Publikum sehen darf (für Datenbankfilter). */
 export const visibilitiesFor = (audience: DocumentAudience): readonly DocumentVisibility[] => VISIBLE[audience];
 
 /** Darf dieses Publikum ein Dokument dieser Sichtbarkeit sehen? Unbekannte Werte sind nie sichtbar. */
 export function canView(audience: DocumentAudience, visibility: string, archivedAt: Date | null = null): boolean {
-  if (archivedAt && audience !== "BOARD") return false; // archivierte Dokumente sieht nur die Verwaltung
+  if (archivedAt && !isStaffAudience(audience)) return false; // archivierte Dokumente sieht nur die Verwaltung
   return (VISIBLE[audience] as readonly string[]).includes(visibility);
 }
 

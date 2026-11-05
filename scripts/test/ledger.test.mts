@@ -226,10 +226,10 @@ test("reversalText: Beleg, Original und Grund, gekürzt auf 200 Zeichen", () => 
   assert.ok(lib.reversalText({ voucherNo: "B-2026-0007", text: "x".repeat(300) }, "Grund").length <= 200);
 });
 
-test("Rechte: Schreiben nur Kassier (und Inhaber/Administration), Abschluss auch Präsident", () => {
+test("Rechte: Schreiben Kassier, Präsident (Voreinstellung) und Inhaber/Administration, Abschluss auch Präsident", () => {
   assert.equal(lib.canWriteLedger(["KASSIER"]), true);
   assert.equal(lib.canWriteLedger(["ADMIN"]), true);
-  assert.equal(lib.canWriteLedger(["PRAESIDENT"]), false);
+  assert.equal(lib.canWriteLedger(["PRAESIDENT"]), true);
   assert.equal(lib.canWriteLedger(["REVISOR"]), false);
   assert.equal(lib.canWriteLedger(["VIZEPRAESIDENT"]), false);
   assert.equal(lib.canCloseFiscalYear(["KASSIER"]), true);

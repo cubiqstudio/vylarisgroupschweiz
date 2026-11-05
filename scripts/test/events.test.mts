@@ -346,3 +346,72 @@ test("Name einer Anmeldung: Mitglied, Gast, anonymisiert", () => {
   assert.equal(lib.registrantName({ guestName: "", member: null }), "Gast");
   assert.equal(lib.registrantName({ guestName: "", member: { firstName: "", lastName: "", anonymizedAt: new Date() } }), "Anonymisiertes Mitglied");
 });
+
+// ---- Bestätigung der E-Mail-Adresse (Double-Opt-In für Gäste) ---------------------------------------------------------
+
+const SECRET = "ein-geheimnis-fuer-den-test-mindestens-32-zeichen";
+
+test("Bestätigungs-Token: signiert, 48 Stunden gültig, nur für diese Anmeldung", () => {
+  const created = new Date("2026-11-05T10:00:00Z");
+  const expires = lib.confirmExpiresAt(created);
+  assert.equal(expires.getTime() - created.getTime(), 48 * 3_600_000);
+  const t = token.signConfirmToken(SECRET, "reg_abc123", expires);
+  assert.ok(token.isPlausibleConfirmToken(t));
+  assert.ok(!t.includes("@"), "keine Personendaten im Token");
+  const ok = token.verifyConfirmToken(SECRET, t, new Date("2026-11-06T10:00:00Z"));
+  assert.deepEqual(ok, { ok: true, registrationId: "reg_abc123", expiresAt: expires });
+  // Kurz vor dem Ablauf gilt es, zum Ablaufzeitpunkt nicht mehr.
+  assert.equal(token.verifyConfirmToken(SECRET, t, new Date(expires.getTime() - 1)).ok, true);
+  assert.deepEqual(token.verifyConfirmToken(SECRET, t, expires), { ok: false, reason: "EXPIRED", registrationId: "reg_abc123" });
+  assert.deepEqual(token.verifyConfirmToken(SECRET, t, new Date("2026-12-31T00:00:00Z")), { ok: false, reason: "EXPIRED", registrationId: "reg_abc123" });
+});
+
+test("Bestätigungs-Token: gefälscht, falsches Geheimnis, verlängerte Frist, fremde Anmeldung, Müll", () => {
+  const expires = new Date("2026-11-07T10:00:00Z");
+  const now = new Date("2026-11-05T10:00:00Z");
+  const t = token.signConfirmToken(SECRET, "reg_a", expires);
+  const [id, ms, sig] = t.split(".") as [string, string, string];
+  const invalid = { ok: false, reason: "INVALID" };
+  assert.deepEqual(token.verifyConfirmToken("anderes-geheimnis-anderes-geheimnis-xx", t, now), invalid);
+  assert.deepEqual(token.verifyConfirmToken(SECRET, `${id}.${Number(ms) + 86_400_000}.${sig}`, now), invalid, "Frist lässt sich nicht verlängern");
+  assert.deepEqual(token.verifyConfirmToken(SECRET, `reg_b.${ms}.${sig}`, now), invalid, "Signatur gilt nur für die eigene Anmeldung");
+  assert.deepEqual(token.verifyConfirmToken(SECRET, `${id}.${ms}.${sig.slice(0, -1)}A`, now), invalid);
+  for (const junk of ["", "a.b", "a.b.c.d", `${id}.${ms}.`, `${id}..${sig}`, null, undefined, 42, "x".repeat(500)]) {
+    assert.deepEqual(token.verifyConfirmToken(SECRET, junk, now), invalid, String(junk));
+    assert.equal(token.isPlausibleConfirmToken(junk), false);
+  }
+  assert.throws(() => token.signConfirmToken(SECRET, "../etc", expires));
+  assert.equal(schemas.confirmTokenSchema.safeParse({ token: t }).success, true);
+  assert.equal(schemas.confirmTokenSchema.safeParse({ token: "nope" }).success, false);
+});
+
+test("Bestätigung: Frist, Drosselung des erneuten Versands, Stichtag fürs Aufräumen", () => {
+  const created = new Date("2026-11-05T10:00:00Z");
+  assert.equal(lib.isConfirmationExpired(created, new Date("2026-11-07T09:59:59Z")), false);
+  assert.equal(lib.isConfirmationExpired(created, new Date("2026-11-07T10:00:00Z")), true);
+
+  assert.equal(lib.canResendConfirmation(null, created), true, "noch nie verschickt");
+  const sent = new Date("2026-11-05T10:00:00Z");
+  assert.equal(lib.canResendConfirmation(sent, new Date(sent.getTime() + (lib.CONFIRM_RESEND_MINUTES * 60_000 - 1))), false);
+  assert.equal(lib.canResendConfirmation(sent, new Date(sent.getTime() + lib.CONFIRM_RESEND_MINUTES * 60_000)), true);
+
+  const now = new Date("2026-11-10T12:00:00Z");
+  assert.equal(lib.confirmPurgeCutoff(now).getTime(), now.getTime() - 48 * 3_600_000);
+});
+
+test("Plätze: unbestätigte Anmeldungen belegen nichts und zählen nicht zur Warteliste", () => {
+  const rows = [
+    { status: "ANGEMELDET", seats: 2 },
+    { status: "UNBESTAETIGT", seats: 5 },
+    { status: "WARTELISTE", seats: 1 },
+  ];
+  assert.equal(lib.seatsTaken(rows), 2);
+  assert.equal(lib.seatsWaiting(rows), 1);
+  assert.deepEqual(lib.decideRegistration({ capacity: 5, taken: lib.seatsTaken(rows), seats: 3 }), { ok: true, status: "ANGEMELDET" });
+});
+
+test("Schema: Vorstand kann eine Anmeldung von Hand bestätigen", () => {
+  const r = schemas.registrationActionSchema.safeParse({ action: "confirm" });
+  assert.equal(r.success, true);
+  if (r.success) assert.deepEqual(r.data, { action: "confirm", force: false, sendMail: true });
+});

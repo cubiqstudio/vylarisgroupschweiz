@@ -1,5 +1,5 @@
 import { ApiError, handle, requireAdmin } from "@/lib/api";
-import { deleteDocument, getDocumentDetail, updateDocument } from "@/lib/verein/documents-data";
+import { adminSeesBoardDocuments, deleteDocument, getDocumentDetail, updateDocument } from "@/lib/verein/documents-data";
 import { documentPatchSchema } from "@/lib/verein/documents-schemas";
 import { idSchema } from "@/lib/verein/validation";
 import { adminOk, parsePatch, type IdContext } from "../../../_lib/http";
@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 
 /** Ein Dokument mit allen Versionen (Metadaten). */
 export const GET = handle(async (req: Request, { params }: IdContext) => {
-  await requireAdmin(req);
-  const doc = await getDocumentDetail(idSchema.parse((await params).id));
+  const admin = await requireAdmin(req);
+  const doc = await getDocumentDetail(idSchema.parse((await params).id), adminSeesBoardDocuments(admin));
   if (!doc) throw new ApiError(404, "NOT_FOUND", "Dokument nicht gefunden.");
   return adminOk(doc);
 });

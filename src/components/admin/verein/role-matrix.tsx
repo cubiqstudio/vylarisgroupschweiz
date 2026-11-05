@@ -1,21 +1,27 @@
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
-import { ADMIN_ROLE_HINT, ADMIN_ROLE_LABEL, ADMIN_ROLE_VALUES, MODULE_LABEL, VEREIN_MODULES, levelFor } from "@/lib/verein/permissions";
+import { ADMIN_ROLE_LABEL, ADMIN_ROLE_VALUES, MODULE_LABEL, VEREIN_MODULES, levelFor, roleHint, type EffectiveMatrix } from "@/lib/verein/permissions";
 
-/** Übersicht «Wer darf was?»: Die Rechtematrix aus permissions.ts als Tabelle (W = lesen und ändern, R = nur lesen). */
-export function RoleMatrix() {
+/** Übersicht «Wer darf was?»: die wirksame Rechtematrix (Voreinstellung plus Anpassungen) als Tabelle. */
+export function RoleMatrix({ matrix, canEdit = false }: { matrix: EffectiveMatrix; canEdit?: boolean }) {
   const modules = VEREIN_MODULES.filter((m) => m !== "self");
   return (
     <details className="mt-8 rounded-2xl border border-zinc-800 bg-surface">
       <summary className="cursor-pointer list-none px-5 py-4 text-sm font-semibold text-white [&::-webkit-details-marker]:hidden">Wer darf was? Rollen im Überblick</summary>
       <div className="border-t border-zinc-800 px-5 py-4">
         <p className="mb-4 max-w-3xl text-sm text-zinc-400">
-          Die Zuordnung ist eine Voreinstellung für die übliche Aufgabenverteilung im Vorstand. «Ändern» schliesst «Lesen» ein. Wer mehr oder weniger darf, bekommt die passende Rolle; die Statuten gehen vor. Das Amt im Verein gibt keinen Zugriff, nur die Rolle.
+          Die Zuordnung ist eine Voreinstellung für die übliche Aufgabenverteilung im Vorstand und lässt sich anpassen. «Ändern» schliesst «Lesen» ein. Die Statuten gehen vor. Das Amt im Verein gibt keinen Zugriff, nur die Rolle.{" "}
+          {canEdit && (
+            <Link href="/admin/verein/rollen" className="text-emerald-400 underline underline-offset-2 hover:text-emerald-300">
+              Rollen und Rechte einstellen
+            </Link>
+          )}
         </p>
         <dl className="mb-5 grid gap-3 sm:grid-cols-2">
           {ADMIN_ROLE_VALUES.map((r) => (
             <div key={r}>
               <dt className="text-sm font-medium text-zinc-200">{ADMIN_ROLE_LABEL[r]}</dt>
-              <dd className="text-xs text-zinc-500">{ADMIN_ROLE_HINT[r]}</dd>
+              <dd className="text-xs text-zinc-500">{roleHint(r, matrix)}</dd>
             </div>
           ))}
         </dl>
@@ -38,7 +44,7 @@ export function RoleMatrix() {
                   <tr key={m}>
                     <th scope="row" className="px-3 py-2 text-left font-normal text-zinc-300">{MODULE_LABEL[m]}</th>
                     {ADMIN_ROLE_VALUES.map((r) => {
-                      const level = levelFor([r], m);
+                      const level = levelFor([r], m, matrix);
                       return (
                         <td key={r} className="px-2 py-2 text-center">
                           {level === "write" ? (

@@ -15,7 +15,9 @@ import { precheckFile, sendForm } from "./upload";
 export type MeetingChoice = { id: string; label: string };
 
 /** Knopf «Dokument hochladen» mit Dialog (Datei, Titel, Kategorie, Sichtbarkeit, optionale Sitzung). */
-export function NewDocumentButton({ meetings }: { meetings: MeetingChoice[] }) {
+/** `allowBoard`: Die Person darf Dokumente «Nur Vorstand» anlegen (Einzelrecht je Rolle). */
+export function NewDocumentButton({ meetings, allowBoard = true }: { meetings: MeetingChoice[]; allowBoard?: boolean }) {
+  const defaultVisibility: DocumentVisibility = allowBoard ? "VORSTAND" : "MITGLIEDER";
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState(false);
@@ -24,7 +26,7 @@ export function NewDocumentButton({ meetings }: { meetings: MeetingChoice[] }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("SONSTIGES");
-  const [visibility, setVisibility] = useState<DocumentVisibility>("VORSTAND");
+  const [visibility, setVisibility] = useState<DocumentVisibility>(defaultVisibility);
   const [meetingId, setMeetingId] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export function NewDocumentButton({ meetings }: { meetings: MeetingChoice[] }) {
     setTitle("");
     setDescription("");
     setCategory("SONSTIGES");
-    setVisibility("VORSTAND");
+    setVisibility(defaultVisibility);
     setMeetingId("");
     setErrors({});
     setFormError(null);
@@ -120,7 +122,7 @@ export function NewDocumentButton({ meetings }: { meetings: MeetingChoice[] }) {
             </Field>
             <Field label="Sichtbarkeit" htmlFor="doc-vis" error={errors.visibility}>
               <Select id="doc-vis" value={visibility} onChange={(e) => setVisibility(e.target.value as DocumentVisibility)} disabled={busy}>
-                {DOCUMENT_VISIBILITIES.map((v) => (
+                {DOCUMENT_VISIBILITIES.filter((v) => allowBoard || v !== "VORSTAND").map((v) => (
                   <option key={v} value={v}>
                     {DOCUMENT_VISIBILITY_LABEL[v]}
                   </option>

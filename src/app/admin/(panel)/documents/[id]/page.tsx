@@ -5,7 +5,7 @@ import { ArrowLeft, Download } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { buttonClass } from "@/components/ui/button";
 import { formatDateCh, formatDateTimeCh } from "@/lib/verein/dates";
-import { getDocumentDetail, listMeetingOptions } from "@/lib/verein/documents-data";
+import { adminSeesBoardDocuments, getDocumentDetail, listMeetingOptions } from "@/lib/verein/documents-data";
 import { VISIBILITY_HINT, formatFileSize } from "@/lib/verein/documents-meta";
 import { requireModulePage } from "@/lib/verein/guard";
 import { canAccess } from "@/lib/verein/permissions";
@@ -25,7 +25,7 @@ export default async function AdminDocumentDetailPage({ params }: Props) {
   const canWrite = canAccess(admin.roles, "documents", "write");
   const parsed = idSchema.safeParse((await params).id);
   if (!parsed.success) notFound();
-  const doc = await getDocumentDetail(parsed.data!);
+  const doc = await getDocumentDetail(parsed.data!, adminSeesBoardDocuments(admin));
   if (!doc) notFound();
   const meetings = canWrite ? await listMeetingOptions() : [];
 
@@ -56,6 +56,7 @@ export default async function AdminDocumentDetailPage({ params }: Props) {
           }}
           meetings={meetings.map((m) => ({ id: m.id, label: `${m.title} (${formatDateCh(m.startsAt)})` }))}
           canWrite={canWrite}
+          allowBoard={adminSeesBoardDocuments(admin)}
         />
       </div>
 

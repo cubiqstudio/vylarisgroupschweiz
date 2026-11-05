@@ -9,7 +9,7 @@ import { Field, Input, Select } from "@/components/ui/form";
 import { api } from "@/lib/api-client";
 import { canTouchAccount, rolesOf } from "@/lib/verein/access-lib";
 import { formatDateTimeCh } from "@/lib/verein/dates";
-import { ADMIN_ROLE_HINT, ADMIN_ROLE_LABEL, ADMIN_ROLE_VALUES, type AdminRoleValue } from "@/lib/verein/permissions";
+import { ADMIN_ROLE_LABEL, ADMIN_ROLE_VALUES, type AdminRoleValue } from "@/lib/verein/permissions";
 import { ConfirmDialog } from "@/components/admin/core/confirm-dialog";
 import { Modal } from "@/components/admin/core/modal";
 import { Notice } from "@/components/admin/core/notice";
@@ -54,12 +54,14 @@ function AccessDialog({
   onClose,
   account,
   isSelf,
+  roleHints,
   onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   account?: AccessRowDto;
   isSelf: boolean;
+  roleHints: Record<string, string>;
   onCreated: (email: string, password: string) => void;
 }) {
   const router = useRouter();
@@ -124,7 +126,7 @@ function AccessDialog({
             <Input id="acc-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} maxLength={254} disabled={busy} autoComplete="off" aria-invalid={errors.email ? true : undefined} />
           </Field>
         )}
-        <Field label="Hauptrolle" htmlFor="acc-role" error={errors.role} hint={(ADMIN_ROLE_HINT as Record<string, string>)[form.role]}>
+        <Field label="Hauptrolle" htmlFor="acc-role" error={errors.role} hint={roleHints[form.role]}>
           <Select id="acc-role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} disabled={busy || isSelf}>
             {ADMIN_ROLE_VALUES.map((r) => (
               <option key={r} value={r}>
@@ -183,7 +185,8 @@ function PasswordDialog({ info, onClose }: { info: { email: string; password: st
   );
 }
 
-export function AccessManager({ rows, selfId, selfRoles, canWrite }: { rows: AccessRowDto[]; selfId: string; selfRoles: readonly string[]; canWrite: boolean }) {
+/** `roleHints`: Erklärung je Rolle aus der wirksamen Rechtematrix (roleHint), vom Server berechnet. */
+export function AccessManager({ rows, selfId, selfRoles, roleHints, canWrite }: { rows: AccessRowDto[]; selfId: string; selfRoles: readonly string[]; roleHints: Record<string, string>; canWrite: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const [dialog, setDialog] = useState<{ account?: AccessRowDto } | null>(null);
@@ -323,6 +326,7 @@ export function AccessManager({ rows, selfId, selfRoles, canWrite }: { rows: Acc
           onClose={() => setDialog(null)}
           account={dialog.account}
           isSelf={dialog.account?.id === selfId}
+          roleHints={roleHints}
           onCreated={(email, pw) => setPassword({ email, password: pw, reset: false })}
         />
       )}
