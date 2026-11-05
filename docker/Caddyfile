@@ -1,0 +1,15 @@
+# VylarisGroupEurope – Caddy (automatisches HTTPS via Let's Encrypt)
+# Variablen kommen aus docker-compose.https.yml (DOMAIN, ACME_EMAIL, ACME_CA).
+{
+	email {$ACME_EMAIL}
+	acme_ca {$ACME_CA}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	reverse_proxy app:3000 {
+		health_uri /api/health
+		health_interval 15s
+	}
+}

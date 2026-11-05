@@ -1,0 +1,42 @@
+# =============================================================================
+# VylarisGroup – Cloudflare-Tunnel-Erweiterung (statt Caddy/Let's Encrypt)
+#
+# Wird zusammen mit docker-compose.yml verwendet (install.sh trägt das in .env als
+# COMPOSE_FILE ein). Manuell:
+#   docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml up -d --build
+#
+# cloudflared baut eine ausgehende Verbindung zu Cloudflare auf; es müssen keine Ports
+# (80/443) geöffnet werden und es gibt keine Zertifikate auf dem Server. Alle Domains
+# (vylaris.eu/.de/.net) laufen über denselben Tunnel zur selben App-Instanz (app:3000);
+# cloudflared reicht den Original-Host durch, die App unterscheidet danach die Seiten.
+#
+# Einrichten (Tunnel, Ingress, DNS, Token in .env):  scripts/cloudflare-setup.sh
+# Kein Caddy in diesem Modus – nicht zusammen mit docker-compose.https.yml verwenden.
+# =============================================================================
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: vylaris-europe-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN setzen (scripts/cloudflare-setup.sh trägt ihn in .env ein)}
+    depends_on:
+      - app
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+
+  # Die App bleibt nur lokal erreichbar (APP_BIND=127.0.0.1, von install.sh gesetzt) und
+  # wird ausschließlich über den Tunnel veröffentlicht.
+  app:
+    environment:
+      SITE_URL: ${SITE_URL:-https://vylaris.eu}
+      COOKIE_SECURE: "true"
+      # Client-IP für Rate-Limits aus CF-Connecting-IP (setzt Cloudflare) statt aus X-Forwarded-For.
+      # Nur sinnvoll, wenn die App ausschließlich über den Tunnel erreichbar ist (APP_BIND=127.0.0.1).
+      TRUST_PROXY: cloudflare
+      # Der Tunnel-Token gehört nur zu cloudflared (Interpolation oben); docker-compose.yml leert ihn
+      # für die App, obwohl sie die .env per env_file liest.

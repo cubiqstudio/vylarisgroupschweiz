@@ -1,0 +1,56 @@
+# =============================================================================
+# VylarisGroupEurope – HTTPS-Erweiterung (Caddy + Let's Encrypt)
+#
+# Wird zusammen mit docker-compose.yml verwendet (install.sh trägt das in .env als
+# COMPOSE_FILE ein). Manuell:
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --build
+#
+# Caddy holt und erneuert das Zertifikat automatisch, sobald die Domain (A-Record)
+# auf diesen Server zeigt und die Ports 80/443 aus dem Internet erreichbar sind.
+# Als Reverse Proxy setzt Caddy X-Forwarded-For/-Host/-Proto selbst und überschreibt
+# vom Client mitgeschickte Werte – darauf stützen sich Rate-Limits und Origin-Check.
+# =============================================================================
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: vylaris-europe-caddy
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN setzen (z. B. www.example.org)}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL setzen (für Let's-Encrypt-Hinweise)}
+      # Produktion ist der Default. Zum Testen (ohne Rate-Limits) in .env setzen:
+      # ACME_CA=https://acme-staging-v02.api.letsencrypt.org/directory
+      ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # Zertifikate + Account-Schlüssel – nicht löschen!
+      - caddy_config:/config
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+
+  # Die App wird hinter Caddy betrieben und muss nicht nach außen erreichbar sein.
+  app:
+    environment:
+      SITE_URL: https://${DOMAIN}
+      COOKIE_SECURE: "true"
+      # Caddy setzt X-Forwarded-For selbst; die App liest die Client-IP von dort.
+      TRUST_PROXY: caddy
+
+volumes:
+  caddy_data:
+    name: vylaris_caddy_data
+  caddy_config:
+    name: vylaris_caddy_config
