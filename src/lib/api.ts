@@ -5,7 +5,7 @@ import { z, ZodError } from "zod";
 import { Prisma } from "@prisma/client";
 import { getCurrentAdmin, type CurrentAdmin } from "@/lib/auth";
 import { swissFields, swissText } from "@/i18n/server-messages";
-import { canAccess, levelForMethod, moduleForPath, type AccessLevel, type VereinModule } from "@/lib/verein/permissions";
+import { canAccess, isAllowedWhilePasswordChangeRequired, levelForMethod, moduleForPath, type AccessLevel, type VereinModule } from "@/lib/verein/permissions";
 
 export class ApiError extends Error {
   constructor(
@@ -53,8 +53,16 @@ function errorResponse(e: unknown): Response {
     if (e.code === "P2002") return fail(409, "CONFLICT", "Ein Eintrag mit diesem eindeutigen Wert existiert bereits.");
     if (e.code === "P2025") return fail(404, "NOT_FOUND", "Eintrag nicht gefunden.");
   }
-  console.error("[api]", e);
+  // Nur Art und Fehlercode ins Log: Meldungstexte von Prisma enthalten die übergebenen Werte (Namen, Adressen, Notizen).
+  console.error("[api]", describeErrorForLog(e));
   return fail(500, "INTERNAL_ERROR", "Interner Serverfehler.");
+}
+
+/** Fehlerbeschreibung für das Log ohne Meldungstext und ohne meta-Felder (Datenminimierung, revDSG). */
+export function describeErrorForLog(e: unknown): string {
+  if (!(e instanceof Error)) return "unbekannt";
+  const code = (e as { code?: unknown }).code;
+  return typeof code === "string" && /^[A-Za-z0-9_-]{1,20}$/.test(code) ? `${e.name} ${code}` : e.name;
 }
 
 /** CSRF-Schutz für schreibende Requests: Origin (falls gesetzt) muss zum Host passen. */
@@ -81,8 +89,17 @@ export async function requireAdmin(req: Request): Promise<CurrentAdmin> {
   assertSameOrigin(req);
   const admin = await getCurrentAdmin();
   if (!admin) throw new ApiError(401, "UNAUTHORIZED", "Nicht angemeldet.");
-  assertRole(admin, moduleForPath(new URL(req.url).pathname), levelForMethod(req.method));
+  const pathname = new URL(req.url).pathname;
+  assertPasswordChanged(admin, pathname);
+  assertRole(admin, moduleForPath(pathname), levelForMethod(req.method));
   return admin;
+}
+
+/** Startpasswort noch nicht geändert: nur das Ändern des eigenen Passworts ist erlaubt. */
+export function assertPasswordChanged(admin: CurrentAdmin, pathname: string): void {
+  if (admin.mustChangePassword && !isAllowedWhilePasswordChangeRequired(pathname)) {
+    throw new ApiError(403, "PASSWORD_CHANGE_REQUIRED", "Bitte ändere zuerst dein Startpasswort.");
+  }
 }
 
 /** Wirft 403, wenn die Rollen des Admins das Modul nicht auf der verlangten Stufe erlauben. */

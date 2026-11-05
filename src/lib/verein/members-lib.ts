@@ -130,11 +130,12 @@ export function isExitDue(m: { status: string; leftAt?: Date | null }, today: Da
 
 /** Beschreibung der geltenden Austrittsregel als Hinweis («Statuten gehen vor»). */
 export function describeExitRule(rule: ExitRule): string {
-  const notice = rule.noticeMonths === 1 ? "einem Monat" : `${rule.noticeMonths} Monaten`;
+  const after = rule.noticeMonths === 1 ? "einem Monat" : `${rule.noticeMonths} Monaten`; // «nach …» (Dativ)
+  const before = rule.noticeMonths === 1 ? "einen Monat" : `${rule.noticeMonths} Monate`; // «spätestens … vorher» (Akkusativ)
   const base = EXIT_MODE_LABEL[rule.mode];
   return rule.mode === "JEDERZEIT"
-    ? `${base}: Der Austritt wird nach ${notice} wirksam.`
-    : `${base}, Austrittserklärung spätestens ${rule.noticeMonths === 0 ? "am letzten Tag" : `${notice} vorher`}.`;
+    ? `${base}: Der Austritt wird nach ${after} wirksam.`
+    : `${base}, Austrittserklärung spätestens ${rule.noticeMonths === 0 ? "am letzten Tag" : `${before} vorher`}.`;
 }
 
 // ---- Ämter ----------------------------------------------------------------------------------------------------------
@@ -230,16 +231,20 @@ export function compareBoardWithWebsite(boardNames: readonly string[], websiteNa
 
 /**
  * Darf ein Website-Konto automatisch mit einem Mitglied verknüpft werden? Nur wenn
- *  - das Konto bestätigt (emailVerifiedAt) und nicht gesperrt ist,
+ *  - das Konto bestätigt (emailVerifiedAt) und nicht gesperrt ist und die Adresse per Mail-Link bestätigt wurde (emailVerifiedViaMail:
+ *    von Hand gesetzte Bestätigungen durch eine Admin-Person beweisen den Zugriff aufs Postfach nicht),
  *  - die E-Mail-Adressen (ohne Gross-/Kleinschreibung) übereinstimmen,
- *  - das Mitglied noch kein Konto hat und aktuell Mitglied ist (Status AKTIV; ein Antrag wird nie automatisch verknüpft).
+ *  - das Mitglied noch kein Konto hat und aktuell Mitglied ist (Status AKTIV; ein Antrag wird nie automatisch verknüpft),
+ *  - die Adresse des Mitglieds nicht ungeprüft aus dem öffentlichen Beitrittsantrag stammt (emailUnconfirmed): Sonst könnte jemand mit der
+ *    Adresse einer fremden Person einen Antrag stellen und dieser Person nach der Aufnahme die Daten des Mitglieds zeigen.
  * Die Angaben in einem Antrag allein genügen nie.
  */
 export function canAutoLink(
-  user: { email: string; emailVerifiedAt: Date | null; disabled?: boolean },
-  member: { email: string; userId: string | null; status: string },
+  user: { email: string; emailVerifiedAt: Date | null; emailVerifiedViaMail: boolean; disabled?: boolean },
+  member: { email: string; userId: string | null; status: string; emailUnconfirmed?: boolean },
 ): boolean {
-  if (!user.emailVerifiedAt || user.disabled) return false;
+  if (!user.emailVerifiedAt || !user.emailVerifiedViaMail || user.disabled) return false;
+  if (member.emailUnconfirmed) return false;
   if (member.userId) return false;
   if (member.status !== "AKTIV") return false;
   const a = user.email.trim().toLowerCase();
@@ -277,6 +282,31 @@ export function anonymizedFields(at: Date) {
  * Revisionsstelle). Im Protokoll steht nur, dass sie geändert wurden.
  */
 export const AUDIT_MASKED_MEMBER_FIELDS = ["boardNotes", "birthDate", "street", "houseNumber", "zip", "city", "phone", "email", "exitReason"] as const;
+
+/** Schlüssel in früheren Protokolleinträgen eines Mitglieds, die beim Entfernen der Personendaten unkenntlich gemacht werden. */
+const AUDIT_PERSONAL_KEYS: ReadonlySet<string> = new Set(["salutation", "firstName", "lastName", "email", "phone", "street", "houseNumber", "zip", "city", "country", "birthDate", "boardNotes", "exitReason", "name", "guestName", "guestEmail", "note"]);
+
+/**
+ * Macht Personendaten in einem Protokoll-JSON (vorher/nachher) unkenntlich («[entfernt]»), alles andere (Status, Daten, Zahlen) bleibt.
+ * Kein gültiges JSON oder leer: unverändert bzw. null.
+ */
+export function scrubPersonalAuditJson(json: string | null): string | null {
+  if (json === null || json === "") return json;
+  let value: unknown;
+  try {
+    value = JSON.parse(json);
+  } catch {
+    return "[entfernt]";
+  }
+  const walk = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === "object") {
+      return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, AUDIT_PERSONAL_KEYS.has(k) && x !== null && x !== "" ? "[entfernt]" : walk(x)]));
+    }
+    return v;
+  };
+  return JSON.stringify(walk(value));
+}
 
 type Plain = Record<string, unknown>;
 
@@ -400,11 +430,15 @@ export type DisclosureInput = {
     membershipTypeName: string;
     hasAccount: boolean;
   };
+  /** Verknüpftes Website-Konto (nur die Angaben, die zur Person gespeichert sind) */
+  account?: { email: string; name: string; createdAt: Date } | null;
+  /** Versandprotokoll der Einladungen und Erinnerungen an dieses Mitglied */
+  mails?: ReadonlyArray<{ meetingTitle: string; kind: string; sentAt: Date; email: string; ok: boolean }>;
   offices: ReadonlyArray<{ kind: string; title: string; validFrom: Date; validUntil: Date | null }>;
   invoices: ReadonlyArray<{ number: string; subject: string; issueDate: Date; dueDate: Date; totalRappen: number; paidRappen: number; status: string }>;
   payments: ReadonlyArray<{ receivedAt: Date; amountRappen: number; method: string; invoiceNumber: string | null }>;
-  attendances: ReadonlyArray<{ meetingTitle: string; startsAt: Date; status: string }>;
-  registrations: ReadonlyArray<{ eventTitle: string; startsAt: Date; seats: number; status: string }>;
+  attendances: ReadonlyArray<{ meetingTitle: string; startsAt: Date; status: string; note?: string }>;
+  registrations: ReadonlyArray<{ eventTitle: string; startsAt: Date; seats: number; status: string; note?: string }>;
 };
 
 export type Disclosure = {
@@ -414,8 +448,9 @@ export type Disclosure = {
   aemter: Array<{ amt: string; von: string; bis: string }>;
   rechnungen: Array<{ nummer: string; betreff: string; datum: string; faellig: string; betragChf: string; bezahltChf: string; status: string }>;
   zahlungen: Array<{ datum: string; betragChf: string; art: string; rechnung: string }>;
-  versammlungen: Array<{ versammlung: string; datum: string; teilnahme: string }>;
-  anmeldungenAnlaesse: Array<{ anlass: string; datum: string; plaetze: number; status: string }>;
+  versammlungen: Array<{ versammlung: string; datum: string; teilnahme: string; bemerkung: string }>;
+  anmeldungenAnlaesse: Array<{ anlass: string; datum: string; plaetze: number; status: string; bemerkung: string }>;
+  einladungen: Array<{ versammlung: string; art: string; gesendetAm: string; adresse: string; zugestellt: string }>;
 };
 
 const date = (d: Date | null): string => (d ? formatDateCh(d) : "");
@@ -425,7 +460,7 @@ export function buildDisclosure(input: DisclosureInput): Disclosure {
   const m = input.member;
   return {
     hinweis:
-      "Auskunft über die zu deiner Person gespeicherten Daten. Interne Notizen des Vorstands und Einträge des Änderungsprotokolls sind nicht enthalten; weitere Auskünfte erteilt der Vorstand auf Anfrage.",
+      "Auskunft über die zu deiner Person gespeicherten Daten. Auskunft über interne Notizen des Vorstands und über Einträge des Änderungsprotokolls erteilt der Vorstand auf Anfrage (Vorbehalte nach Art. 26 revDSG bleiben bestehen). Statuten und Datenschutzhinweis des Vereins gelten ergänzend.",
     erstelltAm: formatDateTimeCh(input.generatedAt),
     stammdaten: {
       Mitgliedernummer: m.memberNumber,
@@ -450,6 +485,7 @@ export function buildDisclosure(input: DisclosureInput): Disclosure {
       "Einwilligung (Statuten und Datenschutz) am": m.consentAt ? formatDateTimeCh(m.consentAt) : "",
       "Kontakt bevorzugt": labelOf(COMMUNICATION_PREF_LABEL, m.communicationPref),
       "Mit Website-Konto verknüpft": m.hasAccount,
+      ...(input.account ? { "Website-Konto: E-Mail-Adresse": input.account.email, "Website-Konto: Name": input.account.name, "Website-Konto: angelegt am": formatDateTimeCh(input.account.createdAt) } : {}),
       "Interne Notizen vorhanden": m.hasBoardNotes,
     },
     aemter: input.offices.map((o) => ({ amt: officeTitle(o), von: date(o.validFrom), bis: o.validUntil ? date(o.validUntil) : "offen" })),
@@ -463,8 +499,9 @@ export function buildDisclosure(input: DisclosureInput): Disclosure {
       status: i.status,
     })),
     zahlungen: input.payments.map((p) => ({ datum: date(p.receivedAt), betragChf: formatChf(p.amountRappen), art: p.method, rechnung: p.invoiceNumber ?? "" })),
-    versammlungen: input.attendances.map((a) => ({ versammlung: a.meetingTitle, datum: date(a.startsAt), teilnahme: a.status })),
-    anmeldungenAnlaesse: input.registrations.map((r) => ({ anlass: r.eventTitle, datum: date(r.startsAt), plaetze: r.seats, status: r.status })),
+    versammlungen: input.attendances.map((a) => ({ versammlung: a.meetingTitle, datum: date(a.startsAt), teilnahme: a.status, bemerkung: a.note ?? "" })),
+    anmeldungenAnlaesse: input.registrations.map((r) => ({ anlass: r.eventTitle, datum: date(r.startsAt), plaetze: r.seats, status: r.status, bemerkung: r.note ?? "" })),
+    einladungen: (input.mails ?? []).map((x) => ({ versammlung: x.meetingTitle, art: x.kind, gesendetAm: formatDateTimeCh(x.sentAt), adresse: x.email, zugestellt: x.ok ? "Ja" : "Nein" })),
   };
 }
 
@@ -482,5 +519,6 @@ export function disclosureCsvRows(d: Disclosure): Array<[string, string, string,
   section("Zahlungen", d.zahlungen);
   section("Versammlungen", d.versammlungen);
   section("Anmeldungen Anlässe", d.anmeldungenAnlaesse);
+  section("Einladungen und Erinnerungen", d.einladungen);
   return rows;
 }

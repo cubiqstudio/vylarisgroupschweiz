@@ -7,6 +7,7 @@ import { ThemeSwitch } from "@/components/theme/theme-switch";
 import { site } from "@/lib/site";
 import { getLegal } from "@/lib/legal";
 import { hasPublicStatutes } from "@/lib/verein/documents-data";
+import { getViewer } from "@/lib/auth";
 import { getMessages } from "@/i18n/server";
 import { shell } from "@/i18n/shell";
 
@@ -31,10 +32,19 @@ async function loadHasStatutes(): Promise<boolean> {
   }
 }
 
+/** Ist jemand angemeldet? Dann zeigt die Fusszeile «Mein Konto» statt «Anmelden». */
+async function loadSignedIn(): Promise<boolean> {
+  try {
+    return (await getViewer()) !== null;
+  } catch {
+    return false;
+  }
+}
+
 /** Dunkler Footer: Kurztext, Anschrift, soziale Netzwerke, „Entdecken“ und „Konto & Recht“. */
 export async function SiteFooter() {
   const m = (await getMessages(shell)).footer;
-  const [address, hasStatutes] = await Promise.all([loadAddress(), loadHasStatutes()]);
+  const [address, hasStatutes, signedIn] = await Promise.all([loadAddress(), loadHasStatutes(), loadSignedIn()]);
   const social = [
     { href: site.social.x, label: m.socialX },
     { href: site.social.youtube, label: m.socialYoutube },
@@ -86,7 +96,7 @@ export async function SiteFooter() {
           <h2 className="text-sm font-bold uppercase tracking-wider text-[#ffffff]">{m.accountTitle}</h2>
           <ul className="mt-4 space-y-2 text-sm">
             <li><Link className={link} href="/contact">{m.contact}</Link></li>
-            <li><Link className={link} href="/login">{m.signIn}</Link></li>
+            <li>{signedIn ? <Link className={link} href="/account">{m.myAccount}</Link> : <Link className={link} href="/login">{m.signIn}</Link>}</li>
             <li><Link className={link} href={m.imprintHref}>{m.imprint}</Link></li>
             <li><Link className={link} href={m.privacyHref}>{m.privacy}</Link></li>
             <li>

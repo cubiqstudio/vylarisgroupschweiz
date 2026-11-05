@@ -71,8 +71,7 @@ export const vereinAnlaesse = defineMessages({
     tooMany: "Zu viele Anfragen. Bitte versuche es später noch einmal.",
     unexpected: "Das hat leider nicht geklappt. Bitte versuche es später noch einmal.",
     successTitle: "Anmeldung eingegangen",
-    successRegistered: (email: string) => `Du bist angemeldet. Wir haben eine Bestätigung an ${email} geschickt. Darin findest du auch den Link zum Abmelden.`,
-    successWaitlist: (email: string) => `Der Anlass ist ausgebucht, du stehst auf der Warteliste. Rückst du nach, schreiben wir dir an ${email}. Eine erste Bestätigung ist unterwegs.`,
+    successReceived: (email: string) => `Wir haben eine Bestätigung an ${email} geschickt. Darin steht, ob du angemeldet bist oder auf der Warteliste stehst, und du findest den Link zum Abmelden.`,
     successSpam: "Findest du die Mail nicht, schau bitte auch im Spam-Ordner nach.",
   },
   member: {

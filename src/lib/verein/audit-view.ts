@@ -27,6 +27,10 @@ export const AUDIT_OBJECT_LABEL: Record<string, string> = {
   VereinProfile: "Vereinsstammdaten",
   AdminUser: "Zugang",
   NewsletterCampaign: "Newsletter",
+  NewsletterSubscriber: "Newsletter-Abonnent",
+  SiteSetting: "Systemeinstellung",
+  User: "Website-Konto",
+  MinutesRevision: "Protokollfassung",
 };
 
 /** Bezeichnung des Objekttyps (unbekannte Typen erscheinen unverändert). */
@@ -57,6 +61,7 @@ const PREFIX_LABEL: Record<string, string> = {
   access: "Zugang",
   export: "Export",
   newsletter: "Newsletter",
+  user: "Website-Konto",
 };
 
 const VERB_LABEL: Record<string, string> = {
@@ -92,6 +97,14 @@ const VERB_LABEL: Record<string, string> = {
 /** Ausdrücklich benannte Aktionen, die sich nicht aus Objekt und Verb zusammensetzen lassen. */
 const ACTION_LABEL: Record<string, string> = {
   "settings.update": "Einstellungen geändert",
+  "settings.mail": "Mailserver-Einstellungen geändert",
+  "settings.legal": "Rechtliches geändert",
+  "settings.registration": "Registrierung ein- oder ausgeschaltet",
+  "user.update": "Website-Konto geändert",
+  "user.verify": "Website-Konto von Hand bestätigt",
+  "user.delete": "Website-Konto gelöscht",
+  "export.newsletter": "Newsletter-Abonnenten exportiert",
+  "member.card.reissue": "Ausweis neu ausgestellt",
   "role.change": "Rolle geändert",
   "access.create": "Zugang angelegt",
   "access.update": "Zugang geändert",

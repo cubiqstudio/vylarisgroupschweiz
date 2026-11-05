@@ -263,6 +263,8 @@ body {
 
 /* Lesbarer Fliesstext für Blog/Legal (ohne @tailwindcss/typography) */
 .prose-vgs { color: #374151; line-height: 1.75; font-size: 1.0625rem; }
+/* Kleine Variante (Beschreibungen in Listen und Karten): die Utility-Klasse text-sm setzt .prose-vgs sonst ausser Kraft */
+.prose-vgs.prose-vgs-sm { font-size: 0.875rem; line-height: 1.6; }
 .prose-vgs > * + * { margin-top: 1.1em; }
 .prose-vgs h1, .prose-vgs h2, .prose-vgs h3, .prose-vgs h4 { color: #0b1220; font-weight: 650; letter-spacing: -0.01em; line-height: 1.25; }
 .prose-vgs h1, .prose-vgs h2, .prose-vgs h3, .prose-vgs h4 { overflow-wrap: break-word; hyphens: auto; }

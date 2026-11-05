@@ -63,6 +63,7 @@ export const shell = defineMessages({
     accountTitle: "Konto & Recht.",
     contact: "Kontakt & Tickets",
     signIn: "Anmelden",
+    myAccount: "Mein Konto",
     imprint: "Impressum",
     imprintHref: "/impressum",
     privacy: "Datenschutz",

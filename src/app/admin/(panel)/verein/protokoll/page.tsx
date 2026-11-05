@@ -50,8 +50,8 @@ export default async function Page({ searchParams }: Props) {
         Passwörter, Zugangsschlüssel und Prüfwerte erscheinen nie im Protokoll. Persönliche Angaben von Mitgliedern stehen nur als Vermerk «geändert» darin. Der CSV-Export enthält nur den Klartext und wird selbst protokolliert.
       </Notice>
 
-      <form method="get" action="/admin/verein/protokoll" role="search" className="mb-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_11rem_13rem_9rem_9rem_9rem_auto_auto]">
-        <div className="relative sm:col-span-2 lg:col-span-1">
+      <form method="get" action="/admin/verein/protokoll" role="search" className="mb-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-[11rem_13rem_9rem_9rem_9rem_auto_auto]">
+        <div className="relative sm:col-span-2 lg:col-span-full">
           <label htmlFor="audit-q" className="sr-only">
             Protokoll durchsuchen
           </label>

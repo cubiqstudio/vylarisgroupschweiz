@@ -29,10 +29,10 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 const COLUMNS: Array<{ sort: MemberSort; label: string; className?: string }> = [
   { sort: "nr", label: "Nr.", className: "w-16" },
   { sort: "name", label: "Name" },
-  { sort: "art", label: "Art" },
+  { sort: "art", label: "Art", className: "hidden md:table-cell" },
   { sort: "status", label: "Status" },
-  { sort: "ort", label: "Ort" },
-  { sort: "eintritt", label: "Eintritt" },
+  { sort: "ort", label: "Ort", className: "hidden md:table-cell" },
+  { sort: "eintritt", label: "Eintritt", className: "hidden md:table-cell" },
 ];
 
 export default async function AdminMembersPage({ searchParams }: Props) {
@@ -184,7 +184,7 @@ export default async function AdminMembersPage({ searchParams }: Props) {
         <>
           <Card className="overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[44rem] text-left text-sm">
+              <table className="w-full text-left text-sm md:min-w-[44rem]">
                 <caption className="sr-only">Mitglieder, sortiert nach {COLUMNS.find((c) => c.sort === filters.sort)?.label ?? "Name"}</caption>
                 <thead className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
                   <tr>
@@ -212,14 +212,16 @@ export default async function AdminMembersPage({ searchParams }: Props) {
                           {memberName(m)}
                         </Link>
                         {m.email && !m.anonymizedAt && <div className="break-all text-xs text-zinc-500">{m.email}</div>}
+                        {/* Mobil: Art und Ort unter dem Namen (die Spalten sind dort ausgeblendet) */}
+                        <div className="mt-0.5 text-xs text-zinc-400 md:hidden">{[m.membershipType?.name, m.anonymizedAt ? "" : m.city].filter(Boolean).join(" · ")}</div>
                       </td>
-                      <td className="px-4 py-3 text-zinc-300">{m.membershipType?.name ?? <span className="text-zinc-600">–</span>}</td>
+                      <td className="hidden px-4 py-3 text-zinc-300 md:table-cell">{m.membershipType?.name ?? <span className="text-zinc-600">–</span>}</td>
                       <td className="px-4 py-3">
                         <MemberStatusPill status={m.status} />
                         {m.status === "AKTIV" && m.exitNoticeAt && m.leftAt && <div className="mt-1 text-xs text-amber-300">Austritt {formatDateCh(m.leftAt)}</div>}
                       </td>
-                      <td className="px-4 py-3 text-zinc-300">{m.anonymizedAt ? "" : m.city || <span className="text-zinc-600">–</span>}</td>
-                      <td className="px-4 py-3 tabular-nums text-zinc-400">{m.joinedAt ? formatDateCh(m.joinedAt) : "–"}</td>
+                      <td className="hidden px-4 py-3 text-zinc-300 md:table-cell">{m.anonymizedAt ? "" : m.city || <span className="text-zinc-600">–</span>}</td>
+                      <td className="hidden px-4 py-3 tabular-nums text-zinc-400 md:table-cell">{m.joinedAt ? formatDateCh(m.joinedAt) : "–"}</td>
                     </tr>
                   ))}
                 </tbody>

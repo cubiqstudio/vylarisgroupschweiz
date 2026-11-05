@@ -35,13 +35,13 @@ export default async function AdminOverviewPage() {
       {hasVerein && (
         <>
           <VereinKpis data={data} />
-          <div className="mt-6 grid gap-6 lg:grid-cols-5">
+          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-5">
             {showDates && (
-              <div className="lg:col-span-3">
+              <div className="min-w-0 lg:col-span-3">
                 <NextDatesCard data={data} />
               </div>
             )}
-            <div className={showDates ? "lg:col-span-2" : "lg:col-span-5 lg:max-w-sm"}>
+            <div className={showDates ? "min-w-0 lg:col-span-2" : "min-w-0 lg:col-span-5 lg:max-w-sm"}>
               <QuickActions roles={admin.roles} />
             </div>
           </div>

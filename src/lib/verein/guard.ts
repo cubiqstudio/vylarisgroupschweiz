@@ -7,10 +7,10 @@
 import "server-only";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
-import { ApiError, assertRole, assertSameOrigin } from "@/lib/api";
+import { ApiError, assertPasswordChanged, assertRole, assertSameOrigin } from "@/lib/api";
 import { getCurrentAdmin, getCurrentUser, type CurrentAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { levelForMethod, canAccess, type AccessLevel, type VereinModule } from "./permissions";
+import { levelForMethod, canAccess, PASSWORD_CHANGE_PAGE_PATH, type AccessLevel, type VereinModule } from "./permissions";
 
 /** Pfad der Seite «Keine Berechtigung» (angemeldet, aber ohne Recht für diesen Bereich). */
 export const FORBIDDEN_PATH = "/admin/keine-berechtigung";
@@ -23,6 +23,7 @@ export async function requireAdminModule(req: Request, module: VereinModule, lev
   assertSameOrigin(req);
   const admin = await getCurrentAdmin();
   if (!admin) throw new ApiError(401, "UNAUTHORIZED", "Nicht angemeldet.");
+  assertPasswordChanged(admin, new URL(req.url).pathname);
   assertRole(admin, module, level ?? levelForMethod(req.method));
   return admin;
 }
@@ -34,6 +35,8 @@ export async function requireAdminModule(req: Request, module: VereinModule, lev
 export async function requireModulePage(module: VereinModule, level: AccessLevel = "read"): Promise<CurrentAdmin> {
   const admin = await getCurrentAdmin();
   if (!admin) notFound();
+  // Startpasswort noch nicht geändert: nur die Konto-Seite («self») ist erreichbar, alles andere leitet dorthin um.
+  if (admin.mustChangePassword && module !== "self") redirect(PASSWORD_CHANGE_PAGE_PATH);
   if (!canAccess(admin.roles, module, level)) redirect(FORBIDDEN_PATH);
   return admin;
 }
@@ -66,7 +69,8 @@ export const getCurrentMember = cache(async (): Promise<CurrentMember | null> =>
     return m ? { ...m, via: "user" } : null;
   }
   const admin = await getCurrentAdmin();
-  if (admin?.memberId) {
+  // Mit Startpasswort ist auch der Zugang zum Mitgliederbereich gesperrt, bis das Passwort geändert ist.
+  if (admin?.memberId && !admin.mustChangePassword) {
     const m = await db.member.findUnique({ where: { id: admin.memberId }, select: memberSelect });
     return m ? { ...m, via: "admin" } : null;
   }

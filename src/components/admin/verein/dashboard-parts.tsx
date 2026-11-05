@@ -224,13 +224,13 @@ export function NextDatesCard({ data }: { data: VereinDashboard }) {
         <ul className="divide-y divide-zinc-800">
           {rows.map((r) => (
             <li key={r.key}>
-              <Link href={r.href} className="flex items-start gap-3 px-5 py-3.5 transition-colors hover:bg-zinc-900">
+              <Link href={r.href} className="flex flex-wrap items-start gap-x-3 gap-y-1 px-5 py-3.5 transition-colors hover:bg-zinc-900">
                 <span className="mt-0.5 text-zinc-500">{r.icon}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-zinc-100">{r.title}</span>
                   <span className="block truncate text-xs text-zinc-500">{r.meta}</span>
                 </span>
-                <time dateTime={r.when.toISOString()} className="shrink-0 text-xs tabular-nums text-zinc-400">
+                <time dateTime={r.when.toISOString()} className="w-full pl-7 text-xs tabular-nums text-zinc-400 sm:w-auto sm:shrink-0 sm:pl-0">
                   {formatDateTimeCh(r.when)}
                 </time>
               </Link>

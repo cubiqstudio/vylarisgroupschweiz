@@ -10,12 +10,15 @@ import { db } from "@/lib/db";
 import { site } from "@/lib/site";
 import { auditActor, diffObjects, logAudit } from "./audit";
 import { INVOICE_STATUSES, type InvoiceStatus } from "./constants";
-import { addDays, todayZurich, yearOf } from "./dates";
+import { addDays, startOfDayZurich, todayZurich, yearOf } from "./dates";
 import { composeInvoiceBill, type BillContext, type InvoiceBill } from "./fees-bill";
 import {
   addressBlockOf,
+  invoiceLinkExpiry,
+  isInvoiceLinkActive,
   itemsTotal,
   MAX_INVOICE_RAPPEN,
+  paidWithinLimit,
   paymentBlockedReason,
   recipientNameOf,
   referenceForNewInvoice,
@@ -141,7 +144,9 @@ export function listInvoicesForMember(memberId: string): Promise<InvoiceListRow[
 /** Rechnung über den Link aus der Mail (ohne Konto). Entwürfe sind nie erreichbar. */
 export async function getInvoiceByViewToken(token: string): Promise<InvoiceDetail | null> {
   if (!/^[A-Za-z0-9_-]{20,80}$/.test(token)) return null;
-  return db.invoice.findFirst({ where: { viewTokenHash: sha256(token), status: { in: ["OFFEN", "BEZAHLT", "STORNIERT"] } }, ...invoiceDetailArgs });
+  const inv = await db.invoice.findFirst({ where: { viewTokenHash: sha256(token), status: { in: ["OFFEN", "BEZAHLT", "STORNIERT"] } }, ...invoiceDetailArgs });
+  // Der Link läuft ab (Frist nach Fälligkeit) und ist kurz nach der Zahlung nicht mehr nötig.
+  return inv && isInvoiceLinkActive(inv, new Date()) ? inv : null;
 }
 
 // ---- QR-Rechnung ------------------------------------------------------------------------------------------------------
@@ -326,7 +331,7 @@ export async function cancelInvoice(admin: Actor, id: string, reason: string): P
   await db.$transaction(async (tx) => {
     const res = await tx.invoice.updateMany({
       where: { id, status: { in: ["ENTWURF", "OFFEN"] }, paidRappen: 0 },
-      data: { status: "STORNIERT", cancelledAt: new Date(), cancelReason: reason, viewTokenHash: null },
+      data: { status: "STORNIERT", cancelledAt: new Date(), cancelReason: reason, viewTokenHash: null, viewTokenExpiresAt: null },
     });
     if (res.count !== 1) conflict("Die Rechnung wurde inzwischen geändert. Bitte lade die Seite neu.");
     await logAudit(tx, {
@@ -368,7 +373,7 @@ export async function sendInvoice(admin: Actor, id: string, channel: SendChannel
     const email = emailSchema.safeParse(inv.member.email);
     if (!email.success || inv.member.anonymizedAt) conflict("Beim Mitglied ist keine gültige E-Mail-Adresse hinterlegt. Wähle «Per Post zustellen» oder ergänze die Adresse.");
     const token = newViewToken();
-    await db.invoice.update({ where: { id }, data: { viewTokenHash: sha256(token) } });
+    await db.invoice.update({ where: { id }, data: { viewTokenHash: sha256(token), viewTokenExpiresAt: invoiceLinkExpiry(new Date(), inv.dueDate) } });
     const sent = await sendInvoiceMail({ to: email.data!, firstName: inv.member.firstName }, inv, token);
     if (!sent.ok) throw new ApiError(502, "MAIL_FAILED", `Die E-Mail konnte nicht versendet werden: ${sent.error}`);
   }
@@ -401,7 +406,7 @@ export type PaymentResult = {
 };
 
 /** Erfasst einen Zahlungseingang. Rechnung, Zahlung, Statuswechsel, Buchung und Protokoll in einer Transaktion. */
-export async function recordPayment(admin: Actor, input: PaymentCreateInput): Promise<PaymentResult> {
+export async function recordPayment(admin: Actor, input: PaymentCreateInput, opts: { rejectDuplicate?: boolean } = {}): Promise<PaymentResult> {
   const settings = await getVereinSettings();
   assertAmountInRange(input.amount, "Der Betrag");
   if (input.receivedAt.getTime() > addDays(todayZurich(), 1).getTime()) {
@@ -418,6 +423,19 @@ export async function recordPayment(admin: Actor, input: PaymentCreateInput): Pr
       if (!found) throw new ApiError(404, "NOT_FOUND", "Rechnung nicht gefunden.");
       const blocked = paymentBlockedReason(found.status);
       if (blocked) conflict(blocked);
+      if (!paidWithinLimit(found.paidRappen, input.amount)) {
+        throw new ApiError(422, "VALIDATION_ERROR", "Der Betrag ist zu gross.", { amount: `Die Summe der Zahlungen darf ${formatChfWithCurrency(MAX_INVOICE_RAPPEN)} nicht übersteigen.` });
+      }
+      if (opts.rejectDuplicate) {
+        // Zeile der Rechnung sperren (PostgreSQL: der zweite gleichzeitige Aufruf wartet) und danach auf eine gleiche Zahlung prüfen.
+        await tx.invoice.updateMany({ where: { id: found.id }, data: { paidRappen: { increment: 0 } } });
+        const day = startOfDayZurich(input.receivedAt);
+        const same = await tx.payment.findFirst({
+          where: { invoiceId: found.id, amountRappen: input.amount, receivedAt: { gte: day, lt: addDays(day, 1) } },
+          select: { id: true },
+        });
+        if (same) conflict("Diese Zahlung ist bereits erfasst.");
+      }
       invoice = { ...found, status: found.status as InvoiceStatus };
       memberId = found.memberId;
     } else if (input.memberId) {

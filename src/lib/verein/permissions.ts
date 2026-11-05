@@ -283,3 +283,25 @@ export function filterNav<T extends AdminNavLink>(groups: readonly AdminNavGroup
     .map((g) => ({ title: g.title, items: g.items.filter((i) => canAccess(roles, i.module, "read")) }))
     .filter((g) => g.items.length > 0);
 }
+
+// ---- Besondere Rechte -----------------------------------------------------------------------------------------------
+
+/**
+ * Darf die Person die E-Mail-Adresse eines Website-Kontos von Hand als bestätigt markieren? Das ersetzt den Nachweis per Mail und ist
+ * deshalb nur mit dem Recht «Mitglieder ändern» oder «System ändern» erlaubt (eine Rolle nur für die Website genügt nicht).
+ */
+export function canHandVerifyAccounts(roles: readonly string[]): boolean {
+  return canAccess(roles, "members", "write") || canAccess(roles, "system", "write");
+}
+
+/**
+ * Solange ein Zugang noch das Startpasswort nutzt (mustChangePassword), ist nur das Ändern des eigenen Passworts erlaubt
+ * (API-Pfad und Konto-Seite). Alles andere antwortet mit 403 PASSWORD_CHANGE_REQUIRED bzw. leitet auf die Konto-Seite um.
+ */
+export const PASSWORD_CHANGE_API_PATH = "/api/admin/account/password";
+export const PASSWORD_CHANGE_PAGE_PATH = "/admin/account";
+
+export function isAllowedWhilePasswordChangeRequired(pathname: string): boolean {
+  const path = pathname.replace(/\/+$/, "");
+  return path === PASSWORD_CHANGE_API_PATH || path === PASSWORD_CHANGE_PAGE_PATH;
+}

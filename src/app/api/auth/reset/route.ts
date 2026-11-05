@@ -37,6 +37,7 @@ export const POST = handle(async (req: Request) => {
     db.user.update({ where: { id: userId }, data: { passwordHash, sessionVersion: { increment: 1 } } }),
     // Der Reset beweist den Zugriff auf das Postfach.
     db.user.updateMany({ where: { id: userId, emailVerifiedAt: null }, data: { emailVerifiedAt: new Date() } }),
+    db.user.update({ where: { id: userId }, data: { emailVerifiedViaMail: true } }),
     // Alle weiteren offenen Tokens (auch Bestätigungslinks) entwerten.
     db.authToken.deleteMany({ where: { userId } }),
   ]);

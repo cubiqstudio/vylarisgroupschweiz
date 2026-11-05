@@ -7,6 +7,7 @@ import { account } from "@/i18n/account";
 import { licenses } from "@/i18n/licenses";
 import { verein } from "@/i18n/verein";
 import { getViewer } from "@/lib/auth";
+import { getCurrentMember } from "@/lib/verein/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,10 @@ export default async function AccountLayout({ children }: { children: React.Reac
   if (viewer.isTeam) tabs.push({ href: "/account/team", label: m.area.tabTeam });
   // Ticket-Bearbeitung nur für Website-Konten im Team (Admins nutzen den Admin-Bereich).
   if (viewer.kind === "user" && viewer.isTeam) tabs.push({ href: "/account/team/tickets", label: "Tickets" });
-  const role = viewer.kind === "admin" ? m.area.roleAdmin : viewer.isTeam ? m.area.roleTeam : m.area.roleUser;
+  // Aktive Vereinsmitglieder erscheinen als «Mitglied Nr. …» statt «Nutzer».
+  const member = await getCurrentMember().catch(() => null);
+  const memberRole = member && member.status === "AKTIV" ? m.area.roleMember(member.memberNumber) : m.area.roleUser;
+  const role = viewer.kind === "admin" ? m.area.roleAdmin : viewer.isTeam ? m.area.roleTeam : memberRole;
 
   return (
     <>

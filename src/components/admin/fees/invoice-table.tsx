@@ -93,8 +93,8 @@ export function InvoiceTable({ rows, canWrite }: { rows: InvoiceRowDTO[]; canWri
                 <th className={TH}>Rechnung</th>
                 <th className={TH}>Empfänger</th>
                 <th className={TH}>Fällig</th>
-                <th className={`${TH} text-right`}>Betrag</th>
-                <th className={`${TH} text-right`}>Offen</th>
+                <th className={`${TH} text-right`}>Betrag (CHF)</th>
+                <th className={`${TH} text-right`}>Offen (CHF)</th>
                 <th className={TH}>Status</th>
               </tr>
             </thead>
@@ -158,14 +158,18 @@ export function InvoiceTable({ rows, canWrite }: { rows: InvoiceRowDTO[]; canWri
         <ul className="space-y-2 text-sm">
           {report?.results
             .filter((r) => !r.ok)
-            .map((r) => (
-              <li key={r.id} className="rounded-lg border border-zinc-800 px-3 py-2 text-zinc-300">
-                <Link href={`/admin/fees/invoices/${encodeURIComponent(r.id)}`} className="font-medium text-white hover:underline">
-                  Zur Rechnung
-                </Link>
-                : {r.message}
-              </li>
-            ))}
+            .map((r) => {
+              const row = rows.find((x) => x.id === r.id);
+              const label = row ? `${row.number}, ${row.recipientName}` : "Rechnung";
+              return (
+                <li key={r.id} className="rounded-lg border border-zinc-800 px-3 py-2 text-zinc-300">
+                  <Link href={`/admin/fees/invoices/${encodeURIComponent(r.id)}`} className="font-medium text-white hover:underline" aria-label={row ? `Rechnung ${row.number} öffnen` : "Rechnung öffnen"}>
+                    {label}
+                  </Link>
+                  : {r.message}
+                </li>
+              );
+            })}
         </ul>
         <div className="mt-4 flex justify-end">
           <Button type="button" variant="secondary" onClick={() => setReport(null)} data-autofocus>

@@ -57,7 +57,7 @@ export default async function Page() {
             sinceText={memberSinceText(data.joinedAt)}
             validityText={validity.text}
             valid
-            qr={qrShape(cardVerifyUrl(data.id))}
+            qr={qrShape(cardVerifyUrl(data.id, data.cardVersion))}
             logoSrc={findBrandAsset("logo-mark-on-dark")}
             labels={{ card: m.label, memberNo: m.memberNo, type: m.type, verifyHint: m.verifyHint, qrAlt: m.verifyHint }}
           />

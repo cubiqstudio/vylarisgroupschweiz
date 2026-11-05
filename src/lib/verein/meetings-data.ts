@@ -15,6 +15,7 @@ import { sendMeetingMail } from "./meetings-mail";
 import {
   ASSEMBLY_KINDS,
   amendmentNote,
+  changedMinutesBoundFields,
   invitationTiming,
   isMinutesLocked,
   kindLabel,
@@ -38,6 +39,7 @@ import type {
   TaskFromResolutionInput,
 } from "./meetings-schemas";
 import { MEETING_WHEN } from "./meetings-schemas";
+import { minutesSnapshot } from "./minutes-revision";
 import { signRsvpToken, verifyRsvpToken } from "./meetings-token";
 import { rsvpPageUrl } from "./meetings-mail";
 import { memberName } from "./members-lib";
@@ -207,6 +209,12 @@ export async function updateMeeting(admin: CurrentAdmin, id: string, patch: Meet
     if (endsAt && endsAt.getTime() <= startsAt.getTime()) throw new ApiError(422, "VALIDATION_ERROR", "Ungültige Eingabe.", { endsAt: "Das Ende muss nach dem Beginn liegen." });
     if (patch.kind && patch.kind !== before.kind && (before.invitationCount > 0 || before.invitationSentAt || before.minutesApprovedAt)) {
       conflict("CONFLICT", "Die Art der Sitzung lässt sich nach dem Einladungsversand oder der Genehmigung des Protokolls nicht mehr ändern.");
+    }
+    if (isMinutesLocked(before)) {
+      const touched = changedMinutesBoundFields(before, patch);
+      if (touched.length > 0) {
+        conflict("MINUTES_LOCKED", "Das Protokoll ist genehmigt. Titel, Datum, Leitung, Protokollführung, Quorum und Art lassen sich erst ändern, wenn die Genehmigung mit Begründung aufgehoben wurde.");
+      }
     }
     const after = await tx.meeting.update({ where: { id }, data: patch });
     const rescheduled = before.startsAt.getTime() !== after.startsAt.getTime() || before.location !== after.location;
@@ -415,14 +423,25 @@ async function assertAgendaItem(tx: Tx, meetingId: string, agendaItemId: string 
 }
 
 export async function createResolution(admin: CurrentAdmin, meetingId: string, input: ResolutionInput) {
-  return db.$transaction(async (tx) => {
-    const m = await assertUnlocked(tx, meetingId);
-    await assertAgendaItem(tx, meetingId, input.agendaItemId);
-    const numbers = (await tx.resolution.findMany({ where: { meetingId }, select: { number: true } })).map((r) => r.number);
-    const r = await tx.resolution.create({ data: { meetingId, number: nextResolutionNumber(numbers), ...input } });
-    await logAudit(tx, { actor: actorOf(admin), action: "resolution.create", objectType: "Resolution", objectId: r.id, summary: `Beschluss ${r.number} zu «${m.title}» erfasst (${r.result})`, after: { text: r.text, result: r.result, votesYes: r.votesYes, votesNo: r.votesNo, abstentions: r.abstentions } });
-    return r;
-  });
+  // Die Nummer ergibt sich aus dem bisherigen Höchstwert; (Sitzung, Nummer) ist eindeutig. Bei gleichzeitiger Erfassung unterliegt
+  // eine Anfrage dem Unique-Index (P2002) und wird mit der nächsten freien Nummer einmal wiederholt.
+  for (let attempt = 0; ; attempt += 1) {
+    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 25 * attempt));
+    try {
+      return await db.$transaction(async (tx) => {
+        const m = await assertUnlocked(tx, meetingId);
+        await assertAgendaItem(tx, meetingId, input.agendaItemId);
+        const numbers = (await tx.resolution.findMany({ where: { meetingId }, select: { number: true } })).map((r) => r.number);
+        const r = await tx.resolution.create({ data: { meetingId, number: nextResolutionNumber(numbers), ...input } });
+        await logAudit(tx, { actor: actorOf(admin), action: "resolution.create", objectType: "Resolution", objectId: r.id, summary: `Beschluss ${r.number} zu «${m.title}» erfasst (${r.result})`, after: { text: r.text, result: r.result, votesYes: r.votesYes, votesNo: r.votesNo, abstentions: r.abstentions } });
+        return r;
+      });
+    } catch (e) {
+      // P2002: Nummer schon vergeben; P2034/P1008: gleichzeitige Transaktion (Schreibkonflikt bzw. gesperrte SQLite-Datei)
+      if (attempt < 6 && e instanceof Prisma.PrismaClientKnownRequestError && ["P2002", "P2034", "P1008"].includes(e.code)) continue;
+      throw e;
+    }
+  }
 }
 
 export async function updateResolution(admin: CurrentAdmin, meetingId: string, resolutionId: string, patch: Partial<ResolutionInput>) {
@@ -493,6 +512,9 @@ export async function saveMinutes(admin: CurrentAdmin, id: string, minutes: stri
     if (m.minutes === minutes) return { locked, changed: false };
     if (locked) {
       if (amendReason.trim().length < 5) throw new ApiError(422, "VALIDATION_ERROR", "Ungültige Eingabe.", { amendReason: "Das Protokoll ist genehmigt. Bitte begründe die Änderung (mindestens 5 Zeichen)." });
+      // Der genehmigte Text bleibt im vollen Wortlaut erhalten (das Änderungsprotokoll kürzt lange Texte).
+      const old = minutesSnapshot(m.minutes);
+      await tx.minutesRevision.create({ data: { meetingId: id, ...old, wasApproved: true, reason: amendReason.trim(), actorName: admin.name } });
       await tx.meeting.update({ where: { id }, data: { minutes, minutesApprovedNote: amendmentNote(m.minutesApprovedNote, todayZurich(), amendReason) } });
       await logAudit(tx, {
         actor: actorOf(admin),
@@ -500,8 +522,8 @@ export async function saveMinutes(admin: CurrentAdmin, id: string, minutes: stri
         objectType: "Meeting",
         objectId: id,
         summary: `Genehmigtes Protokoll «${m.title}» nachträglich geändert: ${amendReason.trim()}`,
-        before: { minutes: m.minutes },
-        after: { minutes },
+        before: { minutesSha256: old.sha256, minutesLength: m.minutes.length },
+        after: { minutesSha256: minutesSnapshot(minutes).sha256, minutesLength: minutes.length },
       });
     } else {
       await tx.meeting.update({ where: { id }, data: { minutes } });
@@ -519,6 +541,8 @@ export async function approveMinutes(admin: CurrentAdmin, id: string, input: { a
     const today = todayZurich();
     if (input.approvedOn.getTime() > today.getTime()) throw new ApiError(422, "VALIDATION_ERROR", "Ungültige Eingabe.", { approvedOn: "Das Datum darf nicht in der Zukunft liegen." });
     if (input.approvedOn.getTime() < toDateOnly(m.startsAt).getTime()) throw new ApiError(422, "VALIDATION_ERROR", "Ungültige Eingabe.", { approvedOn: "Die Genehmigung kann nicht vor der Sitzung liegen." });
+    const approved = minutesSnapshot(m.minutes);
+    await tx.minutesRevision.create({ data: { meetingId: id, ...approved, wasApproved: true, reason: "Genehmigung", actorName: admin.name } });
     await tx.meeting.update({ where: { id }, data: { minutesApprovedAt: input.approvedOn, minutesApprovedBy: input.approvedBy, minutesApprovedNote: input.note } });
     await logAudit(tx, {
       actor: actorOf(admin),
@@ -526,7 +550,7 @@ export async function approveMinutes(admin: CurrentAdmin, id: string, input: { a
       objectType: "Meeting",
       objectId: id,
       summary: `Protokoll «${m.title}» genehmigt (${formatDateCh(input.approvedOn)}, ${input.approvedBy})`,
-      after: { minutesApprovedAt: input.approvedOn, minutesApprovedBy: input.approvedBy },
+      after: { minutesApprovedAt: input.approvedOn, minutesApprovedBy: input.approvedBy, minutesSha256: approved.sha256 },
     });
   });
 }

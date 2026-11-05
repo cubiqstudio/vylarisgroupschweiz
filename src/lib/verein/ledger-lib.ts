@@ -168,10 +168,13 @@ export function fiscalMonths(year: number, start: FiscalStart): FiscalMonth[] {
   });
 }
 
-/** Monatsnummer (0 bis 11) des Datums im Geschäftsjahr oder null, wenn es nicht hineinfällt. */
+/**
+ * Monatsnummer (0 bis 11) des Datums im Geschäftsjahr oder null, wenn es nicht hineinfällt. Ein «Monat» des Geschäftsjahres beginnt am
+ * Beginntag (Beginn 15.7.: Monat 0 = 15.7. bis 14.8.), damit jede Buchung des Jahres genau einem Monat zugerechnet wird.
+ */
 export function monthIndexOf(date: Date, year: number, start: FiscalStart): number | null {
   const p = zurichParts(date);
-  const idx = (p.year - year) * 12 + (p.month - start.month);
+  const idx = (p.year - year) * 12 + (p.month - start.month) - (p.day < start.day ? 1 : 0);
   return idx >= 0 && idx < 12 ? idx : null;
 }
 

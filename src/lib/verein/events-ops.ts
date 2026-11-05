@@ -175,15 +175,10 @@ export async function registerForEvent(opts: {
         ? await tx.eventRegistration.findUnique({ where: { eventId_memberId: { eventId: ev.id, memberId: who.member.id } }, select: { id: true, status: true, seats: true } })
         : await tx.eventRegistration.findFirst({ where: { eventId: ev.id, memberId: null, guestEmail: who.email, status: { not: "ABGESAGT" } }, select: { id: true, status: true, seats: true } });
 
-    // Schon angemeldet: nichts doppelt buchen. Gäste bekommen einen neuen Abmelde-Link (der alte ist nur als Hash gespeichert).
+    // Schon angemeldet: nichts doppelt buchen. Der Abmelde-Link wird NICHT erneuert (sonst könnte jede Person mit einer fremden Adresse den
+    // Link der angemeldeten Person entwerten); die Mail an die Adresse geht ohne Link hinaus.
     if (existing && existing.status !== "ABGESAGT") {
-      let token: string | undefined;
-      if (who.kind === "guest") {
-        const t = generateCancelToken();
-        await tx.eventRegistration.update({ where: { id: existing.id }, data: { cancelTokenHash: t.hash } });
-        token = t.token;
-      }
-      return { ev, outcome: { registrationId: existing.id, status: existing.status as "ANGEMELDET" | "WARTELISTE", seats: existing.seats, created: false }, token };
+      return { ev, outcome: { registrationId: existing.id, status: existing.status as "ANGEMELDET" | "WARTELISTE", seats: existing.seats, created: false }, token: undefined };
     }
 
     const decision = decideRegistration({ capacity: ev.capacity, taken: await takenSeats(tx, ev.id), seats });
@@ -224,14 +219,14 @@ export async function registerForEvent(opts: {
         action: "registration.add",
         objectType: "EventRegistration",
         objectId: registrationId,
-        summary: `Anmeldung von ${who.kind === "member" ? `${who.member.firstName} ${who.member.lastName}` : who.name} für «${ev.title}» erfasst (${status === "ANGEMELDET" ? "angemeldet" : "Warteliste"})`,
+        summary: `Anmeldung eines ${who.kind === "member" ? "Mitglieds" : "Gasts"} für «${ev.title}» erfasst (${status === "ANGEMELDET" ? "angemeldet" : "Warteliste"})`,
         after: { personen: seats, status },
       });
     }
     return { ev, outcome: { registrationId, status, seats, created: true }, token: t.token };
   });
 
-  if (opts.sendMail !== false && result.token !== undefined) {
+  if (opts.sendMail !== false && (result.token !== undefined || (!result.outcome.created && who.kind === "guest"))) {
     const recipient: Recipient | null =
       who.kind === "member"
         ? contactOf({ guestName: "", guestEmail: "", member: { ...who.member, anonymizedAt: null } })

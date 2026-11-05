@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint src scripts --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "npx tsx scripts/test/license-lib.test.mts && npx tsx scripts/test/ledger.test.mts && npx tsx scripts/test/verein-core.test.mts && npx tsx scripts/test/documents-tasks.test.mts && npx tsx scripts/test/members.test.mts && npx tsx scripts/test/events.test.mts && npx tsx scripts/test/meetings.test.mts && npx tsx scripts/test/fees.test.mts && npx tsx scripts/test/legal-settings.test.mts && npx tsx scripts/test/overview.test.mts && bash scripts/test/test-cloudflare-setup.sh && bash scripts/test/test-install-cloudflare.sh",
+    "test": "npx tsx scripts/test/license-lib.test.mts && npx tsx scripts/test/ledger.test.mts && npx tsx scripts/test/verein-core.test.mts && npx tsx scripts/test/documents-tasks.test.mts && npx tsx scripts/test/members.test.mts && npx tsx scripts/test/events.test.mts && npx tsx scripts/test/meetings.test.mts && npx tsx scripts/test/fees.test.mts && npx tsx scripts/test/legal-settings.test.mts && npx tsx scripts/test/overview.test.mts && npx tsx scripts/test/review-fixes.test.mts && npx tsx scripts/test/review-db.test.mts && bash scripts/test/test-cloudflare-setup.sh && bash scripts/test/test-install-cloudflare.sh",
     "check": "npm run typecheck && npm run lint && npx tsx scripts/check-api-messages.mts && npx tsx scripts/check-admin-guards.mts && npm run test",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",

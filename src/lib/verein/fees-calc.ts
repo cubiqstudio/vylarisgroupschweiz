@@ -11,6 +11,34 @@ export { openAmount };
 /** Obergrenze für Rechnungs- und Zahlungsbeträge (CHF 20 Mio.): passt in eine 32-Bit-Ganzzahl der Datenbank (PostgreSQL). */
 export const MAX_INVOICE_RAPPEN = 2_000_000_000;
 
+// ---- Rechnungs-Link ohne Konto -------------------------------------------------------------------------------------------
+
+/** Der Link zur Rechnungsansicht gilt bis so viele Tage nach der Fälligkeit (mindestens aber so lange, wie `INVOICE_LINK_MIN_DAYS` ab Versand). */
+export const INVOICE_LINK_DAYS_AFTER_DUE = 90;
+export const INVOICE_LINK_MIN_DAYS = 30;
+/** Nach der Zahlung bleibt der Link noch so viele Tage gültig (Quittung ansehen), dann nicht mehr. */
+export const INVOICE_LINK_DAYS_AFTER_PAID = 30;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Ablaufzeitpunkt eines neu versendeten Rechnungs-Links. */
+export function invoiceLinkExpiry(now: Date, dueDate: Date): Date {
+  const afterDue = dueDate.getTime() + INVOICE_LINK_DAYS_AFTER_DUE * DAY_MS;
+  const minimum = now.getTime() + INVOICE_LINK_MIN_DAYS * DAY_MS;
+  return new Date(Math.max(afterDue, minimum));
+}
+
+/** Ist der Link zur Rechnungsansicht noch gültig? Ältere Links ohne Ablauf (expiresAt leer) gelten weiter, bis sie ersetzt werden. */
+export function isInvoiceLinkActive(inv: { status: string; viewTokenExpiresAt: Date | null; paidAt: Date | null }, now: Date): boolean {
+  if (inv.status !== "OFFEN" && inv.status !== "BEZAHLT" && inv.status !== "STORNIERT") return false;
+  if (inv.viewTokenExpiresAt && now.getTime() > inv.viewTokenExpiresAt.getTime()) return false;
+  if (inv.status === "BEZAHLT" && inv.paidAt && now.getTime() > inv.paidAt.getTime() + INVOICE_LINK_DAYS_AFTER_PAID * DAY_MS) return false;
+  return true;
+}
+
+/** Darf `paidRappen + amount` noch gespeichert werden (32-Bit-Spalte)? */
+export const paidWithinLimit = (paidRappen: number, amount: number): boolean => Number.isSafeInteger(paidRappen + amount) && paidRappen + amount <= MAX_INVOICE_RAPPEN;
+
 // ---- Status und Zahlungen -------------------------------------------------------------------------------------------
 
 export type InvoiceBalance = { totalRappen: number; paidRappen: number };

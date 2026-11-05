@@ -15,6 +15,8 @@ export type QrBillQrGeometry = {
   /** Anzahl Module je Seite (z. B. 97) */
   modules: number;
   version: number;
+  /** Anzahl Datensegmente im QR-Code (immer 1: ein UTF-8-Byte-Segment) */
+  segments: number;
   /** SVG-Pfad aller dunklen Module in Moduleinheiten (viewBox 0 0 modules modules) */
   pathD: string;
   /** Schweizer Kreuz: Position und Grösse in Moduleinheiten sowie Skalierung der 19.8er Zeichenbox */
@@ -23,7 +25,8 @@ export type QrBillQrGeometry = {
 
 /** Berechnet die Geometrie des QR-Codes. Wirft QrBillError, wenn der Inhalt nicht in Version 25 passt. */
 export function qrBillQrGeometry(payload: string): QrBillQrGeometry {
-  const qr = QRCode.create(payload, { errorCorrectionLevel: "M" });
+  // Ein einziges Byte-Segment (UTF-8) wie in den Referenzimplementierungen; ohne Vorgabe würde die Bibliothek Byte-/Zahlen-Segmente mischen.
+  const qr = QRCode.create([{ data: new TextEncoder().encode(payload), mode: "byte" }], { errorCorrectionLevel: "M" });
   if (qr.version > QR_BILL_MAX_VERSION) {
     throw new QrBillError([{ field: "payload", message: "Der QR-Code-Inhalt ist zu lang für die QR-Rechnung (höchstens QR-Version 25)." }]);
   }
@@ -45,7 +48,7 @@ export function qrBillQrGeometry(payload: string): QrBillQrGeometry {
   }
   const crossSize = (QR_BILL_LAYOUT.crossSizeMm * size) / QR_BILL_LAYOUT.qrSizeMm;
   const crossPos = (size - crossSize) / 2;
-  return { modules: size, version: qr.version, pathD: d, cross: { x: crossPos, y: crossPos, size: crossSize, scale: crossSize / CROSS_BOX } };
+  return { modules: size, version: qr.version, segments: qr.segments.length, pathD: d, cross: { x: crossPos, y: crossPos, size: crossSize, scale: crossSize / CROSS_BOX } };
 }
 
 /** Das Schweizer Kreuz als Rechtecke in der 19.8er Zeichenbox. */

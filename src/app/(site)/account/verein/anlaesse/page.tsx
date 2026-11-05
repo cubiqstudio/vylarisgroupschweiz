@@ -27,8 +27,9 @@ export default async function PortalEventsPage() {
   const m = await getMessages(vereinAnlaesse);
   const p = m.portal;
   const now = new Date();
-  const [events, past] = await Promise.all([listEventsForMember(member.id, now), listPastEventsOfMember(member.id, now)]);
   const active = member.status === "AKTIV";
+  // Anlässe nur für Mitglieder sieht nur, wer aktuelles Mitglied ist (ausgetreten, ausgeschlossen oder noch nicht aufgenommen: nur der Hinweis).
+  const [events, past] = await Promise.all([active ? listEventsForMember(member.id, now) : Promise.resolve([]), listPastEventsOfMember(member.id, now)]);
 
   return (
     <section aria-labelledby="events-heading" className="space-y-8">
@@ -41,7 +42,7 @@ export default async function PortalEventsPage() {
 
       {!active && <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">{p.notActive}</p>}
 
-      {events.length === 0 ? (
+      {events.length === 0 && !active ? null : events.length === 0 ? (
         <Card className="flex flex-col items-center px-6 py-14 text-center">
           <span className="flex size-12 items-center justify-center rounded-full bg-zinc-800/80 text-zinc-400 ring-1 ring-inset ring-zinc-700">
             <CalendarDays className="size-5" aria-hidden />

@@ -120,7 +120,7 @@ export function AgendaManager({ meetingId, items, canWrite, locked }: { meetingI
                       <span className="sr-only">Traktandum {i + 1}: </span>
                       {it.title}
                     </h3>
-                    {it.description.trim() && <Markdown className="mt-2 text-sm">{it.description}</Markdown>}
+                    {it.description.trim() && <Markdown size="sm" className="mt-2">{it.description}</Markdown>}
                     {it.motion.trim() && (
                       <p className="mt-2 text-sm text-zinc-300">
                         <span className="font-medium text-zinc-200">Antrag:</span> {it.motion}

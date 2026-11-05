@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Link2, UserCog } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { db } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { PILL } from "@/components/admin/core/styles";
 import { COMMUNICATION_PREF_LABEL, SALUTATION_LABEL, labelOf } from "@/lib/verein/constants";
@@ -55,6 +56,15 @@ export default async function MemberDetailPage({ params }: Props) {
   const name = memberName(m);
   const today = todayZurich();
   const exitDue = isExitDue(m, today);
+  // Der Beitrag steht je Beitragsjahr (nicht an der Art): hier der Betrag des laufenden Beitragsjahres, sofern festgelegt und das Recht «Beiträge» vorhanden ist.
+  const currentRate =
+    m.membershipTypeId && canAccess(admin.roles, "fees", "read")
+      ? await db.feePeriod.findFirst({
+          where: { startsOn: { lte: today }, endsOn: { gte: today } },
+          select: { year: true, rates: { where: { membershipTypeId: m.membershipTypeId }, select: { amountRappen: true } } },
+        })
+      : null;
+  const rateText = currentRate?.rates[0] ? ` (Beitrag ${currentRate.year}: CHF ${formatChf(currentRate.rates[0].amountRappen)})` : "";
 
   const initial: MemberFormValues = {
     salutation: m.salutation,
@@ -132,6 +142,7 @@ export default async function MemberDetailPage({ params }: Props) {
               leftAt: m.leftAt ? m.leftAt.toISOString() : null,
               anonymized: m.anonymizedAt !== null,
               hasUser: m.userId !== null,
+              emailUnconfirmed: m.emailUnconfirmed,
             }}
             types={types.map((t) => ({ id: t.id, name: t.name, active: t.active }))}
             canWrite={canWrite}
@@ -148,7 +159,7 @@ export default async function MemberDetailPage({ params }: Props) {
             <Dl
               items={[
                 ["Status", <MemberStatusPill key="s" status={m.status} />],
-                ["Mitgliedschaftsart", m.membershipType ? `${m.membershipType.name} (Jahresbeitrag CHF ${formatChf(m.membershipType.annualFeeRappen)})` : ""],
+                ["Mitgliedschaftsart", m.membershipType ? `${m.membershipType.name}${rateText}` : ""],
                 ["Antrag eingegangen", formatDateCh(m.applicationAt)],
                 ["Eintritt", m.joinedAt ? formatDateCh(m.joinedAt) : ""],
                 ["Austrittserklärung vom", m.exitNoticeAt ? formatDateCh(m.exitNoticeAt) : ""],
@@ -160,6 +171,13 @@ export default async function MemberDetailPage({ params }: Props) {
               ]}
             />
           </div>
+          {canAccess(admin.roles, "fees", "write") && m.status === "AKTIV" && !m.anonymizedAt && (
+            <p className="mt-4 text-sm">
+              <Link href={`/admin/fees/invoices/new?member=${encodeURIComponent(m.id)}`} className="font-medium text-emerald-400 hover:underline">
+                Rechnung für dieses Mitglied erstellen
+              </Link>
+            </p>
+          )}
           <p className="mt-4 text-xs text-zinc-500">Austrittsregel nach Einstellungen (gemäss Statuten anpassen): {describeExitRule(rule)}</p>
         </Card>
 

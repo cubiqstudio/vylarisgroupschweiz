@@ -59,6 +59,7 @@ services:
       # Reverse Proxy, der den Header selbst setzt), cloudflare = CF-Connecting-IP (Tunnel-Betrieb).
       # Die Overlay-Dateien setzen den passenden Wert.
       TRUST_PROXY: ${TRUST_PROXY:-}
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
       # Der Tunnel-Token gehört nur zu cloudflared. Die App liest die .env per env_file mit und
       # darf ihn nicht bekommen (auch nicht nach einem Wechsel von Cloudflare auf Caddy).
       CLOUDFLARE_TUNNEL_TOKEN: ""

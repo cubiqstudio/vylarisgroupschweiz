@@ -30,7 +30,7 @@ export const GET = handle(async (req: Request, { params }: IdContext) => {
 
   const admin = await getCurrentAdmin();
   let audience: DocumentAudience;
-  if (admin && canAccess(admin.roles, "documents", "read")) {
+  if (admin && !admin.mustChangePassword && canAccess(admin.roles, "documents", "read")) {
     audience = "BOARD";
   } else if (file.visibility === "OEFFENTLICH") {
     audience = "PUBLIC";

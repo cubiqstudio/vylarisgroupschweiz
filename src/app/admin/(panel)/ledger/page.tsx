@@ -76,7 +76,7 @@ export default async function LedgerPage({ searchParams }: Props) {
         <Notice variant="warning" className="mb-6">
           <span className="font-medium">Es sind noch keine Konten angelegt.</span> Bevor du buchen kannst, braucht die Kassa Einnahmen- und Ausgabenkonten sowie ein Vermögenskonto (Bank, Kasse).{" "}
           <Link href="/admin/ledger/accounts" className="font-medium underline underline-offset-2">
-            {canWrite ? "Konten anlegen (mit Vorlage für kleine Vereine)" : "Zu den Konten"}
+            {canWrite ? "Standardkonten anlegen" : "Zu den Konten"}
           </Link>
         </Notice>
       )}
@@ -203,7 +203,7 @@ export default async function LedgerPage({ searchParams }: Props) {
         <>
           <Card className="overflow-hidden">
             <TableWrap label="Buchungen">
-              <table className="w-full min-w-[52rem] text-left text-sm">
+              <table className="w-full text-left text-sm md:min-w-[52rem]">
                 <caption className="sr-only">Buchungen, neueste zuerst</caption>
                 <thead className="border-b border-zinc-800">
                   <tr>
@@ -216,13 +216,13 @@ export default async function LedgerPage({ searchParams }: Props) {
                     <th scope="col" className={TH}>
                       Buchung
                     </th>
-                    <th scope="col" className={TH}>
+                    <th scope="col" className={cn(TH, "hidden md:table-cell")}>
                       Konto
                     </th>
-                    <th scope="col" className={THR}>
+                    <th scope="col" className={cn(THR, "hidden md:table-cell")}>
                       CHF
                     </th>
-                    <th scope="col" className={TH}>
+                    <th scope="col" className={cn(TH, "hidden md:table-cell")}>
                       Status
                     </th>
                   </tr>
@@ -249,8 +249,18 @@ export default async function LedgerPage({ searchParams }: Props) {
                             )}
                           </div>
                           {t.voucherRef && <div className="text-xs text-zinc-500">Ref. {t.voucherRef}</div>}
+                          {/* Mobil: Konto, Betrag und Status stehen unter dem Buchungstext (die Spalten sind dort ausgeblendet) */}
+                          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400 md:hidden">
+                            <span>
+                              {t.category.number} {t.category.name}
+                            </span>
+                            <span className="font-medium tabular-nums text-zinc-200">
+                              CHF {t.direction === "UMBUCHUNG" ? formatChf(t.amountRappen) : formatChf(effect)}
+                            </span>
+                            {t.state !== "AKTIV" && <StatePill state={t.state} />}
+                          </div>
                         </td>
-                        <td className={cn(TD, "text-zinc-400")}>
+                        <td className={cn(TD, "hidden text-zinc-400 md:table-cell")}>
                           <div>
                             {t.category.number} {t.category.name}
                           </div>
@@ -260,10 +270,10 @@ export default async function LedgerPage({ searchParams }: Props) {
                             </div>
                           )}
                         </td>
-                        <td className={TDR}>
+                        <td className={cn(TDR, "hidden md:table-cell")}>
                           {t.direction === "UMBUCHUNG" ? <span className="text-zinc-400">{formatChf(t.amountRappen)}</span> : <Amount rappen={effect} signed />}
                         </td>
-                        <td className={TD}>
+                        <td className={cn(TD, "hidden md:table-cell")}>
                           <div className="flex flex-wrap gap-1">
                             {t.direction === "UMBUCHUNG" && <DirectionPill direction={t.direction} />}
                             <StatePill state={t.state} />

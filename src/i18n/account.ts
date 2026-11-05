@@ -134,6 +134,7 @@ export const account = defineMessages({
     roleAdmin: "Administration",
     roleTeam: "Team",
     roleUser: "Nutzer",
+    roleMember: (nr: number) => `Mitglied Nr. ${nr}`,
   },
   overview: {
     open: "Öffnen",

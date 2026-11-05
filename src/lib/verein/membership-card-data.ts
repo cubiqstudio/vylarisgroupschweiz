@@ -10,10 +10,10 @@ import { getVereinName } from "./profile";
 /** Eigenes Geheimnis für die Ausweise, aus AUTH_SECRET abgeleitet (ein anderes Token der Seite lässt sich damit nie fälschen). */
 const cardSecret = (): string => createHash("sha256").update(`vgs-ausweis-v1:${authSecretString()}`).digest("hex");
 
-export const cardToken = (memberId: string): string => signCardToken(cardSecret(), memberId);
+export const cardToken = (memberId: string, version = 0): string => signCardToken(cardSecret(), memberId, version);
 
 /** Adresse der Prüfseite für den QR-Code: feste Basis-URL, nie aus dem Host-Header. */
-export const cardVerifyUrl = (memberId: string): string => publicUrl(`/verein/pruefen/${encodeURIComponent(cardToken(memberId))}`);
+export const cardVerifyUrl = (memberId: string, version = 0): string => publicUrl(`/verein/pruefen/${encodeURIComponent(cardToken(memberId, version))}`);
 
 export type CardCheck = { valid: false } | { valid: true; shortName: string; memberNumber: number; clubName: string };
 
@@ -22,12 +22,13 @@ export type CardCheck = { valid: false } | { valid: true; shortName: string; mem
  * Bei «nicht gültig» wird nichts über die Person verraten (kein Name, kein Grund).
  */
 export async function checkCardToken(token: string, now: Date = new Date()): Promise<CardCheck> {
-  const memberId = verifyCardToken(cardSecret(), token);
-  if (!memberId) return { valid: false };
+  const parsed = verifyCardToken(cardSecret(), token);
+  if (!parsed) return { valid: false };
   const m = await db.member.findUnique({
-    where: { id: memberId },
-    select: { firstName: true, lastName: true, memberNumber: true, status: true, joinedAt: true, leftAt: true, exitNoticeAt: true, anonymizedAt: true },
+    where: { id: parsed.memberId },
+    select: { firstName: true, lastName: true, memberNumber: true, status: true, joinedAt: true, leftAt: true, exitNoticeAt: true, anonymizedAt: true, cardVersion: true },
   });
-  if (!m || !cardValidity(m, now).valid) return { valid: false };
+  // Ein neu ausgestellter Ausweis (höhere Version) entwertet ältere QR-Codes.
+  if (!m || m.cardVersion !== parsed.version || !cardValidity(m, now).valid) return { valid: false };
   return { valid: true, shortName: shortDisplayName(m.firstName, m.lastName), memberNumber: m.memberNumber, clubName: await getVereinName() };
 }

@@ -71,8 +71,10 @@ test("Austritt: fällig erst nach dem letzten Tag der Mitgliedschaft", () => {
 
 test("Austritt: Beschreibung der Regel", () => {
   assert.match(lib.describeExitRule(KAL), /Kalenderjahr/);
-  assert.match(lib.describeExitRule(KAL), /6 Monaten/);
-  assert.match(lib.describeExitRule({ mode: "JEDERZEIT", noticeMonths: 1 }), /einem Monat/);
+  assert.match(lib.describeExitRule(KAL), /spätestens 6 Monate vorher/);
+  assert.match(lib.describeExitRule({ mode: "KALENDERJAHR", noticeMonths: 1 }), /spätestens einen Monat vorher/);
+  assert.match(lib.describeExitRule({ mode: "JEDERZEIT", noticeMonths: 6 }), /nach 6 Monaten/);
+  assert.match(lib.describeExitRule({ mode: "JEDERZEIT", noticeMonths: 1 }), /nach einem Monat/);
 });
 
 // ---- Mitgliedernummer ---------------------------------------------------------------------------------------------------
@@ -150,10 +152,12 @@ test("Aktionen je Status", () => {
 // ---- Verknüpfung mit dem Website-Konto ------------------------------------------------------------------------------------
 
 test("Automatische Verknüpfung nur über bestätigte, gleiche E-Mail-Adresse", () => {
-  const verified = { email: "Anna@Example.ch", emailVerifiedAt: new Date(), disabled: false };
+  const verified = { email: "Anna@Example.ch", emailVerifiedAt: new Date(), emailVerifiedViaMail: true, disabled: false };
   const member = { email: "anna@example.ch", userId: null, status: "AKTIV" };
   assert.equal(lib.canAutoLink(verified, member), true);
   assert.equal(lib.canAutoLink({ ...verified, emailVerifiedAt: null }, member), false, "unbestätigtes Konto");
+  assert.equal(lib.canAutoLink({ ...verified, emailVerifiedViaMail: false }, member), false, "von Hand bestätigtes Konto (kein Mail-Nachweis)");
+  assert.equal(lib.canAutoLink(verified, { ...member, emailUnconfirmed: true }), false, "Adresse aus dem Antrag ist nicht bestätigt");
   assert.equal(lib.canAutoLink({ ...verified, disabled: true }, member), false, "gesperrtes Konto");
   assert.equal(lib.canAutoLink(verified, { ...member, userId: "u1" }), false, "Mitglied hat schon ein Konto");
   assert.equal(lib.canAutoLink(verified, { ...member, status: "ANTRAG" }), false, "Antrag wird nie automatisch verknüpft");

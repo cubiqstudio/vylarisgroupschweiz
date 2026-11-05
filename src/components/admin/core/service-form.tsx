@@ -222,7 +222,7 @@ export function ServiceForm({ service }: { service?: ServiceDTO }) {
               className="mt-0.5 h-4 w-4 rounded border-zinc-700 bg-zinc-950 accent-emerald-400"
             />
             <span>
-              <span className="font-medium text-zinc-200">Bald verfügbar (Coming Soon)</span>
+              <span className="font-medium text-zinc-200">Bald verfügbar</span>
               <span className="block text-xs text-zinc-500">
                 Der Dienst wird als angekündigt angezeigt, ohne Links. Die Service-URL ist dann nicht nötig, und der Dienst erscheint nicht auf der Statusseite.
               </span>

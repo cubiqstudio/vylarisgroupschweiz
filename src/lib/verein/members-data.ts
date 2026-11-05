@@ -13,6 +13,7 @@ import { nextMemberNumber } from "./ids";
 import {
   ACTION_FROM_STATUSES,
   ANONYMIZABLE_STATUSES,
+  ANONYMIZED_LAST_NAME,
   anonymizedFields,
   buildDisclosure,
   canAutoLink,
@@ -20,6 +21,7 @@ import {
   memberAuditDiff,
   officeTitle,
   planExit,
+  scrubPersonalAuditJson,
   singleSeatWarning,
   type Disclosure,
   type ExitPlan,
@@ -193,6 +195,8 @@ type NewMember = {
   status: "ANTRAG" | "AKTIV";
   joinedAt?: Date | null;
   consentAt?: Date | null;
+  /** Adresse aus dem öffentlichen Antrag, nicht bestätigt (keine automatische Verknüpfung mit einem Konto) */
+  emailUnconfirmed?: boolean;
 };
 
 async function assertAssignableType(tx: Tx, typeId: string | null | undefined, opts: { allowInactiveId?: string | null } = {}) {
@@ -229,6 +233,7 @@ async function createMemberTx(tx: Tx, input: NewMember, actor: AuditActor, actio
       status: input.status,
       joinedAt,
       consentAt: input.consentAt ?? null,
+      emailUnconfirmed: input.emailUnconfirmed ?? false,
     },
   });
   await logAudit(tx, {
@@ -280,6 +285,7 @@ export async function createApplication(input: ApplicationInput, now: Date = new
         },
         status: "ANTRAG",
         consentAt: now,
+        emailUnconfirmed: true,
       },
       { ...SYSTEM_ACTOR, name: "Beitrittsformular" },
       "member.apply",
@@ -305,6 +311,8 @@ export async function updateMember(admin: CurrentAdmin, id: string, patch: Membe
     for (const [key, value] of Object.entries(patch)) {
       if (value !== undefined) (data as Record<string, unknown>)[key] = value;
     }
+    // Ändert die Verwaltung die Adresse, steht sie dafür ein (kein ungeprüfter Wert aus dem Antrag mehr).
+    if (patch.email !== undefined && patch.email !== before.email) data.emailUnconfirmed = false;
     const after = await tx.member.update({ where: { id }, data });
     const diff = memberAuditDiff(before, after);
     if (Object.keys(diff.after).length === 0) return { member: after, linked: false };
@@ -327,9 +335,9 @@ export async function updateMember(admin: CurrentAdmin, id: string, patch: Membe
  * Verknüpft das Mitglied mit dem Website-Konto, das dieselbe, bestätigte E-Mail-Adresse hat (canAutoLink). Gibt zurück, ob verknüpft wurde.
  * Mehrdeutigkeit (mehrere Mitglieder mit derselben Adresse) führt nie zu einer Verknüpfung.
  */
-async function tryAutoLink(tx: Tx, member: { id: string; memberNumber: number; email: string; userId: string | null; status: string }, actor: AuditActor): Promise<boolean> {
+async function tryAutoLink(tx: Tx, member: { id: string; memberNumber: number; email: string; userId: string | null; status: string; emailUnconfirmed: boolean }, actor: AuditActor): Promise<boolean> {
   if (member.userId || !member.email) return false;
-  const user = await tx.user.findUnique({ where: { email: member.email.trim().toLowerCase() }, select: { id: true, email: true, emailVerifiedAt: true, disabled: true } });
+  const user = await tx.user.findUnique({ where: { email: member.email.trim().toLowerCase() }, select: { id: true, email: true, emailVerifiedAt: true, emailVerifiedViaMail: true, disabled: true } });
   if (!user || !canAutoLink(user, member)) return false;
   const [taken, sameMail] = await Promise.all([
     tx.member.findUnique({ where: { userId: user.id }, select: { id: true } }),
@@ -356,11 +364,11 @@ export async function linkAccountByVerifiedEmail(userId: string): Promise<boolea
   return db.$transaction(async (tx) => {
     const existing = await tx.member.findUnique({ where: { userId }, select: { id: true } });
     if (existing) return true;
-    const user = await tx.user.findUnique({ where: { id: userId }, select: { email: true, emailVerifiedAt: true, disabled: true } });
-    if (!user?.emailVerifiedAt || user.disabled) return false;
+    const user = await tx.user.findUnique({ where: { id: userId }, select: { email: true, emailVerifiedAt: true, emailVerifiedViaMail: true, disabled: true } });
+    if (!user?.emailVerifiedAt || !user.emailVerifiedViaMail || user.disabled) return false;
     const candidates = await tx.member.findMany({
       where: { email: user.email.trim().toLowerCase(), status: "AKTIV", userId: null },
-      select: { id: true, memberNumber: true, email: true, userId: true, status: true },
+      select: { id: true, memberNumber: true, email: true, userId: true, status: true, emailUnconfirmed: true },
       take: 2,
     });
     const only = candidates.length === 1 ? candidates[0]! : null;
@@ -533,12 +541,32 @@ export async function runMemberAction(admin: CurrentAdmin, id: string, input: Me
         await tx.office.updateMany({ where: { memberId: id }, data: { note: "" } });
         await tx.attendance.updateMany({ where: { memberId: id }, data: { note: "" } });
         await tx.adminUser.updateMany({ where: { memberId: id }, data: { memberId: null } });
+        // Weitere Personendaten: Versandprotokoll der Einladungen, Freitext der Anlass-Anmeldungen, Namen in früheren Protokolleinträgen.
+        await tx.meetingMail.updateMany({ where: { memberId: id }, data: { recipientName: ANONYMIZED_LAST_NAME, email: "" } });
+        const registrations = await tx.eventRegistration.findMany({ where: { memberId: id }, select: { id: true } });
+        await tx.eventRegistration.updateMany({ where: { memberId: id }, data: { note: "" } });
+        const oldEntries = await tx.auditLog.findMany({
+          where: { OR: [{ objectType: "Member", objectId: id }, ...(registrations.length ? [{ objectType: "EventRegistration", objectId: { in: registrations.map((r) => r.id) } }] : [])] },
+          select: { id: true, objectType: true, before: true, after: true },
+        });
+        for (const entry of oldEntries) {
+          await tx.auditLog.update({
+            where: { id: entry.id },
+            data: { before: scrubPersonalAuditJson(entry.before), after: scrubPersonalAuditJson(entry.after), ...(entry.objectType === "EventRegistration" ? { summary: "Anmeldung eines früheren Mitglieds" } : {}) },
+          });
+        }
+        // Das Website-Konto (E-Mail-Adresse, Name) gehört der Person: auf Wunsch löschen, sonst nur die Verknüpfung lösen (siehe oben, userId: null).
+        let accountDeleted = false;
+        if (input.deleteAccount && m.userId) {
+          await tx.user.deleteMany({ where: { id: m.userId } });
+          accountDeleted = true;
+        }
         await logAudit(tx, {
           actor,
           action: "member.anonymize",
           objectType: "Member",
           objectId: id,
-          summary: `Personendaten von Mitglied ${m.memberNumber} entfernt`,
+          summary: `Personendaten von Mitglied ${m.memberNumber} entfernt${m.userId ? (accountDeleted ? " (Website-Konto gelöscht)" : " (Website-Konto bleibt bestehen)") : ""}`,
           before: { status: m.status, anonymizedAt: null },
           after: { status: m.status, anonymizedAt: new Date() },
         });
@@ -553,6 +581,17 @@ export async function runMemberAction(admin: CurrentAdmin, id: string, input: Me
           throw new ApiError(409, "CONFLICT", "Dieses Website-Konto gehört bereits zu einem anderen Mitglied.");
         }
         const after = await done("member.link", `Mitglied ${m.memberNumber} mit Website-Konto verknüpft`, { userId: user.id }, { userId: null }, { before: { userId: null }, after: { userId: "[Konto verknüpft]" } });
+        return await outcome(after);
+      }
+      case "reissue-card": {
+        if (m.status !== "AKTIV") throw new ApiError(409, "CONFLICT", "Einen Ausweis gibt es nur für aktive Mitglieder.");
+        const after = await done(
+          "member.card.reissue",
+          `Ausweis von Mitglied ${m.memberNumber} neu ausgestellt (frühere QR-Codes sind ungültig)`,
+          { cardVersion: { increment: 1 } },
+          { status: "AKTIV" },
+          { before: { cardVersion: m.cardVersion }, after: { cardVersion: m.cardVersion + 1 } },
+        );
         return await outcome(after);
       }
       case "unlink-user": {
@@ -760,6 +799,7 @@ export async function getPortalMember(memberId: string) {
       exitNoticeAt: true,
       leftAt: true,
       anonymizedAt: true,
+      cardVersion: true,
       membershipType: { select: { name: true, votingRight: true, annualFeeRappen: true } },
       offices: { orderBy: { validFrom: "desc" }, select: { id: true, kind: true, title: true, validFrom: true, validUntil: true } },
     },
@@ -823,11 +863,13 @@ export async function loadDisclosure(memberId: string, now: Date = new Date()): 
       offices: { orderBy: { validFrom: "asc" } },
       invoices: { orderBy: { issueDate: "asc" }, select: { number: true, subject: true, issueDate: true, dueDate: true, totalRappen: true, paidRappen: true, status: true } },
       payments: { orderBy: { receivedAt: "asc" }, select: { receivedAt: true, amountRappen: true, method: true, invoice: { select: { number: true } } } },
-      attendances: { select: { status: true, meeting: { select: { title: true, startsAt: true } } } },
-      registrations: { select: { seats: true, status: true, event: { select: { title: true, startsAt: true } } } },
+      attendances: { select: { status: true, note: true, meeting: { select: { title: true, startsAt: true } } } },
+      registrations: { select: { seats: true, status: true, note: true, event: { select: { title: true, startsAt: true } } } },
+      user: { select: { email: true, name: true, createdAt: true } },
     },
   });
   if (!m) throw new ApiError(404, "NOT_FOUND", "Mitglied nicht gefunden.");
+  const mails = await db.meetingMail.findMany({ where: { memberId }, orderBy: { sentAt: "asc" }, take: 500, select: { kind: true, sentAt: true, email: true, ok: true, meeting: { select: { title: true } } } });
   return buildDisclosure({
     generatedAt: now,
     member: {
@@ -855,11 +897,13 @@ export async function loadDisclosure(memberId: string, now: Date = new Date()): 
       membershipTypeName: m.membershipType?.name ?? "",
       hasAccount: m.userId !== null,
     },
+    account: m.user,
+    mails: mails.map((x) => ({ meetingTitle: x.meeting.title, kind: x.kind, sentAt: x.sentAt, email: x.email, ok: x.ok })),
     offices: m.offices,
     invoices: m.invoices,
     payments: m.payments.map((p) => ({ receivedAt: p.receivedAt, amountRappen: p.amountRappen, method: p.method, invoiceNumber: p.invoice?.number ?? null })),
-    attendances: m.attendances.map((a) => ({ meetingTitle: a.meeting.title, startsAt: a.meeting.startsAt, status: a.status })),
-    registrations: m.registrations.map((r) => ({ eventTitle: r.event.title, startsAt: r.event.startsAt, seats: r.seats, status: r.status })),
+    attendances: m.attendances.map((a) => ({ meetingTitle: a.meeting.title, startsAt: a.meeting.startsAt, status: a.status, note: a.note })),
+    registrations: m.registrations.map((r) => ({ eventTitle: r.event.title, startsAt: r.event.startsAt, seats: r.seats, status: r.status, note: r.note })),
   });
 }
 

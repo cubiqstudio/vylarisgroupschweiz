@@ -100,6 +100,9 @@ const ownRegistrationSelect = { id: true, status: true, seats: true, note: true,
 
 /** Kommende Anlässe für ein Mitglied (öffentliche und nur für Mitglieder; keine Entwürfe) mit der eigenen Anmeldung. Filtert nach `memberId`. */
 export async function listEventsForMember(memberId: string, now: Date = new Date()): Promise<Array<EventCore & { seats: SeatInfo; own: OwnRegistration | null }>> {
+  // Nur aktuelle Mitglieder (Status AKTIV) sehen die Anlässe für Mitglieder; ausgetretene, ausgeschlossene und noch nicht aufgenommene nicht.
+  const active = await db.member.count({ where: { id: memberId, status: "AKTIV", anonymizedAt: null } });
+  if (active === 0) return [];
   const events = await db.event.findMany({
     where: { status: { in: PUBLIC_STATUSES }, ...upcomingWhere(now) },
     orderBy: [{ startsAt: "asc" }, { id: "asc" }],
