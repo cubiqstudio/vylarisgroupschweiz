@@ -508,6 +508,7 @@ model Invoice {
   cancelledAt      DateTime?
   cancelReason     String        @default("")
   notes            String        @default("") // interne Notiz
+  viewTokenHash    String?       @unique // SHA-256 des Links zur Rechnungsansicht ohne Konto (Klartext nur in der Mail); neuer Versand ersetzt ihn
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   items            InvoiceItem[]

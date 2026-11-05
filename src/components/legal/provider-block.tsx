@@ -21,23 +21,41 @@ async function Mail({ email }: { email?: string }) {
   return <a href={`mailto:${email}`}>{email}</a>;
 }
 
-/** Anbieter-/Verantwortlichen-Anschrift aus getLegal(); fehlende Pflichtangaben werden markiert. */
+/**
+ * Anbieter-/Verantwortlichen-Anschrift aus getLegal(). Das Impressum zeigt nur, was vorhanden und eingeschaltet ist
+ * (nie leere Zeilen); der Verantwortliche der Datenschutzerklärung ist Pflicht und markiert Fehlendes (markMissing).
+ */
 export function ProviderAddress({
   legal,
   name = SITE.legalName,
+  showName = true,
+  showAddress = true,
+  markMissing = false,
 }: {
   legal: Legal;
   name?: string;
+  showName?: boolean;
+  showAddress?: boolean;
+  markMissing?: boolean;
 }) {
+  const lines: ReactNode[] = [];
+  if (showName) lines.push(<strong key="name">{name}</strong>);
+  if (showAddress) {
+    if (legal.street) lines.push(legal.street);
+    else if (markMissing) lines.push(<MissingValue key="street" />);
+    if (legal.zipCity) lines.push(legal.zipCity);
+    else if (markMissing) lines.push(<MissingValue key="zip" />);
+    if (legal.country) lines.push(legal.country);
+  }
+  if (lines.length === 0) return null;
   return (
     <address className="not-italic leading-relaxed">
-      <strong>{name}</strong>
-      <br />
-      {legal.street ?? <MissingValue />}
-      <br />
-      {legal.zipCity ?? <MissingValue />}
-      <br />
-      {legal.country}
+      {lines.map((line, i) => (
+        <span key={i}>
+          {i > 0 && <br />}
+          {line}
+        </span>
+      ))}
     </address>
   );
 }

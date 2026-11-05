@@ -2,18 +2,34 @@ import "server-only";
 import { db } from "@/lib/db";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { SITE } from "@/lib/sites";
+import {
+  LEGAL_FIELDS,
+  LEGAL_FLAGS,
+  LEGACY_SETTING_KEYS,
+  PRIVACY_UPDATED_KEY,
+  parseIsoDate,
+  privacyChanged,
+  resolveShow,
+  showToSettings,
+  todayZurich,
+  type ImprintShow,
+  type LegalContent,
+  type LegalField,
+  type LegalFlag,
+  type PrivacyShow,
+  type PrivacySnapshot,
+} from "@/lib/legal-toggles";
 
 // Einstellungen liegen als Key/Value in der DB und sind im Admin (Einstellungen) editierbar.
 // Für die Anbieterangaben (Impressum) dienen die LEGAL_*/CONTACT_EMAIL-Umgebungsvariablen (vom Installer gesetzt) als Vorgabe;
 // die Werte des Vereins (Anschrift, Telefon, E-Mail) stehen im Seed bzw. in den Admin-Einstellungen, nicht im Code.
 
-export const LEGAL_FIELDS = ["responsible", "street", "zipCity", "country", "phone", "register", "vatId", "email"] as const;
-export type LegalField = (typeof LEGAL_FIELDS)[number];
-export const LEGAL_FLAGS = ["smallBusiness", "noRegister", "hideRegister", "hideVat"] as const;
-export type LegalFlag = (typeof LEGAL_FLAGS)[number];
-/** Texte + Häkchen: smallBusiness = von der Mehrwertsteuer befreit (keine MWST-/UID-Nummer), noRegister = kein Registereintrag,
- *  hideRegister / hideVat = Zeile "Registereintrag" bzw. "MWST-/UID-Nummer" im Impressum gar nicht anzeigen. */
-export type LegalSettings = Record<LegalField, string> & Record<LegalFlag, boolean>;
+export { LEGAL_FIELDS, LEGAL_FLAGS };
+export type { LegalField, LegalFlag };
+/** Anbieterangaben + Aussagen zum Verein (smallBusiness = nicht mehrwertsteuerpflichtig, noRegister = kein Registereintrag)
+ *  + Anzeige-Schalter für Impressum (show) und Datenschutzerklärung (privacyShow) + Stand der Erklärung (leer = noch nie gespeichert). */
+export type LegalSettings = Record<LegalField, string> &
+  Record<LegalFlag, boolean> & { show: ImprintShow; privacyShow: PrivacyShow; privacyUpdatedAt: string };
 
 export const MAIL_SECURITY = ["NONE", "STARTTLS", "SSL"] as const;
 export type MailSecurity = (typeof MAIL_SECURITY)[number];
@@ -49,18 +65,52 @@ export async function setSettings(values: Record<string, string | null>): Promis
 // ---- Impressum / Rechtliches ----
 export async function getLegalSettings(): Promise<LegalSettings> {
   const all = await getAllSettings();
-  const out = {} as LegalSettings;
-  for (const f of LEGAL_FIELDS) out[f] = (all[`legal.${f}`] ?? "").trim() || LEGAL_ENV[f];
-  for (const f of LEGAL_FLAGS) out[f] = all[`legal.${f}`] === "true";
+  const fields = {} as Record<LegalField, string>;
+  for (const f of LEGAL_FIELDS) fields[f] = (all[`legal.${f}`] ?? "").trim() || LEGAL_ENV[f];
+  const flags = {} as Record<LegalFlag, boolean>;
+  for (const f of LEGAL_FLAGS) flags[f] = all[`legal.${f}`] === "true";
   // Ohne eigene Angabe zeichnet die Leitung des Vereins (Präsident) verantwortlich.
-  if (!out.responsible) out.responsible = SITE.leader.name;
-  return out;
+  if (!fields.responsible) fields.responsible = SITE.leader.name;
+  // Anzeige-Schalter: gespeicherte Werte, sonst frühere Häkchen («ausblenden»), sonst Vorgabe (siehe resolveShow).
+  const { imprint, privacy } = resolveShow(all, { ...fields, ...flags, boardCount: SITE.board.length } satisfies LegalContent);
+  return { ...fields, ...flags, show: imprint, privacyShow: privacy, privacyUpdatedAt: parseIsoDate(all[PRIVACY_UPDATED_KEY]) };
 }
 
-export async function saveLegalSettings(v: Partial<LegalSettings>): Promise<void> {
-  const rec: Record<string, string> = {};
+const snapshotOf = (l: LegalSettings): PrivacySnapshot => ({
+  street: l.street,
+  zipCity: l.zipCity,
+  country: l.country,
+  email: l.email,
+  phone: l.phone,
+  showPhone: l.show.phone,
+  privacy: l.privacyShow,
+});
+
+export type LegalSaveInput = Partial<Record<LegalField, string>> &
+  Partial<Record<LegalFlag, boolean>> & {
+    show?: Partial<Record<string, boolean | undefined>>;
+    privacyShow?: Partial<Record<string, boolean | undefined>>;
+  };
+
+export async function saveLegalSettings(v: LegalSaveInput): Promise<void> {
+  const before = await getLegalSettings();
+  const rec: Record<string, string | null> = {};
   for (const f of LEGAL_FIELDS) if (v[f] !== undefined) rec[`legal.${f}`] = v[f]!.trim();
   for (const f of LEGAL_FLAGS) if (v[f] !== undefined) rec[`legal.${f}`] = v[f] ? "true" : "false";
+  // Alle Schalter ausdrücklich speichern (auf Basis der aufgelösten Werte, damit nichts aus früheren Häkchen verloren geht),
+  // danach die früheren Schlüssel entfernen.
+  const show = { ...before.show, ...v.show };
+  const privacyShow = { ...before.privacyShow, ...v.privacyShow };
+  Object.assign(rec, showToSettings(show, privacyShow));
+  for (const k of LEGACY_SETTING_KEYS) rec[k] = null;
+  // Stand der Datenschutzerklärung: erneuern, wenn sich ihr Inhalt durch diese Einstellungen geändert hat (oder noch keiner gespeichert ist).
+  const after: LegalSettings = {
+    ...before,
+    ...Object.fromEntries(LEGAL_FIELDS.filter((f) => v[f] !== undefined).map((f) => [f, v[f]!.trim()])),
+    show: show as ImprintShow,
+    privacyShow: privacyShow as PrivacyShow,
+  };
+  if (!before.privacyUpdatedAt || privacyChanged(snapshotOf(before), snapshotOf(after))) rec[PRIVACY_UPDATED_KEY] = todayZurich();
   await setSettings(rec);
 }
 

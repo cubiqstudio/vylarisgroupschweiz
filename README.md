@@ -17,6 +17,7 @@ Alles läuft selbstgehostet: kein Cloud-Auth-Anbieter, keine externen Fonts/CDNs
 - **E-Mails:** Konto-Mails, Ticket-Mails, Lizenz-Mails und Newsletter, siehe [E-Mails](#e-mails).
 - **Newsletter:** Anmeldung mit Bestätigungsmail (Double-Opt-in), Kampagnen im Admin (Markdown), Versand gedrosselt im Hintergrund, Abmeldung mit einem Klick.
 - **Lizenzen:** Schlüssel, Webspace-Konten und Firmenkunden mit Freigabe durch das Team, Prüf-API `POST /api/licenses/verify`, siehe [Lizenzen & Prüf-API](#lizenzen--prüf-api).
+- **Vereinsverwaltung:** Mitglieder, Beiträge und Rechnungen, Kassa, Versammlungen, Anlässe, Dokumente und Aufgaben für einen Schweizer Verein (ZGB Art. 60 ff.), mit Rollen (Präsident, Vize-Präsident, Kassier, Aktuar, Revisor, Administrator), Änderungsprotokoll und Mitgliederportal unter `/account/verein`. Beträge, Fristen und Kontodaten trägt der Verein selbst unter **Admin → Vereinseinstellungen** ein. Aufbau, Rechte und Datenmodell: [`docs/verein-architektur.md`](docs/verein-architektur.md)
 - **Admin-Dashboard:** `/admin` – Übersicht, Service- & Status-Manager (Status per Klick umschalten), Statusmeldungen/Wartungen, Blog-Editor (Markdown mit Live-Vorschau), Ticket-Inbox (Zuständigkeit, Antworten per Mail, Mail-Einstellungen für Tickets), Newsletter (Kampagnen, Abonnenten inkl. CSV-Export, Ein/Aus-Schalter), Lizenzen (Schlüssel, Webspace-Anträge, Produkte, API-Zugänge), Nutzerverwaltung (sperren, E-Mail manuell bestätigen, Bestätigungsmail erneut senden, Firmenkunden-Status, Team-Flag, löschen), **Einstellungen** (Impressum-Daten, E-Mail/SMTP inkl. Testmail, Registrierung ein/aus), Passwortwechsel
 - **REST-API:** `/api/...` (öffentlich lesend + Kontakt + Newsletter + Konto-Funktionen; `/api/admin/...` nur mit Admin-Sitzung)
 - **Datenbank:** Prisma ORM – SQLite lokal, PostgreSQL in Produktion
@@ -285,9 +286,10 @@ src/app/admin/     geschütztes Panel (Route-Group "(panel)"): Übersicht, Servi
 src/app/api/       REST-Endpunkte (auth, account, admin, licenses, newsletter, öffentliche Daten)
 src/components/    ui/ (Design-System), site/, home/, services/, status/, about/, allianz/, legal/, blog/, contact/, newsletter/, consent/, theme/, account/, licenses/, team/, admin/
 src/i18n/          Wörterbücher je Bereich (aktiv: de, Struktur für weitere Sprachen), getMessages/useMessages
+src/lib/verein/    gemeinsamer Kern der Vereinsverwaltung (Rechte, Geld, Datum, CSV, Audit, Nummern, IBAN, ICS, Uploads, Einstellungen)
 src/lib/           db, session (Edge/jose), auth, settings, legal, sites (Stammdaten des Vereins), site, mailer, mail-ctx/-layout/-templates, ticket-mail, license-mail, newsletter, licenses, tokens, crypto, api-Helfer, validation (Zod), constants, status, rate-limit
 src/middleware.ts  leitet www.vylaris.ch auf vylaris.ch um (308), schützt /admin/*, /api/admin/* (nur Admin-Sitzung, sonst 404 bzw. 401) sowie /account/*, /api/account/* (jede Sitzung)
-docs/              license-api.md (Lizenzen und Prüf-API)
+docs/              license-api.md (Lizenzen und Prüf-API), verein-architektur.md (Vereinsverwaltung: Rechte, Datenmodell, Konventionen)
 scripts/           cloudflare-setup.sh, Beispiel-Client für die Prüf-API, Prüf- und Testskripte
 ```
 

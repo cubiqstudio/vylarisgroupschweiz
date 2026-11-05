@@ -8,6 +8,7 @@ import {
   TICKET_CATEGORIES,
   TICKET_STATUSES,
 } from "@/lib/constants";
+import { IMPRINT_KEYS, PRIVACY_KEYS } from "@/lib/legal-toggles";
 
 // Deutsche Standard-Fehlermeldungen (eigene Meldungen unten haben Vorrang).
 z.config(z.locales.de());
@@ -154,6 +155,8 @@ export const accountUpdateSchema = z.object({ name: trimmed(2, 80) });
 
 // ---- Einstellungen (Admin) ----
 const optText = (max: number) => z.string().trim().max(max, `Maximal ${max} Zeichen.`).default("");
+const switchMap = (keys: readonly string[]) =>
+  z.object(Object.fromEntries(keys.map((k) => [k, z.boolean().optional()]))).default({});
 export const legalSettingsSchema = z.object({
   responsible: optText(120),
   street: optText(160),
@@ -165,8 +168,9 @@ export const legalSettingsSchema = z.object({
   email: z.union([z.literal(""), z.string().trim().toLowerCase().max(200).pipe(z.email("Bitte eine gültige E-Mail-Adresse angeben."))]).default(""),
   smallBusiness: z.boolean().default(false),
   noRegister: z.boolean().default(false),
-  hideRegister: z.boolean().default(false),
-  hideVat: z.boolean().default(false),
+  // Anzeige-Schalter (Impressum: legal.show.<element>, Datenschutz: legal.show.privacy.<abschnitt>); fehlende bleiben unverändert.
+  show: switchMap(IMPRINT_KEYS),
+  privacyShow: switchMap(PRIVACY_KEYS),
 });
 
 export const mailSettingsSchema = z.object({

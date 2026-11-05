@@ -17,6 +17,8 @@ export const legalUi = defineMessages({
     title: "Impressum",
     canonical: "/impressum",
     description: (name: string) => `Angaben zum Verein und Kontaktmöglichkeiten von ${name}.`,
+    /** Wenn alle Elemente im Admin abgeschaltet sind */
+    empty: "Zurzeit sind hier keine Angaben veröffentlicht.",
   },
   privacy: {
     title: "Datenschutzerklärung",

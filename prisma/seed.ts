@@ -178,6 +178,20 @@ async function main(): Promise<void> {
     await mark("seed.legal.v1");
   }
 
+  if (todo("seed.legal.v2")) {
+    // Stand der Datenschutzerklärung (Einstellung, wird beim Speichern unter «Einstellungen → Rechtliches» nachgeführt).
+    // Die Anzeige-Schalter (legal.show.*) werden bewusst nicht angelegt: ohne gespeicherten Wert ist alles angezeigt, was Inhalt
+    // hat; frühere Häkchen (legal.hideRegister / legal.hideVat) werden beim Lesen übernommen.
+    const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Zurich" }).format(new Date());
+    await db.siteSetting.upsert({
+      where: { key: "legal.privacyUpdatedAt" },
+      update: {},
+      create: { key: "legal.privacyUpdatedAt", value: today },
+    });
+    console.log("Stand der Datenschutzerklärung: " + today);
+    await mark("seed.legal.v2");
+  }
+
   if (todo("seed.newsletter.v1")) {
     const exists = await db.newsletterCampaign.findFirst({ where: { subject: newsletterDraft.subject }, select: { id: true } });
     if (!exists) await db.newsletterCampaign.create({ data: { ...newsletterDraft, status: "DRAFT" } });
