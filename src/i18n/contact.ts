@@ -19,7 +19,6 @@ export const contact = defineMessages({
     categoryHelp: {
       GENERAL: (s: SiteProfile) => `Fragen, Feedback oder Ideen rund um unsere Dienste und ${s.name}.`,
       MEMBERSHIP: () => "Fragen zur Mitgliedschaft im Verein oder dazu, wie du uns beitreten kannst.",
-      BILLING: () => "Fragen zu Mitgliederbeiträgen, Rechnungen oder Zahlungen.",
       B2B_HOSTING: () =>
         "Anfragen zu individuellen Web-Tools, Hosting und IT-Services für Organisationen und Unternehmen. Wir schauen uns an, was im Bereich des Möglichen liegt.",
       SECURITY_REPORT: () => "Du hast eine Schwachstelle gefunden? Melde sie vertraulich und verantwortungsvoll an uns.",
@@ -27,7 +26,6 @@ export const contact = defineMessages({
     categoryTagline: {
       GENERAL: "Fragen & Feedback",
       MEMBERSHIP: "Verein & Beitritt",
-      BILLING: "Beitrag & Rechnung",
       B2B_HOSTING: "Web-Tools & Hosting",
       SECURITY_REPORT: "Vertraulich melden",
     } as Record<string, string>,
@@ -61,7 +59,7 @@ export const contact = defineMessages({
       message: "Nachricht",
       honeypot: "Website (bitte leer lassen)",
     },
-    consentPre: "Ich stimme zu, dass meine Angaben zur Bearbeitung meiner Anfrage verarbeitet werden. Mehr dazu in der",
+    consentPre: "Ich stimme zu, dass meine Angaben zur Beantwortung meiner Anfrage bearbeitet werden. Mehr dazu in der",
     consentLink: "Datenschutzerklärung",
     consentPost: ".",
     privacyHref: "/datenschutz",

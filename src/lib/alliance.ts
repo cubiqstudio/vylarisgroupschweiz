@@ -34,14 +34,12 @@ export const branches: Branch[] = [
     name: "VylarisGroupGermany",
     region: "Deutschland",
     status: "aktiv",
-    lead: "Florian Brandt",
     domain: "vylaris.de",
   },
   {
     name: "VylarisGroupAmerica",
-    region: "USA · Phoenix, Arizona",
+    region: "Nordamerika",
     status: "aktiv",
-    lead: "Sven Thompson",
     domain: "vylaris.net",
   },
 ];
@@ -61,16 +59,12 @@ export const units: Unit[] = [
 ];
 
 /**
- * Eckdaten des Rechenzentrums von VylarisData (Quelle: vylarisdata.com). Den Live-Stand zeigt vylarisdata.com/infrastruktur;
- * bei Änderungen hier anpassen. "state": ok = im Betrieb, building = im Aufbau, maintenance = in Wartung, planned = geplant.
+ * Bausteine des Rechenzentrums von VylarisData. Zahlen und ein Stand-Datum stehen bewusst nicht hier, solange der Auftraggeber
+ * sie nicht bestätigt hat; den Live-Stand zeigt vylarisdata.com/infrastruktur. "state": ok = im Betrieb, building = im Aufbau, maintenance = in Wartung, planned = geplant.
  */
 export const dataCenter = {
   url: "https://vylarisdata.com",
   statusUrl: "https://vylarisdata.com/infrastruktur/",
-  asOf: "November 2026",
-  servers: 10,
-  ssdTb: 250,
-  expansion: { ssdServers: 4, ssdTbEach: 120, hddTb: 500 },
   components: [
     { id: "serversInternal", state: "ok" },
     { id: "serversExternal", state: "ok" },

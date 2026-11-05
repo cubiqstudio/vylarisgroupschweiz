@@ -344,8 +344,9 @@ export async function Datenschutz() {
         <h3>Anmeldung im Double-Opt-in-Verfahren</h3>
         <p>
           Nach der Anmeldung senden wir dir eine E-Mail mit einem
-          Bestätigungslink. Erst wenn du diesen Link aufrufst, ist deine
-          Anmeldung wirksam und du erhältst den Newsletter. So stellen wir
+          Bestätigungslink. Erst wenn du diesen Link aufrufst und die
+          Bestätigung auf der Seite auslöst, ist deine Anmeldung wirksam und
+          du erhältst den Newsletter. So stellen wir
           sicher, dass niemand fremde Adressen einträgt. Der Bestätigungslink
           ist nur begrenzt gültig; eine nicht bestätigte Anmeldung wird nach
           Ablauf des Links nicht weiter genutzt, und es werden keine Newsletter
@@ -505,10 +506,12 @@ export async function Datenschutz() {
         <p>
           Deine Daten werden auf unseren eigenen Servern bearbeitet. Eine
           Weitergabe an Dritte findet nicht statt, es sei denn, wir sind dazu
-          gesetzlich verpflichtet. Eine Ausnahme bildet der E-Mail-Versand über
+          gesetzlich verpflichtet. Ausnahmen bilden der E-Mail-Versand über
           den vom Betreiber konfigurierten SMTP-Server (Abschnitt 7); über ihn
           laufen auch die Mails zu Tickets (Abschnitt 4) und der Newsletter
-          (Abschnitt 8). Intern erhalten nur diejenigen Mitglieder des Teams
+          (Abschnitt 8). Bei Betrieb über einen Tunnel- oder Proxy-Dienst
+          (z. B. Cloudflare) ist dieser Dienst Empfänger der
+          Verbindungsdaten (Abschnitt 3). Intern erhalten nur diejenigen Mitglieder des Teams
           Zugriff, die Anfragen, Konten und Newsletter-Anmeldungen verwalten,
           Mitteilungen versenden oder den Betrieb sicherstellen.
         </p>
@@ -516,11 +519,17 @@ export async function Datenschutz() {
 
       <LegalSection id="ausland" number={12} title="Bekanntgabe ins Ausland">
         <p>
-          Diese Website gibt von sich aus keine Personendaten ins Ausland
-          bekannt. Für den E-Mail-Versand ist der Standort des vom Betreiber
-          eingesetzten Mailservers massgeblich; befindet er sich in einem Land
-          ohne angemessenen Datenschutz, stellt der Betreiber durch geeignete
-          Garantien einen angemessenen Schutz sicher (Art. 16 DSG).
+          Bei Nutzung eines Tunnel- oder Proxy-Dienstes (Abschnitt 3) können
+          Verbindungsdaten (IP-Adresse, aufgerufene Seite, Zeitpunkt) in
+          Länder ausserhalb der Schweiz gelangen, auch in Länder ohne
+          angemessenen Datenschutz. Wir stellen den Schutz durch geeignete
+          Garantien sicher (z. B. Standardvertragsklauseln, Art. 16 Abs. 2
+          DSG). Darüber hinaus gibt diese Website von sich aus keine
+          Personendaten ins Ausland bekannt. Für den E-Mail-Versand ist der
+          Standort des vom Betreiber eingesetzten Mailservers massgeblich;
+          befindet er sich in einem Land ohne angemessenen Datenschutz,
+          stellt der Betreiber durch geeignete Garantien einen angemessenen
+          Schutz sicher (Art. 16 DSG).
         </p>
       </LegalSection>
 
@@ -534,7 +543,8 @@ export async function Datenschutz() {
             Tickets und Antworten: so lange, wie es zur Bearbeitung deiner
             Anfrage erforderlich ist, und, soweit gesetzliche
             Aufbewahrungspflichten bestehen, für die Dauer dieser Fristen.
-            Danach werden sie gelöscht.
+            Danach löschen wir sie von Hand; auf Anfrage geschieht das
+            jederzeit.
           </li>
           <li>
             Nutzerkonto samt Lizenzschlüsseln und Webspace-Anfragen: bis zur
@@ -564,7 +574,7 @@ export async function Datenschutz() {
         <p>
           Diese Website verlinkt auf externe Seiten, etwa auf andere Standorte
           der VylarisGroup, auf unsere Kanäle bei X, YouTube, Instagram und
-          Discord oder auf Quellen im Web. Beim blossen Anzeigen unserer Seiten
+          Discord, auf WhatsApp als Kontaktweg oder auf Quellen im Web. Beim blossen Anzeigen unserer Seiten
           werden keine Daten an diese Seiten übermittelt. Erst wenn du einem
           Link folgst, gelten die Datenschutzbestimmungen des jeweiligen
           Betreibers; auf diese haben wir keinen Einfluss.

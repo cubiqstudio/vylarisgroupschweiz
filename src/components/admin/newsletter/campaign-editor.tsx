@@ -26,7 +26,7 @@ import { api, ApiClientError } from "@/lib/api-client";
 import { cn, formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Field, Input, Textarea } from "@/components/ui/form";
+import { Field, Input } from "@/components/ui/form";
 import { ConfirmDialog } from "@/components/admin/core/confirm-dialog";
 import { Notice } from "@/components/admin/core/notice";
 import { useToast } from "@/components/admin/core/toast";

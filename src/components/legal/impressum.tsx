@@ -144,11 +144,9 @@ export async function Impressum() {
           Anbieter oder Betreiber der verlinkten Seite.
         </p>
         <p>
-          Die verlinkten Seiten wurden zum Zeitpunkt der Verlinkung auf
-          mögliche Rechtsverstösse geprüft; rechtswidrige Inhalte waren dabei
-          nicht erkennbar. Eine laufende inhaltliche Kontrolle ist ohne
-          konkrete Anhaltspunkte nicht zumutbar. Sobald wir von
-          Rechtsverletzungen erfahren, entfernen wir den betreffenden Link.
+          Auf Inhalte verlinkter Seiten haben wir keinen Einfluss. Sobald wir
+          von Rechtsverletzungen erfahren, entfernen wir den betreffenden
+          Link.
         </p>
       </LegalSection>
 
@@ -171,7 +169,7 @@ export async function Impressum() {
 
       <LegalSection id="datenschutz" number={7} title="Datenschutz">
         <p>
-          Wie wir mit personenbezogenen Daten umgehen, steht in der{" "}
+          Wie wir mit Personendaten umgehen, steht in der{" "}
           <Link href="/datenschutz">Datenschutzerklärung</Link>.
         </p>
       </LegalSection>

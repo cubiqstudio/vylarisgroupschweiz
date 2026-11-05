@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 /** Rendert Markdown sicher (kein rohes HTML). Externe Links öffnen mit rel=noopener. */
 export function Markdown({ children, className }: { children: string; className?: string }) {
   return (
-    <div className={cn("prose-vge", className)}>
+    <div className={cn("prose-vgs", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{

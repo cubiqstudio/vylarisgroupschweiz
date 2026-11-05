@@ -640,6 +640,8 @@ write_env() {
    Trage das ursprüngliche Passwort in $ENV_FILE ein, sonst kann die App die Datenbank nicht öffnen."
   fi
 
+  # LICENSE_SECRET nur bei einer Neuinstallation erzeugen: ein späterer Wechsel macht bestehende Lizenzschlüssel ungültig.
+  [ -n "$(env_get AUTH_SECRET)" ] || [ -n "$(env_get LICENSE_SECRET)" ] || env_set LICENSE_SECRET "$(rand_hex 32)"
   [ -n "$(env_get AUTH_SECRET)" ]        || env_set AUTH_SECRET "$(rand_hex 32)"
   [ -n "$(env_get POSTGRES_PASSWORD)" ]  || env_set POSTGRES_PASSWORD "$(rand_hex 24)"
   if [ -z "$(env_get ADMIN_PASSWORD)" ]; then ADMIN_PASSWORD_NEW=$(gen_password); env_set ADMIN_PASSWORD "$ADMIN_PASSWORD_NEW"; fi
@@ -821,7 +823,7 @@ Nächste Schritte (siehe README, Abschnitt "Vor dem Go-Live"):
   2. Admin → Einstellungen → E-Mail (SMTP): Mailserver eintragen und eine Testmail senden.
   3. Danach die Registrierung für Website-Nutzer aktivieren (nur mit funktionierendem Mailversand möglich).
   4. Admin → Einstellungen → Rechtliches: Impressum-Daten prüfen/ergänzen (Anfangswerte kamen aus dem Installer).
-  5. Die Beispieldienste aus dem Seed im Admin durch die echten Angebote ersetzen.
+  5. Dienste, Infrastruktur-Komponenten und Lizenz-Produkte im Admin mit den echten Angaben erfassen.
   6. Backups: docker compose exec db pg_dump -U vylaris vylaris_schweiz > backup.sql
 
 Wichtig: AUTH_SECRET in $ENV_FILE nicht mehr ändern – es verschlüsselt auch das SMTP-Passwort

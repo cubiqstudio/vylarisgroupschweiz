@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { Container, SectionHeading } from "@/components/ui/section";
-import { branches, dataCenter, europe, units } from "@/lib/alliance";
+import { branches, europe, units } from "@/lib/alliance";
 import { allianz } from "@/i18n/allianz";
 import { getMessages } from "@/i18n/server";
 import { site } from "@/lib/site";
@@ -195,13 +195,6 @@ export async function AllianceStructure() {
                           {u.name === "VylarisData" && <> · {m.brandOf("CircleUpWilms")}</>}
                         </p>
                         <p className="mt-3 text-sm leading-relaxed text-zinc-400">{t.text}</p>
-                        {u.name === "VylarisData" && (
-                          <ul className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-zinc-300">
-                            <li className="rounded-full bg-zinc-900/60 px-2.5 py-1 ring-1 ring-inset ring-zinc-800">{m.servers(dataCenter.servers)}</li>
-                            <li className="rounded-full bg-zinc-900/60 px-2.5 py-1 ring-1 ring-inset ring-zinc-800">{m.ssd(dataCenter.ssdTb)}</li>
-                            <li className="rounded-full bg-zinc-900/60 px-2.5 py-1 ring-1 ring-inset ring-zinc-800">{m.goal}</li>
-                          </ul>
-                        )}
                         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
                           {u.domain ? (
                             <a

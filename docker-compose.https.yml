@@ -41,7 +41,7 @@ services:
     cap_add:
       - NET_BIND_SERVICE
 
-  # Die App wird hinter Caddy betrieben und muss nicht nach außen erreichbar sein.
+  # Die App wird hinter Caddy betrieben und muss nicht nach aussen erreichbar sein.
   app:
     environment:
       SITE_URL: https://${DOMAIN}

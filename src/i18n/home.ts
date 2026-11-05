@@ -22,7 +22,7 @@ export const home = defineMessages({
       },
       {
         title: "Kostenlos",
-        text: "Wir greifen nicht in dein Portmonaie. Dein Geld ist deins. Und so soll es auch bleiben! All unsere SaaS-Angebote sind für jedermann vollständig kostenlos zugänglich.",
+        text: "Wir greifen nicht in dein Portemonnaie. Dein Geld ist deins. Und so soll es auch bleiben! All unsere SaaS-Angebote sind für jedermann vollständig kostenlos zugänglich.",
       },
       {
         title: "Kleines Team, grosses Engagement",

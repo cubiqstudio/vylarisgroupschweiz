@@ -106,7 +106,6 @@ export const mailLicenses = defineMessages({
       business: "Nutzer im Dashboard öffnen",
     },
     from: "Von",
-    site: "Seite",
     messageLabel: "Nachricht",
     footer:
       "Du erhältst diese Hinweise, weil diese Adresse in den Ticket-Einstellungen für neue Tickets hinterlegt ist.",

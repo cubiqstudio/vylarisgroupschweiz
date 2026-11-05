@@ -26,7 +26,7 @@ function TocList({ items }: { items: TocItem[] }) {
   );
 }
 
-/** Gemeinsames Layout der Rechtsseiten: Kopfbereich, Inhaltsverzeichnis, schmale Lesespalte (.prose-vge). */
+/** Gemeinsames Layout der Rechtsseiten: Kopfbereich, Inhaltsverzeichnis, schmale Lesespalte (.prose-vgs). */
 export async function LegalPage({
   eyebrow,
   title,
@@ -77,7 +77,7 @@ export async function LegalPage({
 
           <article className="min-w-0 max-w-3xl">
             {notice && <div className="mb-10">{notice}</div>}
-            <div className="prose-vge [&>section:first-child>h2]:!mt-0">
+            <div className="prose-vgs [&>section:first-child>h2]:!mt-0">
               {children}
             </div>
           </article>

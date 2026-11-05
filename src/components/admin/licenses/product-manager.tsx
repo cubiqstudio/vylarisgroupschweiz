@@ -156,7 +156,7 @@ function ProductForm({ product, onDone, onCancel }: { product: ProductRow | null
           label="Code"
           htmlFor={`${uid}-code`}
           error={fields.code}
-          hint={editing ? "Kann nachträglich nicht geändert werden, bestehende Schlüssel tragen ihn." : "3–4 Grossbuchstaben, Präfix der Schlüssel (VG-CODE-…)."}
+          hint={editing ? "Kann nachträglich nicht geändert werden, bestehende Schlüssel tragen ihn." : "3–4 Grossbuchstaben, Präfix der Schlüssel (VGS-CODE-…)."}
         >
           <Input id={`${uid}-code`} value={f.code} onChange={(e) => set("code", e.target.value.toUpperCase())} maxLength={4} disabled={editing} className="font-mono uppercase" />
         </Field>

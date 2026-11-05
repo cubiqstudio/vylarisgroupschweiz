@@ -15,7 +15,7 @@ const STATE_STYLE: Record<string, string> = {
 
 const STAT_ICONS: LucideIcon[] = [ServerCog, HardDrive, Database, Cable];
 
-/** Rechenzentrum von VylarisData: Eckdaten, Bausteine mit Stand, Grundsätze und das Ökosystem (Quelle der Zahlen: src/lib/alliance.ts). */
+/** Rechenzentrum von VylarisData: Kerneigenschaften, Bausteine mit Stand, Grundsätze und das Ökosystem (Bausteine: src/lib/alliance.ts). */
 export async function DataCenter() {
   const all = await getMessages(allianz);
   const m = all.dataCenter;
@@ -30,7 +30,6 @@ export async function DataCenter() {
             title={<span id="rz-heading">{m.title}</span>}
             description={m.description}
           />
-          <p className="mx-auto mt-4 max-w-2xl text-center text-sm font-medium tracking-wide text-emerald-400">{m.motto}</p>
 
           <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {m.stats.map((s, i) => {
@@ -72,7 +71,7 @@ export async function DataCenter() {
                   );
                 })}
               </ul>
-              <p className="mt-4 text-xs text-zinc-500">{m.componentsNote(dataCenter.asOf)}</p>
+              <p className="mt-4 text-xs text-zinc-500">{m.componentsNote}</p>
             </Card>
 
             <div className="space-y-6">

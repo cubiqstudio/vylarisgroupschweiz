@@ -64,11 +64,12 @@ export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = {
   RESOLVED: "Behoben",
 };
 
-export const TICKET_CATEGORIES = ["GENERAL", "B2B_HOSTING", "SECURITY_REPORT"] as const;
+export const TICKET_CATEGORIES = ["GENERAL", "MEMBERSHIP", "B2B_HOSTING", "SECURITY_REPORT"] as const;
 export type TicketCategory = (typeof TICKET_CATEGORIES)[number];
 export const TICKET_CATEGORY_LABEL: Record<TicketCategory, string> = {
   GENERAL: "Allgemein",
-  B2B_HOSTING: "B2B-Hosting",
+  MEMBERSHIP: "Mitgliedschaft",
+  B2B_HOSTING: "Web-Tools & Hosting",
   SECURITY_REPORT: "Security-Report",
 };
 

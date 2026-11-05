@@ -34,6 +34,9 @@ services:
       # --- Pflicht ---
       # Mindestens 32 Zeichen, erzeugen mit: openssl rand -base64 48
       AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET setzen (mind. 32 Zeichen, z. B. openssl rand -base64 48)}
+      # Optional: eigenes Geheimnis (mind. 32 Zeichen) für Lizenzschlüssel-Hashes und Signaturen, sonst gilt AUTH_SECRET.
+      # Ein Wechsel macht bestehende Lizenzschlüssel ungültig.
+      LICENSE_SECRET: ${LICENSE_SECRET:-}
       # Passwort ggf. URL-kodieren; am einfachsten ein Passwort ohne Sonderzeichen wählen
       # (z. B. openssl rand -hex 24).
       DATABASE_URL: postgresql://${POSTGRES_USER:-vylaris}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD setzen}@db:5432/${POSTGRES_DB:-vylaris_schweiz}?schema=public
@@ -41,10 +44,9 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@vylaris.example}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD setzen (Start-Passwort des Admin-Kontos)}
       # --- Seed ---
-      # true = beim Start Admin-Konto und Basisinhalte anlegen. Die Basisinhalte (Beispieldienste,
-      # Texte usw.) entstehen nur beim ersten Start; Änderungen im Admin werden nie überschrieben.
+      # true = beim Start Admin-Konto und Basisinhalte anlegen. Die Basisinhalte (Blogbeitrag,
+      # Anbieterangaben, Newsletter-Entwurf) entstehen nur beim ersten Start; Änderungen im Admin werden nie überschrieben.
       SEED_ON_START: ${SEED_ON_START:-true}
-      SEED_BASE_DOMAIN: ${SEED_BASE_DOMAIN:-vylaris.example}
       # --- Website ---
       SITE_URL: ${SITE_URL:-http://localhost:3000}
       # Login-Cookie nur über HTTPS ausliefern (Default true). Für reine HTTP-Tests

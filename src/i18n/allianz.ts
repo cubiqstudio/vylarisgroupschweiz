@@ -28,8 +28,8 @@ export const allianz = defineMessages({
         text: "Datenschutz und Sicherheit gehören allen – an jedem Standort und für jede Person.",
       },
       {
-        title: "100 % Open Source",
-        text: "Unser Code ist offen und überprüfbar. Jede Niederlassung arbeitet nach demselben Prinzip.",
+        title: "Open Source oder eigene Lösungen",
+        text: "Wir setzen strikt auf Open Source oder eigene Lösungen. Jede Niederlassung arbeitet nach demselben Prinzip.",
       },
       {
         title: "Privatsphäre zuerst",
@@ -79,9 +79,6 @@ export const allianz = defineMessages({
     visit: (domain: string) => `${domain} besuchen`,
     unitsOf: "Gemeinsame Einheiten der Allianz",
     brandOf: (owner: string) => `Marke von ${owner}`,
-    servers: (n: number) => `${n} Server`,
-    ssd: (tb: number) => `${tb} TB SSD im Betrieb`,
-    goal: "Ziel: knapp 1 PB",
     unitMore: "Mehr zum Rechenzentrum",
   },
   overview: {
@@ -112,7 +109,7 @@ export const allianz = defineMessages({
   units: {
     VylarisData: {
       subtitle: "Rechenzentrum & Technologie",
-      text: "Unser komplettes Rechenzentrum und der Geschäftsbereich Software Development & Technology der VylarisGroup: eigene Server, eigener Speicher, eigenes Netz, eigene Datensicherung. VylarisData ist eine Marke von CircleUpWilms.",
+      text: "Das Rechenzentrum der Allianz und der Geschäftsbereich Software Development & Technology: eigene Server, eigener Speicher, eigenes Netz, eigene Datensicherung. VylarisData ist eine Marke von CircleUpWilms.",
       role: "Betreibt das Rechenzentrum der Gruppe (Server, Speicher, Netzwerk, Backup, Sicherheitssystem) und entwickelt Software und Technik für das Ökosystem",
       form: "Marke",
       region: "Gesamte Gruppe",
@@ -130,21 +127,19 @@ export const allianz = defineMessages({
     title: "Unser Rechenzentrum",
     description:
       "Eigene Hardware, eigenes Netz, eigene Datensicherung: Das Rechenzentrum der Allianz. Betrieben von VylarisData, einer Marke von CircleUpWilms.",
-    motto: "Powering the Vylaris Ecosystem. Technology. Infrastructure. Innovation.",
     stats: [
-      { value: "10", label: "Server", text: "Intern eigene Server, extern ganz normale Server." },
-      { value: "250 TB", label: "SSD im Betrieb", text: "Der heutige Speicher der Gruppe." },
-      { value: "knapp 1 PB", label: "Ausbauziel", text: "Rohkapazität vor Redundanz: 4 × 120 TB SSD und ein Storage-Server mit knapp 500 TB HDD sind im Aufbau." },
+      { value: "Eigene Server", label: "Rechenleistung", text: "VylarisData betreibt die Server selbst und hat die Technik in der eigenen Hand." },
+      { value: "Eigener Speicher", label: "Speicher", text: "Der Speicher der Allianz läuft auf eigener Hardware." },
+      { value: "Eigene Sicherung", label: "Datensicherung", text: "Ein eigenes System für die Datensicherung." },
       { value: "Eigenes Subnetz", label: "Netzwerk", text: "Eigener IP-Adressbereich und ein Network-Server, der die Internetanbindung regelt." },
     ],
     componentsTitle: "Bausteine und Stand",
-    componentsNote: (asOf: string) =>
-      `Stand ${asOf}. Den aktuellen Live-Stand zeigt vylarisdata.com.`,
+    componentsNote: "Den aktuellen Live-Stand zeigt vylarisdata.com.",
     components: {
-      serversInternal: { name: "Server (intern)", text: "Eigene Server, von uns selbst betrieben." },
+      serversInternal: { name: "Server (intern)", text: "Eigene Server, von VylarisData selbst betrieben." },
       serversExternal: { name: "Server (extern)", text: "Ganz normale Server." },
-      ssd: { name: "SSD-Speicher", text: "250 TB im Betrieb." },
-      expansion: { name: "Speicherausbau", text: "Weitere SSD-Kapazität und ein Storage-Server mit knapp 500 TB HDD, Ziel knapp 1 PB Rohkapazität." },
+      ssd: { name: "SSD-Speicher", text: "Schneller Speicher auf eigener Hardware." },
+      expansion: { name: "Speicherausbau", text: "Weitere SSD-Kapazität und ein zusätzlicher Storage-Server." },
       network: { name: "Eigenes Netzwerk", text: "Eigenes IP-Subnetz, Network-Server für die Internetanbindung." },
       dns: { name: "DNS-Server", text: "Namensauflösung, derzeit in Wartung." },
       backup: { name: "PBS-Backup-System", text: "Eigenes System für die Datensicherung." },
@@ -154,20 +149,19 @@ export const allianz = defineMessages({
     states: { ok: "Im Betrieb", building: "Im Aufbau", maintenance: "In Wartung", planned: "Geplant" } as Record<string, string>,
     principlesTitle: "So arbeiten wir",
     principles: [
-      { title: "Eigene Hardware", text: "Wir betreiben unsere Server selbst und haben die Technik in der eigenen Hand." },
+      { title: "Eigene Hardware", text: "VylarisData betreibt die Server selbst und hat die Technik in der eigenen Hand." },
       { title: "Schutz im Design", text: "Ein Sicherheitssystem gehört zur Infrastruktur; die eigene Website läuft hinter einem Tunnel statt mit offenen Ports." },
       { title: "Kein Tracking", text: "Keine Tracker, keine Werbenetzwerke, keine Cookies für Besucher." },
-      { title: "Ehrlich im Stand", text: "Wir sagen, was läuft, was im Aufbau ist, was gewartet wird und was geplant ist." },
+      { title: "Ehrlich im Stand", text: "VylarisData sagt offen, was läuft, was im Aufbau ist, was gewartet wird und was geplant ist." },
     ],
     visit: "VylarisData besuchen",
     status: "Live-Status ansehen",
-    contactNote:
-      "Anfragen zu VylarisData laufen über die Kontaktseite der VylarisGroup; eine eigene Kontaktadresse gibt es nicht.",
+    contactNote: "Mehr Informationen und den Live-Stand findest du auf vylarisdata.com.",
     newTab: "(öffnet in neuem Tab)",
   },
   ecosystem: {
     eyebrow: "Ökosystem",
-    title: "Vier Bausteine, eine Gruppe",
+    title: "Fünf Bausteine, eine Gruppe",
     description: "Das Ökosystem der VylarisGroup: Wer es trägt, wer es betreibt und was noch kommt.",
     items: [
       { name: "VylarisGroup Schweiz", text: "Der Verein hinter der Idee, entstanden aus Homelab und Podcast.", state: "Besteht" },
@@ -176,56 +170,6 @@ export const allianz = defineMessages({
     ],
     space: { name: "VylarisSpace", text: "Ein Hosting-Panel für Websites, E-Mail und Datenbanken. Angekündigt, noch nicht verfügbar.", state: "Bald verfügbar" },
     security: { name: "VylarisSecurity", text: "Künftig das Sicherheitssystem der Gruppe.", state: "In Planung" },
-  },
-  roles: {
-    eyebrow: "Allianz CH & EU",
-    title: "Zwei Standorte, eine Mission",
-    description:
-      "Hand in Hand: Der Verein trägt die Idee, die Firma gibt ihr die europäische Struktur und die Infrastruktur. So verteilen sich die Aufgaben.",
-    caption: (partner: string, eu: string) =>
-      `Rollenverteilung zwischen ${partner} und ${eu}`,
-    aspect: "Aspekt",
-    association: "Ursprungsverein",
-    company: "Europäische Zweitstelle",
-    rows: (p: {
-      members: number;
-      board: number;
-      leader: string;
-      company: string;
-      domain: string;
-      euDomain: string;
-    }) => [
-      {
-        label: "Charakter",
-        verein: "Schweizer Verein, entstanden aus Homelab und Podcast",
-        firma: "Offizielle europäische Firma und Zweitstelle der VylarisGroup",
-      },
-      {
-        label: "Menschen",
-        verein: `${p.members} Mitglieder, davon ${p.board} im Vorstand`,
-        firma: `Leitung: ${p.leader} (${p.company})`,
-      },
-      {
-        label: "Rolle",
-        verein: "Ideelles Fundament: Idee, Werte und Gemeinschaft",
-        firma: "Europäische Rechts- und Unternehmensstruktur",
-      },
-      {
-        label: "Beitrag",
-        verein: "Gibt die Richtung vor: Sicherheit ohne Paywall, offen und transparent",
-        firma: "Hochverfügbare Hosting- und Server-Infrastruktur für die Dienste der Gruppe in Europa",
-      },
-      {
-        label: "Ansprechpartner für",
-        verein: "Die Community und Fragen rund um den Verein",
-        firma: "Datenschutz, Betrieb und Hosting-Anfragen von Unternehmen",
-      },
-      { label: "Online", verein: p.domain, firma: p.euDomain },
-    ],
-    outro: (eu: string) =>
-      `Der Verein und ${eu} sind rechtlich eigenständig, verfolgen aber dieselbe Mission: Sicherheit und Privatsphäre für alle – ohne Paywall und offen.`,
-    visit: (domain: string) => `${domain} besuchen`,
-    newTab: "(öffnet in neuem Tab)",
   },
   branches: {
     VylarisGroupAustria: {
@@ -239,7 +183,7 @@ export const allianz = defineMessages({
       role: "Wie VylarisGroupEurope, für Deutschland",
     },
     VylarisGroupAmerica: {
-      region: "USA · Phoenix, Arizona",
+      region: "Nordamerika",
       text: "Anlaufstelle der Gruppe in Nordamerika und mehr als das: englischsprachiger Support, Community- und Partnerarbeit in den USA sowie eigene Projekte und Dienste für die Region.",
       role: "Support, Community- und Partnerarbeit sowie eigene Projekte für Nordamerika",
     },

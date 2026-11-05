@@ -3,7 +3,7 @@ import { defineMessages } from "@/i18n";
 /** Texte der Seitenhülle: Navigation, Profil-Menü, Logo, Footer und 404-Seiten. */
 export const shell = defineMessages({
   nav: {
-    home: "Homepage",
+    home: "Startseite",
     services: "Dienste",
     pricing: "Preise",
     status: "Status",
@@ -47,10 +47,10 @@ export const shell = defineMessages({
     socialDiscord: "Discord",
     exploreNav: "Entdecken",
     exploreTitle: "Entdecken.",
-    home: "Home",
+    home: "Startseite",
     services: "Dienste",
     pricing: "Preise",
-    status: "Systemstatus",
+    status: "Status",
     aboutUs: "Über uns",
     blog: "Blog",
     alliance: "Allianz",

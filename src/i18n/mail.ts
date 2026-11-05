@@ -69,7 +69,6 @@ export const mail = defineMessages({
       subject: (n: string, s: string) => `Neues Ticket ${n}: ${s}`,
       heading: "Neues Ticket eingegangen",
       from: "Von",
-      site: "Seite",
       messageLabel: "Nachricht",
       button: "Im Dashboard öffnen",
       footer: "Du erhältst diese Hinweise, weil diese Adresse in den Ticket-Einstellungen für neue Tickets hinterlegt ist.",

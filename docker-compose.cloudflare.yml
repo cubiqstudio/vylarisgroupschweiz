@@ -29,13 +29,13 @@ services:
       - no-new-privileges:true
 
   # Die App bleibt nur lokal erreichbar (APP_BIND=127.0.0.1, von install.sh gesetzt) und
-  # wird ausschließlich über den Tunnel veröffentlicht.
+  # wird ausschliesslich über den Tunnel veröffentlicht.
   app:
     environment:
       SITE_URL: ${SITE_URL:-https://vylaris.ch}
       COOKIE_SECURE: "true"
       # Client-IP für Rate-Limits aus CF-Connecting-IP (setzt Cloudflare) statt aus X-Forwarded-For.
-      # Nur sinnvoll, wenn die App ausschließlich über den Tunnel erreichbar ist (APP_BIND=127.0.0.1).
+      # Nur sinnvoll, wenn die App ausschliesslich über den Tunnel erreichbar ist (APP_BIND=127.0.0.1).
       TRUST_PROXY: cloudflare
       # Der Tunnel-Token gehört nur zu cloudflared (Interpolation oben); docker-compose.yml leert ihn
       # für die App, obwohl sie die .env per env_file liest.

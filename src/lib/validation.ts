@@ -82,7 +82,7 @@ export const contactSchema = z.object({
   subject: trimmed(3, 150),
   category: z.enum(TICKET_CATEGORIES),
   message: trimmed(10, 5000, "Bitte beschreibe dein Anliegen (mind. 10 Zeichen)."),
-  consent: z.literal(true, { error: "Bitte stimme der Verarbeitung deiner Angaben zu." }),
+  consent: z.literal(true, { error: "Bitte stimme der Bearbeitung deiner Angaben zu." }),
   // Honeypot: muss leer bleiben
   website: z.string().max(0).optional().default(""),
 });

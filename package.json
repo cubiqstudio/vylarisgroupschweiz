@@ -2,7 +2,7 @@
   "name": "vylaris-group-schweiz",
   "version": "1.0.0",
   "private": true,
-  "description": "Offizielle Website, Status-Portal und Admin-Dashboard der VylarisGroupEurope",
+  "description": "Website, Status-Portal und Admin-Dashboard der VylarisGroup Schweiz (Verein, vylaris.ch)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

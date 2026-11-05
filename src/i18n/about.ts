@@ -18,7 +18,7 @@ export const about = defineMessages({
   story: {
     eyebrow: "Unsere Geschichte",
     title: "In kleinen Schritten zum grossen Ziel.",
-    description: "Der tatsächliche Weg: vom Homelab über die Vereinsgründung zur eigenen Webseite.",
+    description: "Vom Homelab über die Vereinsgründung zur eigenen Webseite.",
     step: (n: number) => `Schritt ${n}: `,
     steps: {
       startLabel: "Der Anfang",
@@ -100,7 +100,7 @@ export const about = defineMessages({
     principles: [
       {
         title: "Kostenlos bleibt kostenlos",
-        body: "Wir greifen nicht in dein Portmonaie. Dein Geld ist deins, und so soll es auch bleiben! All unsere SaaS-Angebote sind für jedermann vollständig kostenlos zugänglich.",
+        body: "Wir greifen nicht in dein Portemonnaie. Dein Geld ist deins, und so soll es auch bleiben! All unsere SaaS-Angebote sind für jedermann vollständig kostenlos zugänglich.",
       },
       {
         title: "Ein Verein, keine Firma",

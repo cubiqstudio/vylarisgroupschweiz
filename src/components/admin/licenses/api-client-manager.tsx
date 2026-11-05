@@ -145,9 +145,9 @@ function Guide() {
   const curl = `NONCE=$(openssl rand -hex 16)
 
 curl -sS -X POST ${origin}/api/licenses/verify \\
-  -H "Authorization: Bearer vgk_…" \\
+  -H "Authorization: Bearer vgsk_…" \\
   -H "Content-Type: application/json" \\
-  -d '{"key":"VG-WEB-XXXXX-XXXXX-XXXXX-XXXXX","product":"webspace","instance":"meine-domain.example","nonce":"'"$NONCE"'"}'`;
+  -d '{"key":"VGS-WEB-XXXXX-XXXXX-XXXXX-XXXXX","product":"webspace","instance":"meine-domain.example","nonce":"'"$NONCE"'"}'`;
 
   const verify = `# Antwort-Signatur prüfen (Signierschlüssel = Text, nicht hex-dekodiert)
 PAYLOAD="<valid 1/0>|<reason>|<product>|<status>|<instance>|<nonce>|<ts>"

@@ -75,7 +75,7 @@ export const account = defineMessages({
     /** Einwilligung: Text vor dem Link, Linktext, Text danach. */
     consentPre: "Ich habe die",
     consentLink: "Datenschutzerklärung",
-    consentPost: "gelesen und stimme zu, dass meine Angaben zur Verwaltung meines Kontos verarbeitet werden.",
+    consentPost: "gelesen und stimme zu, dass meine Angaben zur Verwaltung meines Kontos bearbeitet werden.",
     submit: "Konto erstellen",
     submitting: "Konto wird erstellt …",
   },

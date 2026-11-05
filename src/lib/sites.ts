@@ -3,7 +3,6 @@
 // Weitere Sprachen (z. B. FR/IT) kommen später hinzu: Locale erweitern, LOCALES ergänzen, defineMessages bekommt dann weitere Argumente.
 
 export type Locale = "de";
-export type SiteKey = "ch";
 
 export const LOCALES = ["de"] as const satisfies readonly Locale[];
 export const DEFAULT_LOCALE: Locale = "de";
@@ -17,7 +16,6 @@ export type BoardMember = {
 };
 
 export type SiteProfile = {
-  key: SiteKey;
   locale: Locale;
   /** Kanonische Domain ohne "www." */
   domain: string;
@@ -34,7 +32,6 @@ export type SiteProfile = {
 };
 
 export const SITE: SiteProfile = {
-  key: "ch",
   locale: DEFAULT_LOCALE,
   domain: "vylaris.ch",
   name: "VylarisGroup Schweiz",

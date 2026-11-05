@@ -1,6 +1,6 @@
 import { defineMessages, type Locale } from "@/i18n";
 
-/** Öffentliche Beschriftungen für Status, Vorfälle, Kategorien. (Admin bleibt deutsch: src/lib/constants.ts) */
+/** Öffentliche Beschriftungen für Status, Vorfälle, Kategorien (Anzeigenamen für den Admin: src/lib/constants.ts) */
 export const labels = defineMessages({
   status: { OPERATIONAL: "Betriebsbereit", MAINTENANCE: "Wartung", OUTAGE: "Störung" } as Record<string, string>,
   overall: {
@@ -25,7 +25,7 @@ export const labels = defineMessages({
   badge: { comingSoon: "Bald verfügbar" } as Record<string, string>,
   /** Autorennamen werden unverändert aus der DB angezeigt (leer = gespeicherter Name). */
   author: {} as Record<string, string>,
-  ticketCategory: { GENERAL: "Allgemein", B2B_HOSTING: "B2B-Hosting", SECURITY_REPORT: "Security-Report" } as Record<string, string>,
+  ticketCategory: { GENERAL: "Allgemein", MEMBERSHIP: "Mitgliedschaft", B2B_HOSTING: "Web-Tools & Hosting", SECURITY_REPORT: "Security-Report" } as Record<string, string>,
   ticketStatus: { OPEN: "Offen", IN_PROGRESS: "In Bearbeitung", CLOSED: "Geschlossen" } as Record<string, string>,
 });
 

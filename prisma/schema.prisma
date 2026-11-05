@@ -71,7 +71,7 @@ model ContactTicket {
   name         String
   email        String
   subject      String
-  category     String // GENERAL | B2B_HOSTING | SECURITY_REPORT
+  category     String // GENERAL | MEMBERSHIP | B2B_HOSTING | SECURITY_REPORT
   message      String
   status       String        @default("OPEN") // OPEN | IN_PROGRESS | CLOSED
   internalNote String        @default("")
@@ -127,7 +127,7 @@ model User {
   emailVerifiedAt  DateTime?
   disabled         Boolean           @default(false)
   lastLoginAt      DateTime?
-  // Sprache bei der Registrierung (für Mails außerhalb einer Anfrage)
+  // Sprache bei der Registrierung (für Mails ausserhalb einer Anfrage)
   locale           String            @default("de")
   sessionVersion   Int               @default(0) // wird bei Passwortänderung/-reset erhöht und entwertet bestehende Sitzungen
   // Firmenkunde: Nutzer beantragt den Status (PENDING), Admin gibt frei (APPROVED) oder lehnt ab (REJECTED)
@@ -243,7 +243,7 @@ model TicketReply {
 model Product {
   id                  String            @id @default(cuid())
   slug                String            @unique
-  code                String            @unique // 3–4 Großbuchstaben, Präfix der Schlüssel (z. B. WEB)
+  code                String            @unique // 3–4 Grossbuchstaben, Präfix der Schlüssel (z. B. WEB)
   name                String
   description         String            @default("")
   businessOnly        Boolean           @default(false) // Schlüssel nur für freigegebene Firmenkunden
