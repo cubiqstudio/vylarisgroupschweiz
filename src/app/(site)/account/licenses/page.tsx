@@ -4,7 +4,6 @@ import { BusinessBox } from "@/components/licenses/business-box";
 import { ProductCard, type ProductView } from "@/components/licenses/product-card";
 import { Container } from "@/components/ui/section";
 import { getMessages, getSite } from "@/i18n/server";
-import { localized } from "@/i18n";
 import { licenses } from "@/i18n/licenses";
 import { getViewer } from "@/lib/auth";
 import { getLicenseOverview } from "@/lib/licenses";
@@ -33,8 +32,8 @@ export default async function LicensesPage() {
 
   const products: ProductView[] = overview.products.map((p) => ({
     slug: p.slug,
-    name: localized(p, "name", site.locale),
-    description: localized(p, "description", site.locale),
+    name: p.name,
+    description: p.description,
     comingSoon: p.comingSoon,
     manual: p.approvalMode === "MANUAL",
     mode: p.eligibility.mode,

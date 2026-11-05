@@ -1,10 +1,13 @@
+import { ADMIN_ROLE_LABEL } from "@/lib/verein/permissions";
+
 // Ergänzende Darstellungs-Zuordnungen für den Admin-Bereich (Werte/Labels bleiben in @/lib/constants).
 
-export const ROLE_LABEL: Record<string, string> = {
-  OWNER: "Inhaber",
-  ADMIN: "Administrator",
-  EDITOR: "Redakteur",
-};
+export const ROLE_LABEL: Record<string, string> = ADMIN_ROLE_LABEL;
+
+/** Rollenanzeige mehrerer Rollen, z. B. «Kassier/in, Administrator». */
+export function rolesLabel(roles: readonly string[]): string {
+  return roles.map((r) => ROLE_LABEL[r] ?? r).join(", ");
+}
 
 export const INCIDENT_SEVERITY_STYLE: Record<string, string> = {
   MINOR: "bg-amber-500/10 text-amber-300 ring-amber-500/30",

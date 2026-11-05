@@ -10,12 +10,12 @@
  * gewachsen. Statt hunderte Stellen anzufassen, wird die Palette hier für den
  * Hellmodus NEU BELEGT – die Skalen sind also bewusst invertiert bzw. umgedeutet:
  *
- *   zinc-950  Seitenhintergrund        zinc-400  Fließtext
+ *   zinc-950  Seitenhintergrund        zinc-400  Fliesstext
  *   zinc-900  Flächen / Karten         zinc-200  starker Text
  *   zinc-800  Rahmen                   zinc-100  Überschrift
  *   white     stärkster Text (dunkel!) emerald-*  Markenblau (Akzent)
  *
- * Weiße Flächen (Header, Karten, Eingabefelder) werden NICHT mit bg-white
+ * Weisse Flächen (Header, Karten, Eingabefelder) werden NICHT mit bg-white
  * gebaut (das wäre hier dunkel), sondern mit bg-surface.
  * Grün für Statusanzeigen kommt aus der unveränderten green-Skala.
  */
@@ -95,14 +95,14 @@
 html { scroll-behavior: smooth; }
 body {
   background: #f5f9fe; /* zinc-950 (hell) */
-  color: #444444; /* Fließtext wie vylaris.ch */
+  color: #444444; /* Fliesstext wie vylaris.ch */
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 ::selection { background: rgba(42, 102, 217, 0.22); color: #0b1220; }
 
-/* Sanfter Verlauf wie im Hero von vylaris.ch: oben fast weiß, unten kühles Grau. */
+/* Sanfter Verlauf wie im Hero von vylaris.ch: oben fast weiss, unten kühles Grau. */
 .bg-hero {
   background-color: #eef2fa;
   background-image:
@@ -239,49 +239,49 @@ body {
     linear-gradient(180deg, #0f131a 0%, #0b0d11 100%);
 }
 :root[data-theme="dark"] .text-gradient { background-image: linear-gradient(90deg, #7dbaee, #a5b4fc); }
-:root[data-theme="dark"] .prose-vge { color: #c4c9d4; }
-:root[data-theme="dark"] .prose-vge h1,
-:root[data-theme="dark"] .prose-vge h2,
-:root[data-theme="dark"] .prose-vge h3,
-:root[data-theme="dark"] .prose-vge h4,
-:root[data-theme="dark"] .prose-vge strong,
-:root[data-theme="dark"] .prose-vge th { color: #f4f4f5; }
-:root[data-theme="dark"] .prose-vge a { color: #8ab4ff; }
-:root[data-theme="dark"] .prose-vge a:hover { color: #b6cfff; }
-:root[data-theme="dark"] .prose-vge blockquote { border-left-color: #5aa9e6; color: #a1a1aa; }
-:root[data-theme="dark"] .prose-vge code,
-:root[data-theme="dark"] .prose-vge pre,
-:root[data-theme="dark"] .prose-vge th { background: #18181b; border-color: #27272a; }
-:root[data-theme="dark"] .prose-vge hr,
-:root[data-theme="dark"] .prose-vge th,
-:root[data-theme="dark"] .prose-vge td { border-color: #27272a; }
+:root[data-theme="dark"] .prose-vgs { color: #c4c9d4; }
+:root[data-theme="dark"] .prose-vgs h1,
+:root[data-theme="dark"] .prose-vgs h2,
+:root[data-theme="dark"] .prose-vgs h3,
+:root[data-theme="dark"] .prose-vgs h4,
+:root[data-theme="dark"] .prose-vgs strong,
+:root[data-theme="dark"] .prose-vgs th { color: #f4f4f5; }
+:root[data-theme="dark"] .prose-vgs a { color: #8ab4ff; }
+:root[data-theme="dark"] .prose-vgs a:hover { color: #b6cfff; }
+:root[data-theme="dark"] .prose-vgs blockquote { border-left-color: #5aa9e6; color: #a1a1aa; }
+:root[data-theme="dark"] .prose-vgs code,
+:root[data-theme="dark"] .prose-vgs pre,
+:root[data-theme="dark"] .prose-vgs th { background: #18181b; border-color: #27272a; }
+:root[data-theme="dark"] .prose-vgs hr,
+:root[data-theme="dark"] .prose-vgs th,
+:root[data-theme="dark"] .prose-vgs td { border-color: #27272a; }
 :root[data-theme="dark"] :focus-visible { outline-color: #7dbaee; }
 /* Primäre Buttons (bg-ink + text-surface) sind im Dunkelmodus hell, dunkle Flächen (Footer) bleiben dunkel. */
 :root[data-theme="dark"] .bg-ink.text-surface { background-color: var(--color-zinc-100); }
 :root[data-theme="dark"] .bg-ink.text-surface:hover { background-color: var(--color-zinc-300); }
 :root[data-theme="dark"] .ring-ink { --tw-ring-color: var(--color-zinc-100); }
 
-/* Lesbarer Fließtext für Blog/Legal (ohne @tailwindcss/typography) */
-.prose-vge { color: #374151; line-height: 1.75; font-size: 1.0625rem; }
-.prose-vge > * + * { margin-top: 1.1em; }
-.prose-vge h1, .prose-vge h2, .prose-vge h3, .prose-vge h4 { color: #0b1220; font-weight: 650; letter-spacing: -0.01em; line-height: 1.25; }
-.prose-vge h1, .prose-vge h2, .prose-vge h3, .prose-vge h4 { overflow-wrap: break-word; hyphens: auto; }
-.prose-vge h2 { font-size: 1.6rem; margin-top: 2em; }
-.prose-vge h3 { font-size: 1.25rem; margin-top: 1.6em; }
-.prose-vge a { color: #1e40af; text-decoration: underline; text-underline-offset: 3px; }
-.prose-vge a:hover { color: #2a66d9; }
-.prose-vge ul { list-style: disc; padding-left: 1.4em; }
-.prose-vge ol { list-style: decimal; padding-left: 1.4em; }
-.prose-vge li + li { margin-top: 0.4em; }
-.prose-vge strong { color: #0b1220; }
-.prose-vge blockquote { border-left: 3px solid #2a66d9; padding-left: 1em; color: #4b5563; font-style: italic; }
-.prose-vge code { font-family: var(--font-mono); font-size: 0.9em; background: #e9edf5; border: 1px solid #d3d9e4; padding: 0.1em 0.35em; border-radius: 0.375rem; }
-.prose-vge pre { background: #e9edf5; border: 1px solid #d3d9e4; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; }
-.prose-vge pre code { background: none; border: 0; padding: 0; }
-.prose-vge hr { border-color: #d3d9e4; margin: 2em 0; }
-.prose-vge table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
-.prose-vge th, .prose-vge td { border: 1px solid #d3d9e4; padding: 0.5rem 0.75rem; text-align: left; }
-.prose-vge th { background: #e9edf5; color: #0b1220; }
+/* Lesbarer Fliesstext für Blog/Legal (ohne @tailwindcss/typography) */
+.prose-vgs { color: #374151; line-height: 1.75; font-size: 1.0625rem; }
+.prose-vgs > * + * { margin-top: 1.1em; }
+.prose-vgs h1, .prose-vgs h2, .prose-vgs h3, .prose-vgs h4 { color: #0b1220; font-weight: 650; letter-spacing: -0.01em; line-height: 1.25; }
+.prose-vgs h1, .prose-vgs h2, .prose-vgs h3, .prose-vgs h4 { overflow-wrap: break-word; hyphens: auto; }
+.prose-vgs h2 { font-size: 1.6rem; margin-top: 2em; }
+.prose-vgs h3 { font-size: 1.25rem; margin-top: 1.6em; }
+.prose-vgs a { color: #1e40af; text-decoration: underline; text-underline-offset: 3px; }
+.prose-vgs a:hover { color: #2a66d9; }
+.prose-vgs ul { list-style: disc; padding-left: 1.4em; }
+.prose-vgs ol { list-style: decimal; padding-left: 1.4em; }
+.prose-vgs li + li { margin-top: 0.4em; }
+.prose-vgs strong { color: #0b1220; }
+.prose-vgs blockquote { border-left: 3px solid #2a66d9; padding-left: 1em; color: #4b5563; font-style: italic; }
+.prose-vgs code { font-family: var(--font-mono); font-size: 0.9em; background: #e9edf5; border: 1px solid #d3d9e4; padding: 0.1em 0.35em; border-radius: 0.375rem; }
+.prose-vgs pre { background: #e9edf5; border: 1px solid #d3d9e4; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; }
+.prose-vgs pre code { background: none; border: 0; padding: 0; }
+.prose-vgs hr { border-color: #d3d9e4; margin: 2em 0; }
+.prose-vgs table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.prose-vgs th, .prose-vgs td { border: 1px solid #d3d9e4; padding: 0.5rem 0.75rem; text-align: left; }
+.prose-vgs th { background: #e9edf5; color: #0b1220; }
 
 :focus-visible { outline: 2px solid #2a66d9; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
@@ -298,3 +298,16 @@ body {
 .animate-node-pulse { animation: node-pulse 3.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 .animate-glow-pulse { animation: glow-pulse 5s ease-in-out infinite; }
 .animate-float-y { animation: float-y 6s ease-in-out infinite; }
+
+/* Bedienelemente von Druckansichten (Rechnung, Protokoll, Ausweis) erscheinen nicht auf Papier. */
+@media print {
+  .invoice-hide-print {
+    display: none !important;
+  }
+}
+
+/* Scrollbare Tabellen-Container sind Bezugsrahmen für absolut positionierte Hilfselemente (z. B. sr-only in Tabellenzellen).
+   Sonst ragen diese über den Container hinaus und erzeugen auf dem Handy eine waagrechte Seitenleiste. */
+.overflow-x-auto {
+  position: relative;
+}

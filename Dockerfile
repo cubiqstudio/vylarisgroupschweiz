@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # =============================================================================
-# VylarisGroupEurope – Produktions-Image (Next.js 15 standalone + Prisma/PostgreSQL)
+# VylarisGroup Schweiz – Produktions-Image (Next.js 15 standalone + Prisma/PostgreSQL)
 #
 #   deps    -> installiert alle npm-Abhaengigkeiten (inkl. Prisma-CLI und tsx)
 #   builder -> stellt das Schema auf PostgreSQL um, generiert den Prisma-Client
@@ -96,6 +96,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 # 2) Umgestelltes Schema + Seed-Skript.
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+# Der Seed liest den ersten Blogbeitrag aus dieser Datei (reine Daten, ohne Importe).
+COPY --from=builder --chown=nextjs:nodejs /app/src/i18n/blog-seed.ts ./src/i18n/blog-seed.ts
 # 3) Standalone-Server (ueberlagert node_modules mit den getrackten Laufzeit-Dateien,
 #    legt server.js ab), statische Assets und public/.
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

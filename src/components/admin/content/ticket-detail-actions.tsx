@@ -62,7 +62,7 @@ export function TicketStatusControl({
       await api(`${apiBase}/${id}`, { method: "PATCH", body: withMail ? { status: next, notify: true } : { status: next } });
       setCurrent(next);
       toast.success(
-        withMail ? `Status auf „${TICKET_STATUS_LABEL[next]}“ gesetzt. Der Absender wird per E-Mail informiert.` : `Status auf „${TICKET_STATUS_LABEL[next]}“ gesetzt.`,
+        withMail ? `Status auf «${TICKET_STATUS_LABEL[next]}» gesetzt. Der Absender wird per E-Mail informiert.` : `Status auf «${TICKET_STATUS_LABEL[next]}» gesetzt.`,
       );
       router.refresh();
     } catch (e) {
@@ -268,8 +268,8 @@ export function TicketDeleteButton({ id, ticketNumber, backHref }: { id: string;
 export type AssignMember = { id: string; name: string; teamTitle: string | null };
 
 /**
- * Zuständigkeit ändern. Mit `members` (Admin): Auswahl unter allen Teammitgliedern plus „Niemand“.
- * Ohne `members` (Team-Bereich): „Mir zuweisen“ bzw. „Freigeben“ für das angemeldete Teammitglied `meId`.
+ * Zuständigkeit ändern. Mit `members` (Admin): Auswahl unter allen Teammitgliedern plus «Niemand».
+ * Ohne `members` (Team-Bereich): «Mir zuweisen» bzw. «Freigeben» für das angemeldete Teammitglied `meId`.
  */
 export function TicketAssignControl({
   id,

@@ -20,11 +20,9 @@ export const verifySchema = z
 // ---- Admin ----
 export const productSchema = z.object({
   slug: slug,
-  code: z.string().trim().toUpperCase().regex(/^[A-Z]{3,4}$/, "3–4 Großbuchstaben."),
+  code: z.string().trim().toUpperCase().regex(/^[A-Z]{3,4}$/, "3–4 Grossbuchstaben."),
   name: z.string().trim().min(2, "Name angeben.").max(80),
-  nameEn: text(80).nullable().optional(),
   description: text(500).default(""),
-  descriptionEn: text(500).nullable().optional(),
   businessOnly: z.boolean().default(false),
   allowAccountRequest: z.boolean().default(false),
   approvalMode: z.enum(["AUTO", "MANUAL"]).default("AUTO"),

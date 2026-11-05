@@ -26,8 +26,9 @@ import { api, ApiClientError } from "@/lib/api-client";
 import { cn, formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Field, Input, Textarea } from "@/components/ui/form";
-import { EnglishSection } from "@/components/admin/core/english-section";
+import { Field, Input, Select } from "@/components/ui/form";
+import { NEWSLETTER_SEGMENT_LABEL, NEWSLETTER_SEGMENTS } from "@/lib/verein/constants";
+import { segmentLabel } from "@/lib/verein/newsletter-segment";
 import { ConfirmDialog } from "@/components/admin/core/confirm-dialog";
 import { Notice } from "@/components/admin/core/notice";
 import { useToast } from "@/components/admin/core/toast";
@@ -37,8 +38,8 @@ import type { CampaignDetail, CampaignFailure } from "./types";
 type Tab = "write" | "preview";
 type Device = "desktop" | "mobile";
 type Busy = "save" | "test" | "send" | "delete" | null;
-type FieldErrors = Partial<Record<"subject" | "preheader" | "content" | "subjectEn" | "preheaderEn" | "contentEn", string>>;
-type Texts = { subject: string; preheader: string; content: string; subjectEn: string; preheaderEn: string; contentEn: string };
+type FieldErrors = Partial<Record<"subject" | "preheader" | "content" | "segmentTypeId", string>>;
+type Texts = { subject: string; preheader: string; content: string; segment: string; segmentTypeId: string };
 type Progress = { recipientCount: number; sentCount: number; failedCount: number };
 
 const SUBJECT_MAX = 150;
@@ -56,17 +57,21 @@ const HELP: { label: string; code: string }[] = [
   { label: "Trennlinie", code: "---" },
 ];
 
-const snapshot = (t: Texts) => JSON.stringify([t.subject, t.preheader, t.content, t.subjectEn, t.preheaderEn, t.contentEn]);
+const snapshot = (t: Texts) => JSON.stringify([t.subject, t.preheader, t.content, t.segment, t.segmentTypeId]);
 
 export function CampaignEditor({
   campaign,
   activeCount,
+  segmentTypes,
   mailConfigured,
   enabled,
   defaultTestEmail,
 }: {
   campaign?: CampaignDetail;
+  /** Empfängerzahl des gespeicherten Empfängerkreises (bei neuen Kampagnen: alle aktiven Abonnenten) */
   activeCount: number;
+  /** Mitgliedschaftsarten für den Empfängerkreis «Mitglieder einer Mitgliedschaftsart» */
+  segmentTypes: { id: string; name: string }[];
   mailConfigured: boolean;
   enabled: boolean;
   defaultTestEmail: string;
@@ -81,17 +86,17 @@ export function CampaignEditor({
   const [subject, setSubject] = useState(campaign?.subject ?? "");
   const [preheader, setPreheader] = useState(campaign?.preheader ?? "");
   const [content, setContent] = useState(campaign?.content ?? "");
-  const [subjectEn, setSubjectEn] = useState(campaign?.subjectEn ?? "");
-  const [preheaderEn, setPreheaderEn] = useState(campaign?.preheaderEn ?? "");
-  const [contentEn, setContentEn] = useState(campaign?.contentEn ?? "");
+  const [segment, setSegment] = useState(campaign?.segment ?? "ALL");
+  const [segmentTypeId, setSegmentTypeId] = useState(campaign?.segmentTypeId ?? "");
+  const [recipients, setRecipients] = useState(activeCount);
+  const [recipientsState, setRecipientsState] = useState<"idle" | "loading" | "error">("idle");
   const [baseline, setBaseline] = useState(() =>
     snapshot({
       subject: campaign?.subject ?? "",
       preheader: campaign?.preheader ?? "",
       content: campaign?.content ?? "",
-      subjectEn: campaign?.subjectEn ?? "",
-      preheaderEn: campaign?.preheaderEn ?? "",
-      contentEn: campaign?.contentEn ?? "",
+      segment: campaign?.segment ?? "ALL",
+      segmentTypeId: campaign?.segmentTypeId ?? "",
     }),
   );
   const [progress, setProgress] = useState<Progress>({
@@ -117,15 +122,45 @@ export function CampaignEditor({
   const [confirmSend, setConfirmSend] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const texts: Texts = { subject, preheader, content, subjectEn, preheaderEn, contentEn };
+  const texts: Texts = { subject, preheader, content, segment, segmentTypeId };
   const dirty = !readOnly && snapshot(texts) !== baseline;
+  const typeMissing = segment === "MEMBERSHIP_TYPE" && !segmentTypeId;
+  const typeName = segmentTypes.find((t) => t.id === segmentTypeId)?.name;
+  const audience = segmentLabel(segment, typeName);
   const sendBlocker = !mailConfigured
     ? "Es ist kein Mailserver eingerichtet."
     : !enabled
       ? "Der Newsletter ist ausgeschaltet."
-      : activeCount === 0
-        ? "Es gibt noch keine aktiven Abonnenten."
-        : null;
+      : typeMissing
+        ? "Bitte wähle eine Mitgliedschaftsart."
+        : recipients === 0
+          ? segment === "ALL"
+            ? "Es gibt noch keine aktiven Abonnenten."
+            : "In diesem Empfängerkreis gibt es noch keine Abonnenten."
+          : null;
+
+  // Vorschau der Empfängerzahl, sobald der Empfängerkreis wechselt (nur die Zahl, keine Adressen)
+  useEffect(() => {
+    if (readOnly) return;
+    if (segment === "MEMBERSHIP_TYPE" && !segmentTypeId) {
+      setRecipients(0);
+      setRecipientsState("idle");
+      return;
+    }
+    const controller = new AbortController();
+    setRecipientsState("loading");
+    const qs = new URLSearchParams({ segment });
+    if (segment === "MEMBERSHIP_TYPE") qs.set("type", segmentTypeId);
+    api<{ count: number }>(`/api/admin/newsletter/recipients?${qs.toString()}`, { signal: controller.signal })
+      .then((r) => {
+        setRecipients(r.count);
+        setRecipientsState("idle");
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setRecipientsState("error");
+      });
+    return () => controller.abort();
+  }, [segment, segmentTypeId, readOnly]);
 
   // Warnung bei ungespeicherten Änderungen
   useEffect(() => {
@@ -202,9 +237,7 @@ export function CampaignEditor({
         subject: f.subject,
         preheader: f.preheader,
         content: f.content,
-        subjectEn: f.subjectEn,
-        preheaderEn: f.preheaderEn,
-        contentEn: f.contentEn,
+        segmentTypeId: f.segmentTypeId,
       });
       setFormError(Object.keys(f).length > 0 ? "Bitte prüfe die markierten Felder." : err.message);
     } else {
@@ -217,8 +250,7 @@ export function CampaignEditor({
     setErrors({});
     setFormError(null);
     try {
-      // Leere englische Felder werden serverseitig als null gespeichert.
-      const body = { subject, preheader, content, subjectEn, preheaderEn, contentEn };
+      const body = { subject, preheader, content, segment, segmentTypeId: segment === "MEMBERSHIP_TYPE" ? segmentTypeId || null : null };
       if (!id) {
         const created = await api<{ id: string }>("/api/admin/newsletter/campaigns", { method: "POST", body });
         setId(created.id);
@@ -305,7 +337,7 @@ export function CampaignEditor({
     }
   }
 
-  /** Umschließt die Auswahl im Textfeld mit Markdown-Zeichen bzw. setzt ein Präfix am Zeilenanfang. */
+  /** Umschliesst die Auswahl im Textfeld mit Markdown-Zeichen bzw. setzt ein Präfix am Zeilenanfang. */
   function format(kind: "bold" | "italic" | "link" | "list" | "heading" | "quote") {
     const el = contentRef.current;
     if (!el || readOnly) return;
@@ -345,7 +377,7 @@ export function CampaignEditor({
     });
   }
 
-  const sendLabel = `Jetzt an ${activeCount.toLocaleString("de-DE")} Abonnenten senden`;
+  const sendLabel = `Jetzt an ${recipients.toLocaleString("de-CH")} ${recipients === 1 ? "Abonnent" : "Abonnenten"} senden`;
   const total = progress.recipientCount;
   const done = progress.sentCount + progress.failedCount;
 
@@ -377,7 +409,7 @@ export function CampaignEditor({
                 maxLength={SUBJECT_MAX}
                 readOnly={readOnly}
                 aria-invalid={Boolean(errors.subject)}
-                placeholder="z. B. Neues bei VylarisGroupEurope"
+                placeholder="z. B. Neues bei der VylarisGroup"
                 autoComplete="off"
               />
             </Field>
@@ -515,7 +547,7 @@ export function CampaignEditor({
                     </div>
                   ))}
                   <p className="text-xs text-zinc-500 sm:col-span-2">
-                    Rohes HTML und Bilder werden nicht übernommen. Der Name der Empfängerin bzw. des Empfängers steht automatisch in der Anrede, der Abmelde-Link in der Fußzeile.
+                    Rohes HTML und Bilder werden nicht übernommen. Der Name der Empfängerin bzw. des Empfängers steht automatisch in der Anrede, der Abmelde-Link in der Fusszeile.
                   </p>
                 </dl>
               </details>
@@ -554,54 +586,6 @@ export function CampaignEditor({
           </div>
         </Card>
 
-        <EnglishSection
-          filled={Boolean(campaign?.subjectEn || campaign?.preheaderEn || campaign?.contentEn)}
-          hasError={Boolean(errors.subjectEn || errors.preheaderEn || errors.contentEn)}
-          hint="Englischsprachige Abonnenten erhalten nur Kampagnen mit englischem Inhalt. Ohne englischen Inhalt bekommen sie diese Kampagne nicht."
-        >
-          <Field label="Betreff (Englisch)" htmlFor={`${uid}-subject-en`} error={errors.subjectEn} hint={`${subjectEn.length}/${SUBJECT_MAX} Zeichen`}>
-            <Input
-              id={`${uid}-subject-en`}
-              value={subjectEn}
-              onChange={(e) => setSubjectEn(e.target.value)}
-              maxLength={SUBJECT_MAX}
-              readOnly={readOnly}
-              lang="en"
-              aria-invalid={Boolean(errors.subjectEn)}
-              autoComplete="off"
-            />
-          </Field>
-          <Field
-            label="Vorschautext (Englisch)"
-            htmlFor={`${uid}-preheader-en`}
-            error={errors.preheaderEn}
-            hint={`${preheaderEn.length}/${PREHEADER_MAX} Zeichen`}
-          >
-            <Input
-              id={`${uid}-preheader-en`}
-              value={preheaderEn}
-              onChange={(e) => setPreheaderEn(e.target.value)}
-              maxLength={PREHEADER_MAX}
-              readOnly={readOnly}
-              lang="en"
-              aria-invalid={Boolean(errors.preheaderEn)}
-              autoComplete="off"
-            />
-          </Field>
-          <Field label="Inhalt (Englisch, Markdown)" htmlFor={`${uid}-content-en`} error={errors.contentEn}>
-            <Textarea
-              id={`${uid}-content-en`}
-              value={contentEn}
-              onChange={(e) => setContentEn(e.target.value)}
-              readOnly={readOnly}
-              rows={14}
-              lang="en"
-              aria-invalid={Boolean(errors.contentEn)}
-              className="min-h-64 font-mono text-[13px] read-only:bg-zinc-900"
-            />
-          </Field>
-        </EnglishSection>
-
         {failures.length > 0 && (
           <Card className="p-4 sm:p-5">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -632,9 +616,46 @@ export function CampaignEditor({
 
           {status === "DRAFT" && (
             <div className="mt-4 space-y-3">
-              <p className="text-sm text-zinc-400">
-                Empfänger: <strong className="font-semibold text-white">{activeCount.toLocaleString("de-DE")}</strong> aktive Abonnenten
+              <fieldset className="space-y-3" disabled={Boolean(busy)}>
+                <legend className="sr-only">Empfängerkreis</legend>
+                <Field label="Empfängerkreis" htmlFor={`${uid}-segment`}>
+                  <Select id={`${uid}-segment`} value={segment} onChange={(e) => setSegment(e.target.value)}>
+                    {NEWSLETTER_SEGMENTS.map((s) => (
+                      <option key={s} value={s}>
+                        {NEWSLETTER_SEGMENT_LABEL[s]}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                {segment === "MEMBERSHIP_TYPE" && (
+                  <Field label="Mitgliedschaftsart" htmlFor={`${uid}-segment-type`} error={errors.segmentTypeId}>
+                    <Select
+                      id={`${uid}-segment-type`}
+                      value={segmentTypeId}
+                      onChange={(e) => setSegmentTypeId(e.target.value)}
+                      aria-invalid={Boolean(errors.segmentTypeId)}
+                    >
+                      <option value="">Bitte wählen</option>
+                      {segmentTypes.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                )}
+              </fieldset>
+              <p className="text-sm text-zinc-400" aria-live="polite">
+                Empfänger:{" "}
+                <strong className="font-semibold text-white">{recipientsState === "loading" ? "…" : recipients.toLocaleString("de-CH")}</strong>{" "}
+                {segment === "ALL" ? "aktive Abonnenten" : "Abonnenten aus dem gewählten Kreis"}
+                {recipientsState === "error" && <span className="block text-xs text-amber-300">Die Empfängerzahl konnte nicht geladen werden.</span>}
               </p>
+              {segment !== "ALL" && (
+                <p className="text-xs text-zinc-500">
+                  Es erhalten nur Mitglieder den Newsletter, die sich angemeldet und per Link bestätigt haben und deren Newsletter-Adresse mit der Adresse im Mitgliederverzeichnis übereinstimmt. Die Abmeldung gilt immer.
+                </p>
+              )}
               {sendBlocker && (
                 <Notice variant="warning">
                   {sendBlocker}{" "}
@@ -665,6 +686,9 @@ export function CampaignEditor({
 
           {status !== "DRAFT" && (
             <div className="mt-4 space-y-3">
+              <p className="text-sm text-zinc-400">
+                Empfängerkreis: <strong className="font-semibold text-white">{audience}</strong>
+              </p>
               <SendProgress sent={progress.sentCount} failed={progress.failedCount} total={total} />
               <dl className="grid grid-cols-3 gap-2 text-center">
                 {[
@@ -674,7 +698,7 @@ export function CampaignEditor({
                 ].map(([label, value, tone]) => (
                   <div key={label as string} className="rounded-xl bg-zinc-950 px-2 py-2.5 ring-1 ring-inset ring-zinc-800">
                     <dt className="text-xs text-zinc-500">{label}</dt>
-                    <dd className={cn("mt-0.5 text-lg font-semibold tabular-nums", tone as string)}>{(value as number).toLocaleString("de-DE")}</dd>
+                    <dd className={cn("mt-0.5 text-lg font-semibold tabular-nums", tone as string)}>{(value as number).toLocaleString("de-CH")}</dd>
                   </div>
                 ))}
               </dl>
@@ -682,7 +706,7 @@ export function CampaignEditor({
                 {status === "SENDING"
                   ? stalled
                     ? "Der Versand scheint unterbrochen zu sein."
-                    : `${done.toLocaleString("de-DE")} von ${total.toLocaleString("de-DE")} verarbeitet …`
+                    : `${done.toLocaleString("de-CH")} von ${total.toLocaleString("de-CH")} verarbeitet …`
                   : status === "SENT"
                     ? `Versendet am ${formatDateTime(sentAt)}.`
                     : "Der Versand wurde nicht vollständig abgeschlossen."}
@@ -729,7 +753,7 @@ export function CampaignEditor({
         title={status === "DRAFT" ? "Kampagne jetzt senden?" : "Versand fortsetzen?"}
         description={
           status === "DRAFT"
-            ? `„${subject.trim() || "Ohne Betreff"}“ wird an ${activeCount.toLocaleString("de-DE")} aktive Abonnenten gesendet. Das kann nicht rückgängig gemacht werden.`
+            ? `«${subject.trim() || "Ohne Betreff"}» wird an ${recipients.toLocaleString("de-CH")} Abonnenten gesendet (${audience}). Das kann nicht rückgängig gemacht werden.`
             : "Offene und fehlgeschlagene Zustellungen werden erneut versucht. Wer die Mail schon erhalten hat, bekommt sie nicht noch einmal."
         }
         confirmLabel={status === "DRAFT" ? "Jetzt senden" : "Fortsetzen"}

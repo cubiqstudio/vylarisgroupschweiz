@@ -2,13 +2,12 @@
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
-import { useLocale } from "@/i18n/client";
 import { cn } from "@/lib/utils";
 
 /**
  * Modaler Dialog auf Basis von <dialog>.showModal(): der Browser stellt Fokusfalle,
  * Inertness des Hintergrunds und Fokus-Rückgabe bereit. Escape und Klick auf den
- * Hintergrund schließen (sofern `dismissible`). Kinder werden nur gerendert, solange offen.
+ * Hintergrund schliessen (sofern `dismissible`). Kinder werden nur gerendert, solange offen.
  */
 export function Modal({
   open,
@@ -30,7 +29,6 @@ export function Modal({
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descId = useId();
-  const closeLabel = useLocale() === "en" ? "Close dialog" : "Dialog schließen";
 
   useEffect(() => {
     const el = ref.current;
@@ -39,7 +37,7 @@ export function Modal({
       if (!el.open) {
         el.showModal();
         // React-`autoFocus` greift hier nicht (der Dialog ist beim Mounten noch geschlossen):
-        // gewünschtes Element selbst fokussieren, sonst landet der Fokus auf dem Schließen-Button.
+        // gewünschtes Element selbst fokussieren, sonst landet der Fokus auf dem Schliessen-Button.
         const target = el.querySelector<HTMLElement>("[data-autofocus], input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])");
         target?.focus();
       }
@@ -87,7 +85,7 @@ export function Modal({
               <button
                 type="button"
                 onClick={onClose}
-                aria-label={closeLabel}
+                aria-label="Dialog schliessen"
                 className="-mr-1.5 -mt-1 rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
               >
                 <X className="h-5 w-5" aria-hidden="true" />

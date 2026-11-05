@@ -83,20 +83,20 @@ secrets_absent() { ! printf '%s' "$OUT" | grep -qF -e "$TOK" -e "$(envget CLOUDF
 
 echo "A. Installation im Cloudflare-Modus"
 start_mock
-inst --yes --mode cloudflare --admin-email admin@vylaris.eu
+inst --yes --mode cloudflare --admin-email admin@vylaris.ch
 check "Exit-Code 0" test "$RC" -eq 0
 check "COMPOSE_FILE = Basis + Cloudflare-Overlay" test "$(envget COMPOSE_FILE)" = "docker-compose.yml:docker-compose.cloudflare.yml"
-check "DOMAIN/SITE_URL = vylaris.eu" bash -c "[ \"$(envget DOMAIN)\" = vylaris.eu ] && [ \"$(envget SITE_URL)\" = https://vylaris.eu ]"
+check "DOMAIN/SITE_URL = vylaris.ch" bash -c "[ \"$(envget DOMAIN)\" = vylaris.ch ] && [ \"$(envget SITE_URL)\" = https://vylaris.ch ]"
 check "COOKIE_SECURE=true, APP_BIND=127.0.0.1" bash -c "[ \"$(envget COOKIE_SECURE)\" = true ] && [ \"$(envget APP_BIND)\" = 127.0.0.1 ]"
-check "CLOUDFLARE_TUNNEL_TOKEN und CLOUDFLARE_DOMAINS gesetzt" bash -c "[ -n \"$(envget CLOUDFLARE_TUNNEL_TOKEN)\" ] && [ \"$(envget CLOUDFLARE_DOMAINS)\" = 'vylaris.eu vylaris.de vylaris.net' ]"
+check "CLOUDFLARE_TUNNEL_TOKEN gesetzt" bash -c "[ -n \"$(envget CLOUDFLARE_TUNNEL_TOKEN)\" ]"
+check "Impressum-Vorgaben des Vereins in der .env" bash -c "[ \"$(envget LEGAL_COUNTRY)\" = Schweiz ] && [ \"$(envget LEGAL_ZIP_CITY)\" = '9410 Heiden (AR)' ] && [ \"$(envget CONTACT_EMAIL)\" = support@vylaris.ch ]"
 check ".env hat Rechte 600" test "$(stat -c %a "$PROJ/.env")" = 600
 check "Container mit --build --remove-orphans gestartet" docker_has "compose up -d --build --remove-orphans"
-check "Mock: 6 DNS-Einträge, 1 Tunnel, kein vylaris.at" bash -c "state_json=\$(curl -s --noproxy '*' '$BASE/__state'); echo \"\$state_json\" | jq -e '([.dns[][]] | length) == 6 and (.tunnels | length) == 1' && ! echo \"\$state_json\" | grep -q 'vylaris.at'"
-check "Zusammenfassung nennt alle drei Adressen" bash -c "printf '%s' \"\$1\" | grep -q 'https://vylaris.eu' && printf '%s' \"\$1\" | grep -q 'https://vylaris.de' && printf '%s' \"\$1\" | grep -q 'https://vylaris.net'" _ "$OUT"
-check "Hinweis: vylaris.at offline" out_has "vylaris.at ist noch offline"
+check "Mock: 2 DNS-Einträge (vylaris.ch, www), 1 Tunnel" bash -c "curl -s --noproxy '*' '$BASE/__state' | jq -e '([.dns[][]] | length) == 2 and (.tunnels | length) == 1'"
+check "Zusammenfassung nennt die Adresse" out_has "https://vylaris.ch"
 check "keine Caddy-/DNS-/Port-Prüfung" bash -c "! printf '%s' \"\$1\" | grep -qE 'DNS-Einstellung|Ports 80 und 443'" _ "$OUT"
 check "Token weder in Ausgabe noch in .env" secrets_absent
-check "SEED_BASE_DOMAIN = Hauptdomain" test "$(envget SEED_BASE_DOMAIN)" = vylaris.eu
+check "kein Rest einer Mehrfach-Domain-Konfiguration in der .env" bash -c "! grep -qE 'CLOUDFLARE_DOMAINS|NET_CONTACT_EMAIL' '$PROJ/.env'"
 check "Hinweise nennen den Installer-Pfad statt \$0 (sudo …/install.sh update)" out_has "sudo $PROJ/install.sh update"
 check "kein falscher Hinweis, /admin gebe es nur auf der Hauptdomain" bash -c "! printf '%s' \"\$1\" | grep -q 'gibt es nur auf'" _ "$OUT"
 
@@ -119,7 +119,7 @@ rm -f "$PROJ/.env"
 inst --yes --mode caddy --domain www.example.org --email admin@example.org --admin-email admin@example.org --skip-dns-check --staging
 check "Exit-Code 0" test "$RC" -eq 0
 check "COMPOSE_FILE = Basis + HTTPS-Overlay" test "$(envget COMPOSE_FILE)" = "docker-compose.yml:docker-compose.https.yml"
-check "ACME_EMAIL und DOMAIN gesetzt" bash -c "[ \"$(envget ACME_EMAIL)\" = admin@example.org ] && [ \"$(envget DOMAIN)\" = www.example.org ]"
+check "ACME_EMAIL und DOMAIN gesetzt (www wird abgeschnitten)" bash -c "[ \"$(envget ACME_EMAIL)\" = admin@example.org ] && [ \"$(envget DOMAIN)\" = example.org ]"
 check "Start ohne --remove-orphans" docker_lacks "remove-orphans"
 check "Ports werden geprüft" out_has "Ports 80 und 443 sind frei"
 check "kein Cloudflare-Token verlangt" bash -c "! printf '%s' \"\$1\" | grep -qi 'Cloudflare-API-Token'" _ "$OUT"
@@ -131,7 +131,7 @@ check "Start ohne --remove-orphans" docker_lacks "remove-orphans"
 
 echo "F. Umstellen von Caddy auf Cloudflare per 'install.sh cloudflare'"
 start_mock
-inst cloudflare
+inst cloudflare --domain vylaris.ch
 check "Exit-Code 0" test "$RC" -eq 0
 check "COMPOSE_FILE umgestellt" test "$(envget COMPOSE_FILE)" = "docker-compose.yml:docker-compose.cloudflare.yml"
 check "Caddy wird als Waise entfernt (--remove-orphans)" docker_has "--remove-orphans"
@@ -140,19 +140,19 @@ check "Hinweis auf Umstellung" out_has "Caddy gestoppt"
 echo "G. Konflikt mit vorhandenem DNS-Eintrag (nicht interaktiv)"
 start_mock
 rm -f "$PROJ/.env"
-curl -s --noproxy '*' -X POST -d '{"zone":"vylaris.net","type":"A","name":"www.vylaris.net","content":"192.0.2.55"}' "$BASE/__seed_dns" >/dev/null
-inst --yes --mode cloudflare --admin-email admin@vylaris.eu
+curl -s --noproxy '*' -X POST -d '{"zone":"vylaris.ch","type":"A","name":"www.vylaris.ch","content":"192.0.2.55"}' "$BASE/__seed_dns" >/dev/null
+inst --yes --mode cloudflare --admin-email admin@vylaris.ch
 check "bricht ab (Exit-Code ≠ 0)" test "$RC" -ne 0
-check "Meldung nennt den Konflikt" out_has "www.vylaris.net: A 192.0.2.55"
+check "Meldung nennt den Konflikt" out_has "www.vylaris.ch: A 192.0.2.55"
 check "COMPOSE_FILE nicht auf Cloudflare umgestellt" bash -c "! grep -q '^COMPOSE_FILE=.*cloudflare' '$PROJ/.env'"
 check "Container nicht gestartet" docker_lacks "compose up"
-inst --yes --mode cloudflare --admin-email admin@vylaris.eu --replace
+inst --yes --mode cloudflare --admin-email admin@vylaris.ch --replace
 check "mit --replace: Exit-Code 0" test "$RC" -eq 0
 
 echo "H. Ohne Token (nicht interaktiv)"
 start_mock
 rm -f "$PROJ/.env"
-TEST_API_TOKEN="" inst --yes --mode cloudflare --admin-email admin@vylaris.eu
+TEST_API_TOKEN="" inst --yes --mode cloudflare --admin-email admin@vylaris.ch
 check "Abbruch mit klarer Meldung" bash -c "[ $RC -ne 0 ] && printf '%s' \"\$1\" | grep -q 'CLOUDFLARE_API_TOKEN'" _ "$OUT"
 check "Container nicht gestartet" docker_lacks "compose up"
 

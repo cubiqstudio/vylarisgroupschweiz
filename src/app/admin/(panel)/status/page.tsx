@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { db } from "@/lib/db";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { getOverallStatus, OVERALL_HEADLINE } from "@/lib/status";
 import { STATUS_STYLE } from "@/lib/constants";
 import { formatDateTime } from "@/lib/utils";
@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Status" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminStatusPage({ searchParams }: { searchParams: Promise<{ new?: string | string[] }> }) {
-  await requireAdminPage();
+  await requireModulePage("website");
   const sp = await searchParams;
   const openNew = (Array.isArray(sp.new) ? sp.new[0] : sp.new) === "incident";
 

@@ -11,11 +11,10 @@ export class ApiClientError extends Error {
   }
 }
 
-/** Standardmeldungen des Clients in der Sprache der Seite (<html lang>); Servermeldungen kommen bereits übersetzt an. */
-const isEnglish = () => typeof document !== "undefined" && document.documentElement.lang === "en";
+/** Standardmeldungen des Clients, falls der Server keine eigene Meldung mitliefert. */
 const defaults = {
-  network: () => (isEnglish() ? "Network error – please check your connection." : "Netzwerkfehler – bitte Verbindung prüfen."),
-  failed: (status: number) => (isEnglish() ? `Request failed (${status}).` : `Anfrage fehlgeschlagen (${status}).`),
+  network: () => "Netzwerkfehler – bitte Verbindung prüfen.",
+  failed: (status: number) => `Anfrage fehlgeschlagen (${status}).`,
 };
 
 export async function api<T = unknown>(

@@ -2,17 +2,17 @@
 // Beispiel-Client für die Prüf-API (POST /api/licenses/verify). Benötigt Node 18+ (nur node:crypto und fetch).
 //
 // Umgebungsvariablen:
-//   API_BASE      Basis-URL der Seite, z. B. https://vylaris.eu          (HTTPS ist Pflicht)
-//   API_TOKEN     API-Token (vgk_…) aus dem Admin unter "API-Zugänge"
+//   API_BASE      Basis-URL der Seite, z. B. https://vylaris.ch          (HTTPS ist Pflicht)
+//   API_TOKEN     API-Token (vgsk_…) aus dem Admin unter "API-Zugänge"
 //   SIGNING_KEY   Signierschlüssel (64 Hex-Zeichen) – wird beim Anlegen des Zugangs einmalig angezeigt
 //   PRODUCT       Produkt-Slug, z. B. webspace oder autoinstaller
-//   LICENSE_KEY   Lizenzschlüssel, z. B. VG-WEB-XXXXX-XXXXX-XXXXX-XXXXX
+//   LICENSE_KEY   Lizenzschlüssel, z. B. VGS-WEB-XXXXX-XXXXX-XXXXX-XXXXX
 //   INSTANCE      Kennung der Installation (z. B. Domain); beim ersten Prüfen wird der Schlüssel daran gebunden
 //   MAX_SKEW      optional: erlaubte Zeitabweichung in Sekunden (Standard 300)
 //
 // Aufruf:
-//   API_BASE=https://vylaris.eu API_TOKEN=vgk_… SIGNING_KEY=… PRODUCT=webspace \
-//   LICENSE_KEY=VG-WEB-… INSTANCE=meine-domain.example node scripts/license-client-example.mjs
+//   API_BASE=https://vylaris.ch API_TOKEN=vgsk_… SIGNING_KEY=… PRODUCT=webspace \
+//   LICENSE_KEY=VGS-WEB-… INSTANCE=meine-domain.example node scripts/license-client-example.mjs
 //
 // Exit-Code: 0 = Lizenz gültig, 1 = Lizenz ungültig, 2 = Fehler (Netzwerk, Token, Signatur, Konfiguration …)
 //

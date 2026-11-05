@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { PageTitle } from "@/components/admin/core/page-title";
 import { ServiceForm } from "@/components/admin/core/service-form";
 import { toServiceDTO } from "@/components/admin/core/serialize";
@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Service bearbeiten" };
 export const dynamic = "force-dynamic";
 
 export default async function EditServicePage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminPage();
+  await requireModulePage("website");
   const { id } = await params;
   const service = await db.saasService.findUnique({ where: { id } });
   if (!service) notFound();

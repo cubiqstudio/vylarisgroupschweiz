@@ -9,11 +9,8 @@ export const PATCH = handle(async (req: Request, { params }: IdContext) => {
   await requireAdmin(req);
   const { id } = await params;
   const patch = await parsePatch(req, productSchema.partial());
-  const data: Record<string, unknown> = { ...patch };
-  if ("nameEn" in patch) data.nameEn = patch.nameEn || null;
-  if ("descriptionEn" in patch) data.descriptionEn = patch.descriptionEn || null;
   if (!(await db.product.findUnique({ where: { id }, select: { id: true } }))) notFound("Produkt");
-  return adminOk(await db.product.update({ where: { id }, data }));
+  return adminOk(await db.product.update({ where: { id }, data: patch }));
 });
 
 export const DELETE = handle(async (req: Request, { params }: IdContext) => {

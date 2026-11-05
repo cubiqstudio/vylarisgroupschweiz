@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { handle, parseJson, requireAdmin } from "@/lib/api";
 import { serializeCampaign } from "@/lib/newsletter";
+import { resolveSegmentInput } from "@/lib/verein/newsletter-segment-data";
 import { campaignSchema } from "@/lib/validation";
 import { adminOk } from "../../../_lib/http";
 
@@ -15,14 +16,14 @@ export const GET = handle(async (req: Request) => {
 export const POST = handle(async (req: Request) => {
   await requireAdmin(req);
   const input = await parseJson(req, campaignSchema);
+  const selection = await resolveSegmentInput(input.segment, input.segmentTypeId);
   const campaign = await db.newsletterCampaign.create({
     data: {
       subject: input.subject,
       preheader: input.preheader,
       content: input.content,
-      subjectEn: input.subjectEn,
-      preheaderEn: input.preheaderEn,
-      contentEn: input.contentEn,
+      segment: selection.segment,
+      segmentTypeId: selection.segmentTypeId,
       status: "DRAFT",
     },
   });

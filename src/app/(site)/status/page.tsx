@@ -16,7 +16,6 @@ import {
   PastIncident,
   type IncidentData,
 } from "@/components/status/incident-card";
-import { localized } from "@/i18n";
 import { labelFor, metricLocation, metricName } from "@/i18n/labels";
 import { getLocale, getMessages, getSite } from "@/i18n/server";
 import { status as messages } from "@/i18n/status";
@@ -38,14 +37,12 @@ const PAST_DAYS = 90;
 const incidentSelect = {
   id: true,
   title: true,
-  titleEn: true,
   body: true,
-  bodyEn: true,
   severity: true,
   status: true,
   startedAt: true,
   resolvedAt: true,
-  service: { select: { name: true, nameEn: true, slug: true } },
+  service: { select: { name: true, slug: true } },
 } as const;
 
 async function load() {
@@ -56,12 +53,11 @@ async function load() {
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       }),
       db.saasService.findMany({
-        // Angekündigte Dienste („Bald verfügbar“) haben noch keinen Betriebsstatus.
+        // Angekündigte Dienste («Bald verfügbar») haben noch keinen Betriebsstatus.
         where: { comingSoon: false },
         select: {
           id: true,
           name: true,
-          nameEn: true,
           slug: true,
           category: true,
           status: true,
@@ -279,7 +275,7 @@ export default async function StatusPage() {
                             href={`/services#${s.slug}`}
                             className="font-medium text-white underline-offset-4 hover:text-emerald-300 hover:underline"
                           >
-                            {localized(s, "name", locale)}
+                            {s.name}
                           </Link>
                           <p className="mt-1 text-xs text-zinc-500">
                             {labelFor("category", s.category, locale)}
@@ -294,7 +290,7 @@ export default async function StatusPage() {
                         <UptimeMeter
                           value={s.uptime}
                           status={s.status}
-                          label={localized(s, "name", locale)}
+                          label={s.name}
                         />
                       </li>
                     ))}

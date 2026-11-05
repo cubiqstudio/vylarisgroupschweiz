@@ -1,8 +1,19 @@
 // Struktur der Allianz. Einzige Quelle für die Fakten der Seite /allianz – Namen, Leitung, Domain und Status hier anpassen.
-// Die sprachabhängigen Texte (Region, Beschreibung, Aufgabe) stehen in src/i18n/allianz.ts, indexiert nach dem Namen.
+// Die Texte (Region, Beschreibung, Aufgabe) stehen in src/i18n/allianz.ts, indexiert nach dem Namen.
+// Diese Website ist der Schweizer Ursprungsverein. Alle übrigen Einheiten sind reiner Inhalt der Seite: Sie werden nur beschrieben
+// und höchstens als normale externe Links gezeigt, es gibt keine technische Verbindung zu ihnen.
+
+/** Die europäische Zweitstelle (eigenständige Firma, getrennt vom Verein). */
+export const europe = {
+  name: "VylarisGroupEurope",
+  domain: "vylaris.eu",
+  url: "https://vylaris.eu",
+  leader: { name: "Lucas Wilms", company: "CircleUp-Wilms Webhosting & IT-Services" },
+} as const;
+
 export type Branch = {
   name: string;
-  /** Region in deutscher Schreibweise (Rückfall, falls das Wörterbuch keinen Eintrag hat). */
+  /** Region als Rückfall, falls das Wörterbuch keinen Eintrag hat. */
   region: string;
   /** geplant = Domain noch nicht online, aktiv = Niederlassung und Domain sind online. */
   status: "geplant" | "aktiv";
@@ -23,19 +34,17 @@ export const branches: Branch[] = [
     name: "VylarisGroupGermany",
     region: "Deutschland",
     status: "aktiv",
-    lead: "Florian Brandt",
     domain: "vylaris.de",
   },
   {
     name: "VylarisGroupAmerica",
-    region: "USA · Phoenix, Arizona",
+    region: "Nordamerika",
     status: "aktiv",
-    lead: "Sven Thompson",
     domain: "vylaris.net",
   },
 ];
 
-/** Gemeinsame Einheiten unter VylarisGroupEurope und der Allianz (zwischen Zentrale und Niederlassungen). */
+/** Gemeinsame Einheiten der Allianz (zwischen Zweitstelle und Niederlassungen). */
 export type Unit = {
   name: string;
   /** aktiv = besteht und ist online, geplant = angekündigt */
@@ -50,16 +59,12 @@ export const units: Unit[] = [
 ];
 
 /**
- * Eckdaten des Rechenzentrums von VylarisData (Quelle: vylarisdata.com, Stand November 2026). Den Live-Stand zeigt vylarisdata.com/infrastruktur;
- * bei Änderungen hier anpassen. "state": ok = im Betrieb, building = im Aufbau, maintenance = in Wartung, planned = geplant.
+ * Bausteine des Rechenzentrums von VylarisData. Zahlen und ein Stand-Datum stehen bewusst nicht hier, solange der Auftraggeber
+ * sie nicht bestätigt hat; den Live-Stand zeigt vylarisdata.com/infrastruktur. "state": ok = im Betrieb, building = im Aufbau, maintenance = in Wartung, planned = geplant.
  */
 export const dataCenter = {
   url: "https://vylarisdata.com",
   statusUrl: "https://vylarisdata.com/infrastruktur/",
-  asOf: "2026-11",
-  servers: 10,
-  ssdTb: 250,
-  expansion: { ssdServers: 4, ssdTbEach: 120, hddTb: 500 },
   components: [
     { id: "serversInternal", state: "ok" },
     { id: "serversExternal", state: "ok" },

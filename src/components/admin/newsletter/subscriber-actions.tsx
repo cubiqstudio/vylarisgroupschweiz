@@ -10,7 +10,7 @@ import { useToast } from "@/components/admin/core/toast";
 
 type Action = "activate" | "unsubscribe" | "delete";
 
-/** Aktionen je Abonnent: manuell aktivieren/abmelden und DSGVO-Löschung (jeweils mit Bestätigung). */
+/** Aktionen je Abonnent: manuell aktivieren/abmelden und Löschung auf Wunsch der betroffenen Person (jeweils mit Bestätigung). */
 export function SubscriberActions({ id, email, status }: { id: string; email: string; status: string }) {
   const router = useRouter();
   const toast = useToast();
@@ -51,7 +51,7 @@ export function SubscriberActions({ id, email, status }: { id: string; email: st
     },
     delete: {
       title: "Abonnent endgültig löschen?",
-      description: `${email} wird samt Zustellprotokoll unwiderruflich gelöscht (Löschung nach Art. 17 DSGVO).`,
+      description: `${email} wird samt Zustellprotokoll unwiderruflich gelöscht (Löschung auf Wunsch der betroffenen Person).`,
       label: "Löschen",
       danger: true,
     },

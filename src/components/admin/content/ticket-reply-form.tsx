@@ -106,7 +106,7 @@ export function TicketReplyForm({
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p id={`${uid}-count`} className={cn("text-xs tabular-nums", message.length > MAX * 0.95 ? "text-amber-400" : "text-zinc-500")}>
-          {message.length.toLocaleString("de-DE")} / {MAX.toLocaleString("de-DE")} · Strg + Enter sendet
+          {message.length.toLocaleString("de-CH")} / {MAX.toLocaleString("de-CH")} · Strg + Enter sendet
         </p>
         <Button type="submit" disabled={!canSend}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}

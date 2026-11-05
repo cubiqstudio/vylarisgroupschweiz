@@ -1,6 +1,6 @@
 // Tests für die reinen Funktionen aus src/lib/licenses.ts (ohne Server, ohne Datenbank).
 // Aufruf:  npx tsx scripts/test/license-lib.test.mts
-// "server-only" wirft beim Import außerhalb von Next.js; es wird deshalb vor dem Import durch ein leeres Modul ersetzt.
+// "server-only" wirft beim Import ausserhalb von Next.js; es wird deshalb vor dem Import durch ein leeres Modul ersetzt.
 // Der Prisma-Client wird beim Import nur angelegt, aber nie verbunden – es findet kein Datenbankzugriff statt.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
@@ -29,7 +29,7 @@ const {
   eligibilityFor,
 } = await import("../../src/lib/licenses.ts");
 
-const FORMAT = /^VG-[A-Z]{3,4}-[A-HJ-NP-Z2-9]{5}(-[A-HJ-NP-Z2-9]{5}){3}$/;
+const FORMAT = /^VGS-[A-Z]{3,4}-[A-HJ-NP-Z2-9]{5}(-[A-HJ-NP-Z2-9]{5}){3}$/;
 
 /** Führt fn mit einem anderen AUTH_SECRET aus und stellt den alten Wert wieder her. */
 function withSecret<T>(secret: string, fn: () => T): T {
@@ -46,12 +46,12 @@ test("generateKey: Format und Produktcode", () => {
   for (const code of ["WEB", "AIN", "abcd"]) {
     const k = generateKey(code);
     assert.match(k, FORMAT);
-    assert.ok(k.startsWith(`VG-${code.toUpperCase()}-`));
+    assert.ok(k.startsWith(`VGS-${code.toUpperCase()}-`));
   }
-  // VG- + Code + 4 Gruppen à 5 Zeichen = 20 Zeichen Zufall (je 5 Bit = 100 Bit)
+  // VGS- + Code + 4 Gruppen à 5 Zeichen = 20 Zeichen Zufall (je 5 Bit = 100 Bit)
   assert.equal(
     generateKey("WEB")
-      .replace(/^VG-WEB-/, "")
+      .replace(/^VGS-WEB-/, "")
       .replace(/-/g, "").length,
     20,
   );
@@ -81,18 +81,18 @@ test("normalizeKey: ungültige Formate werden abgelehnt", () => {
   const bad: unknown[] = [
     "",
     "   ",
-    "VG-WEB",
+    "VGS-WEB",
     "XX-WEB-AAAAA-AAAAA-AAAAA-AAAAA",
-    "VG-WE-AAAAA-AAAAA-AAAAA-AAAAA", // Code zu kurz
-    "VG-WEBSP-AAAAA-AAAAA-AAAAA-AAAAA", // Code zu lang
-    "VG-WEB-AAAAA-AAAAA-AAAAA", // Gruppe fehlt
-    "VG-WEB-AAAAA-AAAAA-AAAAA-AAAAA-AAAAA", // Gruppe zu viel
-    "VG-WEB-AAAAA-AAAAA-AAAAA-AAAA", // Gruppe zu kurz
-    "VG-WEB-AAAAA-AAAAA-AAAAA-AAAAAA", // Gruppe zu lang
-    "VG-WEB-AAAAI-AAAAA-AAAAA-AAAAA", // I nicht im Alphabet
-    "VG-WEB-AAAAO-AAAAA-AAAAA-AAAAA", // O nicht im Alphabet
-    "VG-WEB-AAAA0-AAAAA-AAAAA-AAAAA", // 0 nicht im Alphabet
-    "VG-WEB-AAAA1-AAAAA-AAAAA-AAAAA", // 1 nicht im Alphabet
+    "VGS-WE-AAAAA-AAAAA-AAAAA-AAAAA", // Code zu kurz
+    "VGS-WEBSP-AAAAA-AAAAA-AAAAA-AAAAA", // Code zu lang
+    "VGS-WEB-AAAAA-AAAAA-AAAAA", // Gruppe fehlt
+    "VGS-WEB-AAAAA-AAAAA-AAAAA-AAAAA-AAAAA", // Gruppe zu viel
+    "VGS-WEB-AAAAA-AAAAA-AAAAA-AAAA", // Gruppe zu kurz
+    "VGS-WEB-AAAAA-AAAAA-AAAAA-AAAAAA", // Gruppe zu lang
+    "VGS-WEB-AAAAI-AAAAA-AAAAA-AAAAA", // I nicht im Alphabet
+    "VGS-WEB-AAAAO-AAAAA-AAAAA-AAAAA", // O nicht im Alphabet
+    "VGS-WEB-AAAA0-AAAAA-AAAAA-AAAAA", // 0 nicht im Alphabet
+    "VGS-WEB-AAAA1-AAAAA-AAAAA-AAAAA", // 1 nicht im Alphabet
     `${k}${"A".repeat(60)}`, // zu lang
     `${k}'; DROP TABLE users;--`,
     null,
@@ -142,7 +142,7 @@ test("signingKeyFor: je Zugang verschieden, deterministisch, hex", () => {
 });
 
 test("keyHint: letzte vier Zeichen ohne Bindestriche", () => {
-  assert.equal(keyHint("VG-WEB-ABCDE-FGHJK-LMNPQ-RSTUV"), "STUV");
+  assert.equal(keyHint("VGS-WEB-ABCDE-FGHJK-LMNPQ-RSTUV"), "STUV");
   const k = generateKey("AIN");
   const hint = keyHint(k);
   assert.equal(hint.length, 4);

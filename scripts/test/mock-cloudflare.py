@@ -4,7 +4,7 @@
 Unterstützt genau die Endpunkte, die scripts/cloudflare-setup.sh benutzt. Der Zustand liegt im Speicher.
 Test-Hilfen (ohne Authentifizierung):
   GET  /__state          kompletter Zustand + Anzahl der Schreibzugriffe
-  POST /__seed_dns       {"zone":"vylaris.de","type":"A","name":"vylaris.de","content":"192.0.2.10"}
+  POST /__seed_dns       {"zone":"vylaris.ch","type":"A","name":"vylaris.ch","content":"192.0.2.10"}
 Gültige Tokens (Dummy-Werte):
   test-token-not-real        alles erlaubt
   test-token-no-tunnel       403 auf allen Tunnel-Endpunkten
@@ -21,7 +21,7 @@ from urllib.parse import parse_qs, urlparse
 
 ACCOUNT = "acc0123456789abcdef0123456789abcd"
 ZONES = {n: {"id": "zone-" + n.replace(".", "-"), "name": n, "status": "active", "account": {"id": ACCOUNT}}
-         for n in ("vylaris.eu", "vylaris.de", "vylaris.net")}
+         for n in ("vylaris.ch",)}
 VALID = {"test-token-not-real": set(), "test-token-no-tunnel": {"tunnel"}, "test-token-no-dns": {"dns"}}
 DELAY = float(os.environ.get("MOCK_DELAY", "0"))
 

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { ImpressumDe } from "@/components/legal/impressum-de";
-import { ImpressumNet } from "@/components/legal/impressum-net";
+import { Impressum } from "@/components/legal/impressum";
 import { legalUi } from "@/i18n/legal";
 import { getMessages, getSite } from "@/i18n/server";
 
@@ -14,10 +13,9 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+// Die Angaben kommen aus den Admin-Einstellungen und sollen nach dem Speichern sofort sichtbar sein.
 export const dynamic = "force-dynamic";
 
-/** Impressum bzw. Legal Notice: Fassung und Sprache hängen von der Domain ab (site.legal). */
-export default async function ImpressumPage() {
-  const site = await getSite();
-  return site.legal === "net" ? <ImpressumNet /> : <ImpressumDe />;
+export default function ImpressumPage() {
+  return <Impressum />;
 }

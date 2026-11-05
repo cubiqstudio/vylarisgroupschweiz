@@ -19,7 +19,6 @@ export type HomeService = {
   comingSoon: boolean;
 };
 
-/** Name, Slogan und Kategorie kommen bereits in der Sprache der Seite (siehe services-preview); der Rest wird hier übersetzt. */
 export function HomeServiceCard({ service, locale }: { service: HomeService; locale: Locale }) {
   const m = pick(home, locale).services.card;
   return (

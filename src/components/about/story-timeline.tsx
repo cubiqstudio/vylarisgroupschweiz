@@ -1,8 +1,7 @@
-import { Mic, Server, Users, type LucideIcon } from "lucide-react";
+import { Mic, Rocket, Users, type LucideIcon } from "lucide-react";
 import { about } from "@/i18n/about";
 import { getMessages } from "@/i18n/server";
 import { site } from "@/lib/site";
-import { SITES } from "@/lib/sites";
 import { cn } from "@/lib/utils";
 
 type Step = {
@@ -19,10 +18,7 @@ const accentClass = {
 } as const;
 
 export async function StoryTimeline() {
-  const all = await getMessages(about);
-  const m = all.story;
-  // Die Geschichte ist ein Gruppeninhalt: Europa und seine Leitung werden auf allen Domains gleich genannt.
-  const eu = SITES.eu;
+  const m = (await getMessages(about)).story;
   const steps: Step[] = [
     {
       icon: Mic,
@@ -33,25 +29,16 @@ export async function StoryTimeline() {
     },
     {
       icon: Users,
-      label: m.steps.communityLabel,
-      title: m.steps.communityTitle(all.partnerName),
-      body: m.steps.communityBody(
-        all.partnerName,
-        site.partner.domain,
-        site.partner.members,
-        site.partner.board,
-      ),
+      label: m.steps.foundingLabel,
+      title: m.steps.foundingTitle,
+      body: m.steps.foundingBody,
       accent: "indigo",
     },
     {
-      icon: Server,
-      label: m.steps.structureLabel,
-      title: m.steps.structureTitle(eu.name, eu.leader.name),
-      body: m.steps.structureBody(
-        eu.name,
-        eu.leader.name,
-        eu.leader.company ?? "",
-      ),
+      icon: Rocket,
+      label: m.steps.todayLabel,
+      title: m.steps.todayTitle,
+      body: m.steps.todayBody(site.members, site.board.length),
       accent: "emerald",
     },
   ];

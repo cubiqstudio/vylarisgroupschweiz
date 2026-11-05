@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import { PageHeader, Container, SectionHeading } from "@/components/ui/section";
 import { StoryTimeline } from "@/components/about/story-timeline";
-import { AllianceRoles } from "@/components/about/alliance-roles";
+import { ProcessSteps } from "@/components/about/process-steps";
 import { ValuesDetail } from "@/components/about/values-detail";
 import { Leadership } from "@/components/about/leadership";
 import { FundingPrinciples } from "@/components/about/funding-principles";
 import { AboutCta } from "@/components/about/about-cta";
 import { about } from "@/i18n/about";
 import { getMessages, getSite } from "@/i18n/server";
-import { SITES } from "@/lib/sites";
 
 export async function generateMetadata(): Promise<Metadata> {
   const site = await getSite();
@@ -16,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: m.meta.title,
     alternates: { canonical: "/about" },
-    description: m.meta.description(site.name, m.partnerName),
+    description: m.meta.description(site.name),
   };
 }
 
@@ -30,10 +29,11 @@ export default async function AboutPage() {
         title={
           <>
             {m.hero.titlePre}{" "}
-            <span className="text-gradient">{m.hero.titleAccent}</span>
+            <span className="text-gradient">{m.hero.titleAccent}</span>{" "}
+            {m.hero.titlePost}
           </>
         }
-        description={m.hero.description(SITES.eu.name, m.partnerName)}
+        description={m.hero.description}
       />
 
       <section className="py-20 sm:py-28" aria-labelledby="geschichte-heading">
@@ -50,7 +50,7 @@ export default async function AboutPage() {
         </Container>
       </section>
 
-      <AllianceRoles />
+      <ProcessSteps />
       <ValuesDetail />
       <Leadership />
       <FundingPrinciples />

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { cn } from "@/lib/utils";
 import { PageTitle } from "@/components/admin/core/page-title";
 import { ClientsTab } from "@/components/admin/licenses/clients-tab";
@@ -23,7 +23,7 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 export default async function AdminLicensesPage({ searchParams }: Props) {
-  await requireAdminPage();
+  await requireModulePage("website");
   const sp = await searchParams;
   const raw = Array.isArray(sp.tab) ? sp.tab[0] : sp.tab;
   const tab: TabId = TABS.some((t) => t.id === raw) ? (raw as TabId) : "keys";

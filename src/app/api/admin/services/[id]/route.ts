@@ -22,8 +22,8 @@ export const PATCH = handle(async (req: Request, ctx: IdContext) => {
   const url = data.url ?? current.url;
   const comingSoon = data.comingSoon ?? current.comingSoon;
   if (!comingSoon && !url) {
-    throw new ApiError(422, "VALIDATION_ERROR", "Bitte gib die Service-URL an (oder markiere den Dienst als „Bald verfügbar“).", {
-      url: "Bitte gib die Service-URL an (oder markiere den Dienst als „Bald verfügbar“).",
+    throw new ApiError(422, "VALIDATION_ERROR", "Bitte gib die Service-URL an (oder markiere den Dienst als «Bald verfügbar»).", {
+      url: "Bitte gib die Service-URL an (oder markiere den Dienst als «Bald verfügbar»).",
     });
   }
   const service = await db.saasService.update({ where: { id }, data });

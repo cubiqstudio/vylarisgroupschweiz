@@ -5,7 +5,7 @@ import { createHash, randomBytes } from "node:crypto";
 export const newToken = () => randomBytes(32).toString("base64url");
 export const hashToken = (raw: string) => createHash("sha256").update(raw).digest("hex");
 
-/** Alle Links führen auf die Domain (Basis-URL) der Seite, bei der sich der Abonnent angemeldet hat. */
+/** Alle Links führen auf die feste Basis-URL der Seite (siehe mailCtx().baseUrl). */
 const url = (baseUrl: string, path: string, token: string) => `${baseUrl.replace(/\/+$/, "")}${path}?token=${encodeURIComponent(token)}`;
 /** Seite mit Bestätigungs-Button (Double-Opt-In) */
 export const confirmUrl = (confirmToken: string, baseUrl: string) => url(baseUrl, "/newsletter/confirm", confirmToken);

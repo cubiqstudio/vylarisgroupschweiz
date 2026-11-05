@@ -3,10 +3,10 @@ import { findBrandAsset } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 /**
- * Nur das „V“-Zeichen der Marke als kleine Kachel. `tone` gibt den Untergrund an, auf dem die Kachel steht:
- * - "onLight": helle Fläche, Kachel weiß mit dem Zeichen für helle Flächen (logo-mark-on-light)
+ * Nur das «V»-Zeichen der Marke als kleine Kachel. `tone` gibt den Untergrund an, auf dem die Kachel steht:
+ * - "onLight": helle Fläche, Kachel weiss mit dem Zeichen für helle Flächen (logo-mark-on-light)
  * - "onDark": dunkle Fläche, dunkle Kachel mit dem Zeichen für dunkle Flächen (logo-mark-on-dark)
- * Fehlt die Bilddatei, wird ein „V“ als Text gesetzt. Größe über `className` (z. B. "size-10").
+ * Fehlt die Bilddatei, wird ein «V» als Text gesetzt. Grösse über `className` (z. B. "size-10").
  */
 export function BrandMark({ tone = "onLight", className }: { tone?: "onLight" | "onDark"; className?: string }) {
   const src = findBrandAsset(tone === "onDark" ? "logo-mark-on-dark" : "logo-mark-on-light");

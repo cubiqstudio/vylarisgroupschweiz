@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useMessages } from "@/i18n/client";
 import { licenses } from "@/i18n/licenses";
 
-/** Aktiver Schlüssel: groß in Monospace, mit Kopieren-Button. Der Schlüssel wird nirgends protokolliert. */
+/** Aktiver Schlüssel: gross in Monospace, mit Kopieren-Button. Der Schlüssel wird nirgends protokolliert. */
 export function KeyDisplay({ value, bound }: { value: string; bound: boolean }) {
   const m = useMessages(licenses);
   const labelId = useId();

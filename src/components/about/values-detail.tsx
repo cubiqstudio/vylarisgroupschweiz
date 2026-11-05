@@ -1,24 +1,23 @@
-import { Check, Code2, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Rocket, ShieldCheck, Smile, Users, type LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { about } from "@/i18n/about";
 import { getMessages } from "@/i18n/server";
 
 const visuals: { icon: LucideIcon; accent: "emerald" | "indigo" }[] = [
+  { icon: Users, accent: "emerald" },
+  { icon: Smile, accent: "indigo" },
   { icon: ShieldCheck, accent: "emerald" },
-  { icon: Code2, accent: "indigo" },
-  { icon: ShieldCheck, accent: "emerald" },
+  { icon: Rocket, accent: "indigo" },
 ];
 
 const accentClass = {
   emerald: {
     icon: "bg-emerald-400/10 text-emerald-400 ring-emerald-400/20",
-    check: "text-emerald-400",
     card: "hover:border-emerald-400/30",
   },
   indigo: {
     icon: "bg-indigo-400/10 text-indigo-300 ring-indigo-400/20",
-    check: "text-indigo-300",
     card: "hover:border-indigo-400/30",
   },
 } as const;
@@ -33,7 +32,7 @@ export async function ValuesDetail() {
           title={<span id="werte-heading">{m.title}</span>}
           description={m.description}
         />
-        <ul className="mt-12 grid gap-6 lg:grid-cols-3">
+        <ul className="mt-12 grid gap-6 md:grid-cols-2">
           {m.items.map((v, i) => {
             const { icon: Icon, accent } = visuals[i]!;
             const a = accentClass[accent];
@@ -53,21 +52,7 @@ export async function ValuesDetail() {
                   <h3 className="mt-1 text-xl font-semibold tracking-tight text-white">
                     {v.title}
                   </h3>
-                  <p className="mt-3 text-sm font-medium italic leading-relaxed text-zinc-300">
-                    {v.claim}
-                  </p>
-                  <p className="mt-4 leading-relaxed text-zinc-400">{v.body}</p>
-                  <ul className="mt-6 space-y-2.5 border-t border-zinc-800 pt-6 text-sm text-zinc-300">
-                    {v.points.map((p) => (
-                      <li key={p} className="flex gap-2.5">
-                        <Check
-                          className={`mt-0.5 h-4 w-4 shrink-0 ${a.check}`}
-                          aria-hidden
-                        />
-                        <span>{p}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="mt-4 leading-relaxed text-zinc-400">{v.text}</p>
                 </Card>
               </li>
             );

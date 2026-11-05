@@ -11,7 +11,6 @@ import { api, ApiClientError } from "@/lib/api-client";
 import { SERVICE_CATEGORIES, STATUSES, STATUS_LABEL } from "@/lib/constants";
 import { slugify } from "@/lib/utils";
 import { ConfirmDialog } from "./confirm-dialog";
-import { EnglishSection } from "./english-section";
 import { Notice } from "./notice";
 import { useToast } from "./toast";
 import type { ServiceDTO } from "./types";
@@ -29,9 +28,6 @@ type FormState = {
   featured: boolean;
   comingSoon: boolean;
   sortOrder: string;
-  nameEn: string;
-  taglineEn: string;
-  descriptionEn: string;
 };
 
 function initialState(s?: ServiceDTO): FormState {
@@ -48,9 +44,6 @@ function initialState(s?: ServiceDTO): FormState {
     featured: s?.featured ?? false,
     comingSoon: s?.comingSoon ?? false,
     sortOrder: String(s?.sortOrder ?? 0),
-    nameEn: s?.nameEn ?? "",
-    taglineEn: s?.taglineEn ?? "",
-    descriptionEn: s?.descriptionEn ?? "",
   };
 }
 
@@ -99,20 +92,16 @@ export function ServiceForm({ service }: { service?: ServiceDTO }) {
       featured: form.featured,
       comingSoon: form.comingSoon,
       sortOrder,
-      // Leere Eingabe wird serverseitig als "keine englische Fassung" (null) gespeichert.
-      nameEn: form.nameEn,
-      taglineEn: form.taglineEn,
-      descriptionEn: form.descriptionEn,
     };
 
     setBusy(true);
     try {
       if (service) {
         await api(`/api/admin/services/${service.id}`, { method: "PATCH", body });
-        toast.success(`„${form.name}“ wurde gespeichert.`);
+        toast.success(`«${form.name}» wurde gespeichert.`);
       } else {
         await api("/api/admin/services", { method: "POST", body });
-        toast.success(`„${form.name}“ wurde angelegt.`);
+        toast.success(`«${form.name}» wurde angelegt.`);
       }
       router.push("/admin/services");
       router.refresh();
@@ -132,7 +121,7 @@ export function ServiceForm({ service }: { service?: ServiceDTO }) {
     setDeleting(true);
     try {
       await api(`/api/admin/services/${service.id}`, { method: "DELETE" });
-      toast.success(`„${service.name}“ wurde gelöscht.`);
+      toast.success(`«${service.name}» wurde gelöscht.`);
       router.push("/admin/services");
       router.refresh();
     } catch (err) {
@@ -143,8 +132,6 @@ export function ServiceForm({ service }: { service?: ServiceDTO }) {
   }
 
   const invalid = (k: string) => (fields[k] ? true : undefined);
-  const englishFilled = Boolean(service?.nameEn || service?.taglineEn || service?.descriptionEn);
-  const englishError = Boolean(fields.nameEn || fields.taglineEn || fields.descriptionEn);
 
   return (
     <>
@@ -225,30 +212,6 @@ export function ServiceForm({ service }: { service?: ServiceDTO }) {
           </Field>
         </Card>
 
-        <EnglishSection
-          filled={englishFilled}
-          hasError={englishError}
-          hint="Wird auf vylaris.net angezeigt. Felder, die du leer lässt, erscheinen dort in der deutschen Fassung."
-        >
-          <Field label="Name (Englisch)" htmlFor="nameEn" error={fields.nameEn}>
-            <Input id="nameEn" value={form.nameEn} maxLength={80} lang="en" aria-invalid={invalid("nameEn")} onChange={(e) => set("nameEn", e.target.value)} />
-          </Field>
-          <Field label="Kurzbeschreibung (Englisch)" htmlFor="taglineEn" error={fields.taglineEn} hint="Optional, max. 140 Zeichen.">
-            <Input id="taglineEn" value={form.taglineEn} maxLength={140} lang="en" aria-invalid={invalid("taglineEn")} onChange={(e) => set("taglineEn", e.target.value)} />
-          </Field>
-          <Field label="Beschreibung (Englisch)" htmlFor="descriptionEn" error={fields.descriptionEn} hint="Mindestens 10, höchstens 2000 Zeichen.">
-            <Textarea
-              id="descriptionEn"
-              rows={5}
-              value={form.descriptionEn}
-              maxLength={2000}
-              lang="en"
-              aria-invalid={invalid("descriptionEn")}
-              onChange={(e) => set("descriptionEn", e.target.value)}
-            />
-          </Field>
-        </EnglishSection>
-
         <Card className="space-y-5 p-5 sm:p-6">
           <h2 className="text-sm font-semibold text-white">Links</h2>
           <label className="flex cursor-pointer items-start gap-3 text-sm">
@@ -266,7 +229,7 @@ export function ServiceForm({ service }: { service?: ServiceDTO }) {
             </span>
           </label>
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Service-URL" htmlFor="url" error={fields.url} hint={form.comingSoon ? "Optional, solange der Dienst „Bald verfügbar“ ist." : undefined}>
+            <Field label="Service-URL" htmlFor="url" error={fields.url} hint={form.comingSoon ? "Optional, solange der Dienst «Bald verfügbar» ist." : undefined}>
               <Input
                 id="url"
                 type="url"
@@ -371,7 +334,7 @@ export function ServiceForm({ service }: { service?: ServiceDTO }) {
           danger
           busy={deleting}
           title="Service löschen?"
-          description={`„${service.name}“ wird dauerhaft entfernt und verschwindet von der öffentlichen Website. Das lässt sich nicht rückgängig machen.`}
+          description={`«${service.name}» wird dauerhaft entfernt und verschwindet von der öffentlichen Website. Das lässt sich nicht rückgängig machen.`}
           confirmLabel="Endgültig löschen"
           onConfirm={onDelete}
           onCancel={() => setConfirmDelete(false)}

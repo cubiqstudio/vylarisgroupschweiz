@@ -2,7 +2,7 @@
 
 const rtf = new Intl.RelativeTimeFormat("de", { numeric: "auto" });
 
-/** „vor 5 Minuten“, „gestern“ … Für sehr kurze Abstände „gerade eben“. */
+/** «vor 5 Minuten», «gestern» … Für sehr kurze Abstände «gerade eben». */
 export function formatRelative(date: Date | string, now: Date = new Date()): string {
   const d = new Date(date);
   const diff = Math.round((d.getTime() - now.getTime()) / 1000);
@@ -24,7 +24,7 @@ export function initials(name: string): string {
   if (parts.length === 0) return "?";
   const first = Array.from(parts[0])[0] ?? "?";
   const last = parts.length > 1 ? (Array.from(parts[parts.length - 1])[0] ?? "") : "";
-  return (first + last).toLocaleUpperCase("de-DE");
+  return (first + last).toLocaleUpperCase("de-CH");
 }
 
 /** Dezente Farbtöne für Initialen-Avatare (stabil je Name). */

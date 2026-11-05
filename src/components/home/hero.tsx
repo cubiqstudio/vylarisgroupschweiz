@@ -7,7 +7,6 @@ import { Container } from "@/components/ui/section";
 import { findBrandAsset } from "@/lib/brand";
 import { getMessages, getSite } from "@/i18n/server";
 import { home } from "@/i18n/home";
-import { siteMeta } from "@/i18n/meta";
 
 const TEAM_IMAGES = ["team.webp", "team.png", "team.jpg"];
 
@@ -25,10 +24,10 @@ function findTeamImage(): string | null {
 
 /**
  * Schild-/Netzwerk-Motiv mit dem V-G-Zeichen der Marke (public/images/logo-mark-on-light/-on-dark, siehe src/lib/brand.ts).
- * `tone` ist der UNTERGRUND: "onLight" (Standard) = weißes Schild mit dem Zeichen für helle Flächen, "onDark" = dunkles
+ * `tone` ist der UNTERGRUND: "onLight" (Standard) = weisses Schild mit dem Zeichen für helle Flächen, "onDark" = dunkles
  * Glas-Schild mit dem Zeichen für dunkle Flächen. Fehlt die Datei, wird ein gezeichnetes V verwendet.
  */
-export function ShieldVisual({ tone = "onLight", idp = "vge" }: { tone?: "onLight" | "onDark"; idp?: string }) {
+export function ShieldVisual({ tone = "onLight", idp = "vgs" }: { tone?: "onLight" | "onDark"; idp?: string }) {
   const darkShield = tone === "onDark";
   const mark = findBrandAsset(darkShield ? "logo-mark-on-dark" : "logo-mark-on-light");
   const nodes: [number, number][] = [
@@ -121,15 +120,14 @@ export async function Hero() {
   const teamImage = findTeamImage();
   const site = await getSite();
   const m = (await getMessages(home)).hero;
-  const meta = await getMessages(siteMeta);
   return (
     <section className="relative overflow-hidden border-b border-zinc-800 bg-hero">
       <Container className="relative flex flex-col items-center pt-14 text-center sm:pt-20">
         <div className="animate-fade-up flex w-full min-w-0 flex-col items-center">
           <h1 className="min-w-0 max-w-3xl text-balance break-words text-[1.75rem] font-semibold leading-[1.14] tracking-tight text-white min-[390px]:text-3xl min-[480px]:text-4xl sm:text-5xl lg:text-[3.1rem]">
-            {m.headingLead}<br className="hidden sm:block" /> {site.name}.
+            {m.headingLead}<br className="hidden sm:block" /> {site.legalName}.
           </h1>
-          <p className="mt-5 text-xl font-semibold tracking-tight text-white sm:text-2xl">{meta.tagline}</p>
+          <p className="mt-5 text-xl font-semibold tracking-tight text-white sm:text-2xl">{m.lead}</p>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-zinc-400 sm:text-lg">
             {m.body}
           </p>
@@ -138,8 +136,8 @@ export async function Hero() {
               {m.ctaServices}
               <ArrowRight className="h-4 w-4" aria-hidden />
             </ButtonLink>
-            <ButtonLink href="/allianz" variant="secondary" size="lg">
-              {m.ctaAlliance}
+            <ButtonLink href="/preise" variant="secondary" size="lg">
+              {m.ctaPricing}
             </ButtonLink>
           </div>
         </div>
@@ -159,10 +157,10 @@ export async function Hero() {
           ) : (
             <>
               <div className="w-full dark:hidden">
-                <ShieldVisual idp="vge-l" />
+                <ShieldVisual idp="vgs-l" />
               </div>
               <div className="hidden w-full dark:block">
-                <ShieldVisual tone="onDark" idp="vge-d" />
+                <ShieldVisual tone="onDark" idp="vgs-d" />
               </div>
             </>
           )}

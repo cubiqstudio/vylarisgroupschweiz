@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertTriangle, CheckCheck, FileEdit, Mail, Send, type LucideIcon } from "lucide-react";
 import { db } from "@/lib/db";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { cn, formatDateTime } from "@/lib/utils";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { BrandMark } from "@/components/contact/brand-mark";
 import { NewsletterTop } from "@/components/admin/newsletter/newsletter-top";
 import { AutoRefresh } from "@/components/admin/newsletter/auto-refresh";
 import { CampaignStatusPill, SendProgress } from "@/components/admin/newsletter/status-pill";
+import { segmentLabel } from "@/lib/verein/newsletter-segment";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Newsletter" };
@@ -22,8 +23,8 @@ const ICON: Record<string, { icon: LucideIcon; tone: string }> = {
 };
 
 export default async function AdminNewsletterPage() {
-  await requireAdminPage();
-  const campaigns = await db.newsletterCampaign.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
+  await requireModulePage("newsletter");
+  const campaigns = await db.newsletterCampaign.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { segmentType: { select: { name: true } } } });
   const anySending = campaigns.some((c) => c.status === "SENDING");
 
   return (
@@ -71,9 +72,10 @@ export default async function AdminNewsletterPage() {
                     <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-zinc-500">
                       <span className="inline-flex items-center gap-1.5">
                         <Mail className="size-3.5" aria-hidden />
-                        {c.status === "DRAFT" ? "Noch nicht versendet" : `${c.sentCount.toLocaleString("de-DE")} von ${c.recipientCount.toLocaleString("de-DE")} zugestellt`}
+                        {c.status === "DRAFT" ? "Noch nicht versendet" : `${c.sentCount.toLocaleString("de-CH")} von ${c.recipientCount.toLocaleString("de-CH")} zugestellt`}
                       </span>
-                      {c.failedCount > 0 && <span className="font-medium text-rose-400">{c.failedCount.toLocaleString("de-DE")} fehlgeschlagen</span>}
+                      {c.segment !== "ALL" && <span>Empfängerkreis: {segmentLabel(c.segment, c.segmentType?.name)}</span>}
+                      {c.failedCount > 0 && <span className="font-medium text-rose-400">{c.failedCount.toLocaleString("de-CH")} fehlgeschlagen</span>}
                       <time dateTime={(c.status === "SENT" && c.sentAt ? c.sentAt : c.createdAt).toISOString()} className="sm:ml-auto">
                         {date}
                       </time>

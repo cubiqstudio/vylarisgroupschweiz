@@ -10,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: m.title, robots: { index: false } };
 }
 
-/** Globale 404-Seite (greift für alle nicht existierenden Pfade, auch außerhalb von (site)). Läuft ohne SiteProvider: Sprache und Marke kommen vom Server. */
+/** Globale 404-Seite (greift für alle nicht existierenden Pfade, auch ausserhalb von (site)). Läuft ohne SiteProvider: Sprache kommt vom Server. */
 export default async function GlobalNotFound() {
   const m = (await getMessages(shell)).notFound;
   return (

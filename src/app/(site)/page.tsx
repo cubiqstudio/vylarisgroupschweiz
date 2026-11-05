@@ -3,19 +3,17 @@ import { Hero } from "@/components/home/hero";
 import { ValueGrid } from "@/components/home/value-grid";
 import { Alliance } from "@/components/home/alliance";
 import { ServicesPreview } from "@/components/home/services-preview";
-import { LeadershipQuote } from "@/components/home/leadership-quote";
+import { Volunteer } from "@/components/home/volunteer";
 import { CtaBand } from "@/components/home/cta-band";
-import { getMessages, getSite } from "@/i18n/server";
-import { siteMeta } from "@/i18n/meta";
+import { UpcomingEvents } from "@/components/events/upcoming";
+import { site } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const site = await getSite();
-  const meta = await getMessages(siteMeta);
+export function generateMetadata(): Metadata {
   return {
-    title: { absolute: `${site.name} – ${meta.tagline}` },
-    description: meta.description(site.name),
+    title: { absolute: `${site.name} – ${site.tagline}` },
+    description: site.description,
     alternates: { canonical: "/" },
   };
 }
@@ -27,7 +25,8 @@ export default async function HomePage() {
       <ValueGrid />
       <Alliance />
       <ServicesPreview />
-      <LeadershipQuote />
+      <Volunteer />
+      <UpcomingEvents limit={3} />
       <CtaBand />
     </>
   );

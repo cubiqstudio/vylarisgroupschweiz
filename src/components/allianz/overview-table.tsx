@@ -1,25 +1,25 @@
 import { Container, SectionHeading } from "@/components/ui/section";
-import { branches, units } from "@/lib/alliance";
+import { branches, europe, units } from "@/lib/alliance";
 import { allianz } from "@/i18n/allianz";
 import { getMessages } from "@/i18n/server";
-import { SITES } from "@/lib/sites";
+import { site } from "@/lib/site";
 
 export async function OverviewTable() {
   const all = await getMessages(allianz);
   const m = all.overview;
-  const eu = SITES.eu;
+  const eu = europe;
   const rows = [
     {
-      name: all.partnerName,
+      name: site.name,
       form: m.association,
-      region: m.switzerland,
+      region: `${m.switzerland} · ${site.domain}`,
       role: m.associationRole,
       status: m.established,
     },
     {
       name: eu.name,
       form: m.company,
-      region: m.eu,
+      region: `${m.eu} · ${eu.domain}`,
       role: m.euRole(eu.leader.name),
       status: m.established,
     },

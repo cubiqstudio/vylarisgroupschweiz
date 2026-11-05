@@ -5,7 +5,7 @@ import { authSecretString } from "@/lib/session";
 // Verschlüsselung für Geheimnisse in der Datenbank (z. B. SMTP-Passwort): AES-256-GCM,
 // Schlüssel abgeleitet aus AUTH_SECRET. Wird AUTH_SECRET geändert, sind gespeicherte Geheimnisse
 // nicht mehr entschlüsselbar und müssen im Admin neu eingegeben werden.
-const key = () => createHash("sha256").update(`vge-settings-v1:${authSecretString()}`).digest();
+const key = () => createHash("sha256").update(`vgs-settings-v1:${authSecretString()}`).digest();
 
 export function encryptSecret(plain: string): string {
   const iv = randomBytes(12);

@@ -12,6 +12,8 @@ const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   reactStrictMode: true,
+  // Die Middleware puffert Anfragetexte (Standard 10 MB); Dokument-Uploads bis 10 MB samt Formular-Overhead sollen nicht abgeschnitten werden.
+  experimental: { middlewareClientMaxBodySize: "12mb" },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

@@ -14,9 +14,6 @@ export type ServiceDTO = {
   featured: boolean;
   comingSoon: boolean;
   sortOrder: number;
-  nameEn: string | null;
-  taglineEn: string | null;
-  descriptionEn: string | null;
   updatedAt: string;
 };
 
@@ -43,8 +40,6 @@ export type IncidentDTO = {
   service: { id: string; name: string; slug: string } | null;
   startedAt: string;
   resolvedAt: string | null;
-  titleEn: string | null;
-  bodyEn: string | null;
   updatedAt: string;
 };
 

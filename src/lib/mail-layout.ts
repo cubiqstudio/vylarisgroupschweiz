@@ -2,11 +2,11 @@
 // Markdown-Konverter für Newsletter-Kampagnen.
 //
 // Anforderungen an das HTML: tabellenbasiert (Outlook/Gmail), 600 px, alles per Inline-CSS, keine externen
-// Ressourcen außer dem V-Logo (absolute URL). Zusätzlich gibt es ein <style>-Fenster für mobile Ansicht und den
+// Ressourcen ausser dem V-Logo (absolute URL). Zusätzlich gibt es ein <style>-Fenster für mobile Ansicht und den
 // Dunkelmodus (prefers-color-scheme sowie Outlook.com-Selektoren); dort wird auch das Logo getauscht
 // (V-Zeichen für helle bzw. dunkle Flächen). Clients ohne Style-Unterstützung zeigen die helle Variante.
 // Hinweis: Diese Datei ist bewusst frei von "server-only", damit sie sich auch in Skripten rendern lässt.
-import { pick } from "@/i18n";
+import { intlTag, pick } from "@/i18n";
 import { mail } from "@/i18n/mail";
 import type { MailCtx } from "@/lib/mail-ctx";
 import { site } from "@/lib/site";
@@ -20,7 +20,7 @@ export const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ESCAPES[c]
 /** Einzeiler für Betreff/Anrede/Namen: Zeilenumbrüche und Steuerzeichen entfernen (Header-Injection-Schutz). */
 export const oneLine = (s: string) => s.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").replace(/ {2,}/g, " ").trim();
 
-/** Kürzt Text auf `max` Zeichen (mit Auslassungspunkten), ohne ein Surrogatpaar zu zerreißen. */
+/** Kürzt Text auf `max` Zeichen (mit Auslassungspunkten), ohne ein Surrogatpaar zu zerreissen. */
 export function truncate(s: string, max: number): string {
   const chars = Array.from(s);
   if (chars.length <= max) return s;
@@ -44,7 +44,7 @@ export function safeHref(raw: string): string | null {
   }
 }
 
-/** Absolute URL des Logos (nur das „V“-Zeichen) auf der Domain des Empfängers. `dark` = Variante für dunkle Flächen. */
+/** Absolute URL des Logos (nur das «V»-Zeichen) auf der Basis-URL der Seite. `dark` = Variante für dunkle Flächen. */
 export function brandLogoUrl(variant: "light" | "dark" = "light", baseUrl: string = site.url): string {
   return `${baseUrl.replace(/\/+$/, "")}/images/logo-mark-on-${variant}.png`;
 }
@@ -141,7 +141,7 @@ export function mailQuote(opts: { label?: string; text: string; emphasis?: boole
   );
 }
 
-/** Zeilen „Label: Wert“ als kleine Tabelle. */
+/** Zeilen «Label: Wert» als kleine Tabelle. */
 export function mailDetails(rows: Array<[label: string, value: string]>): string {
   const tr = rows
     .filter(([, v]) => v.trim() !== "")
@@ -154,7 +154,7 @@ export function mailDetails(rows: Array<[label: string, value: string]>): string
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">${tr}</table>`;
 }
 
-/** Nummerierte Schritte („Was passiert jetzt?“). */
+/** Nummerierte Schritte («Was passiert jetzt?»). */
 export function mailSteps(title: string, steps: string[]): string {
   const rows = steps
     .map(
@@ -169,12 +169,12 @@ export function mailSteps(title: string, steps: string[]): string {
   );
 }
 
-/** Fußzeile in Klartext (für die text/plain-Fassung). */
+/** Fusszeile in Klartext (für die text/plain-Fassung). */
 export function textFooter(opts: { brand: string; note?: string; unsubscribeUrl?: string }, ctx: MailCtx): string {
   const m = pick(mail, ctx.locale).layout;
   return [
     "--",
-    `${oneLine(opts.brand)} · ${m.handInHand(m.partnerName)}`,
+    `${oneLine(opts.brand)} · ${ctx.site.domain}`,
     ...(opts.note ? [opts.note] : []),
     ...(opts.unsubscribeUrl ? [m.unsubscribeText(opts.unsubscribeUrl)] : []),
   ].join("\n");
@@ -196,13 +196,13 @@ export type MailLayoutOptions = {
   infoCardAfterBody?: boolean;
   cta?: { label: string; url: string };
   secondaryNoteHtml?: string;
-  /** Klartext-Hinweis in der Fußzeile (warum bekommst du diese Mail?) */
+  /** Klartext-Hinweis in der Fusszeile (warum bekommst du diese Mail?) */
   footerNote?: string;
   /** Abmelde-Link (Newsletter) */
   unsubscribeUrl?: string;
-  /** Markenname (Standard: Name der Empfängerseite) */
+  /** Markenname (Standard: Name der Seite) */
   brand?: string;
-  /** Sprache, Marke und Basis-URL der Empfängerseite */
+  /** Sprache, Marke und Basis-URL der Seite */
   ctx: MailCtx;
 };
 
@@ -244,7 +244,7 @@ export function renderMailLayout(o: MailLayoutOptions): string {
     : "";
 
   const footerLines = [
-    `<p class="t-muted" style="margin:0 0 6px;font-family:${FONT};font-size:12px;line-height:1.6;font-weight:600;color:${C.muted};">${escapeHtml(brand)} &middot; ${escapeHtml(m.layout.handInHand(m.layout.partnerName))}</p>`,
+    `<p class="t-muted" style="margin:0 0 6px;font-family:${FONT};font-size:12px;line-height:1.6;font-weight:600;color:${C.muted};">${escapeHtml(brand)} &middot; ${escapeHtml(ctx.site.domain)}</p>`,
     `<p class="t-muted" style="margin:0 0 6px;font-family:${FONT};font-size:12px;line-height:1.6;color:${C.muted};">${escapeHtml(o.footerNote ?? m.noReply)}</p>`,
     unsub
       ? `<p class="t-muted" style="margin:0;font-family:${FONT};font-size:12px;line-height:1.6;color:${C.muted};"><a class="t-link" href="${escapeHtml(unsub)}" style="color:${C.link};text-decoration:underline;">${escapeHtml(m.layout.unsubscribe)}</a></p>`
@@ -252,7 +252,7 @@ export function renderMailLayout(o: MailLayoutOptions): string {
   ].join("");
 
   return `<!doctype html>
-<html lang="${ctx.locale}" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<html lang="${intlTag(ctx.locale)}" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -634,7 +634,7 @@ function parseBlocks(src: string, depth = 0): Block[] {
       const body: string[] = [];
       i++;
       while (i < lines.length && !closeRe.test(lines[i]!)) body.push(lines[i++]!);
-      i++; // schließende Zeile
+      i++; // schliessende Zeile
       out.push({ t: "code", v: body.join("\n") });
       continue;
     }

@@ -46,7 +46,7 @@ export function ServiceManager({ initial }: { initial: ServiceDTO[] }) {
     setServices((list) => list.map((s) => (s.id === service.id ? { ...s, status } : s)));
     try {
       await api(`/api/admin/services/${service.id}`, { method: "PATCH", body: { status } });
-      toast.success(`${service.name}: Status auf „${STATUS_LABEL[status]}“ gesetzt.`);
+      toast.success(`${service.name}: Status auf «${STATUS_LABEL[status]}» gesetzt.`);
       router.refresh();
     } catch (err) {
       setServices((list) => list.map((s) => (s.id === service.id ? { ...s, status: previous } : s)));
@@ -62,7 +62,7 @@ export function ServiceManager({ initial }: { initial: ServiceDTO[] }) {
     try {
       await api(`/api/admin/services/${toDelete.id}`, { method: "DELETE" });
       setServices((list) => list.filter((s) => s.id !== toDelete.id));
-      toast.success(`„${toDelete.name}“ wurde gelöscht.`);
+      toast.success(`«${toDelete.name}» wurde gelöscht.`);
       setToDelete(null);
       router.refresh();
     } catch (err) {
@@ -77,7 +77,7 @@ export function ServiceManager({ initial }: { initial: ServiceDTO[] }) {
       <Card className="px-6 py-14 text-center">
         <p className="text-base font-medium text-white">Noch keine Services angelegt</p>
         <p className="mx-auto mt-2 max-w-md text-sm text-zinc-400">
-          Sobald du einen Service anlegst, erscheint er auf der öffentlichen Seite „Services“ und in der Statusübersicht.
+          Sobald du einen Service anlegst, erscheint er auf der öffentlichen Seite «Dienste» und in der Statusübersicht.
         </p>
         <ButtonLink href="/admin/services/new" className="mt-6">
           <Plus className="h-4 w-4" aria-hidden="true" /> Ersten Service anlegen
@@ -106,7 +106,7 @@ export function ServiceManager({ initial }: { initial: ServiceDTO[] }) {
       </div>
 
       {visible.length === 0 ? (
-        <Card className="px-6 py-10 text-center text-sm text-zinc-400">Kein Service passt zu „{query}“.</Card>
+        <Card className="px-6 py-10 text-center text-sm text-zinc-400">Kein Service passt zu «{query}».</Card>
       ) : (
         <Card className="overflow-hidden">
           <ul className="divide-y divide-zinc-800">
@@ -173,7 +173,7 @@ export function ServiceManager({ initial }: { initial: ServiceDTO[] }) {
         title="Service löschen?"
         description={
           toDelete
-            ? `„${toDelete.name}“ wird dauerhaft entfernt und verschwindet von der öffentlichen Website. Zugehörige Statusmeldungen bleiben erhalten. Das lässt sich nicht rückgängig machen.`
+            ? `«${toDelete.name}» wird dauerhaft entfernt und verschwindet von der öffentlichen Website. Zugehörige Statusmeldungen bleiben erhalten. Das lässt sich nicht rückgängig machen.`
             : ""
         }
         confirmLabel="Endgültig löschen"

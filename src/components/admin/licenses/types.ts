@@ -27,9 +27,7 @@ export type ProductRow = {
   slug: string;
   code: string;
   name: string;
-  nameEn: string;
   description: string;
-  descriptionEn: string;
   businessOnly: boolean;
   allowAccountRequest: boolean;
   approvalMode: "AUTO" | "MANUAL";

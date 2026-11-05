@@ -11,7 +11,7 @@ import { useMessages } from "@/i18n/client";
 import { licenses } from "@/i18n/licenses";
 import { useRequest } from "./use-request";
 
-/** Kasten „Firmenkunde“: Antrag stellen und Stand ansehen (NONE, PENDING, APPROVED, REJECTED). */
+/** Kasten «Firmenkunde»: Antrag stellen und Stand ansehen (NONE, PENDING, APPROVED, REJECTED). */
 export function BusinessBox({ status, companyName }: { status: string; companyName: string }) {
   const m = useMessages(licenses);
   const uid = useId();

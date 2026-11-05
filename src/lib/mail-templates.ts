@@ -1,7 +1,7 @@
-// Transaktions- und Newsletter-Mails (Text + HTML, Deutsch und Englisch) im gemeinsamen Marken-Layout (mail-layout.ts).
+// Transaktions- und Newsletter-Mails (Text + HTML, Deutsch) im gemeinsamen Marken-Layout (mail-layout.ts).
 // Sprache, Marke und Links folgen dem MailCtx der Empfängerseite. Alle Nutzerdaten werden escaped,
 // Betreffzeilen sind Einzeiler (kein Header-Injection-Risiko).
-import { localized, pick, type Locale } from "@/i18n";
+import { pick, type Locale } from "@/i18n";
 import { labelFor, labels } from "@/i18n/labels";
 import { mail } from "@/i18n/mail";
 import { mailLicenses } from "@/i18n/mail-licenses";
@@ -139,7 +139,7 @@ export type TicketMailData = {
   name: string;
   email: string;
   subject: string;
-  category: string; // GENERAL | B2B_HOSTING | SECURITY_REPORT
+  category: string; // GENERAL | MEMBERSHIP | B2B_HOSTING | SECURITY_REPORT
   message: string;
   status: string; // OPEN | IN_PROGRESS | CLOSED
 };
@@ -204,10 +204,9 @@ export function ticketConfirmationMail(t: TicketMailData & ReplyHint, ctx: MailC
 }
 
 /**
- * Hinweis an das Team (immer deutsch, Link auf vylaris.eu): `ctx` ist der Team-Kontext (adminMailCtx).
- * `origin` = Domain, über die das Ticket eingegangen ist; wird nur angezeigt, wenn es nicht vylaris.eu ist.
+ * Hinweis an das Team: `ctx` ist der Team-Kontext (adminMailCtx).
  */
-export function ticketNotifyMail(t: TicketMailData & { adminUrl: string; origin?: string }, ctx: MailCtx): MailContent {
+export function ticketNotifyMail(t: TicketMailData & { adminUrl: string }, ctx: MailCtx): MailContent {
   const brand = brandOf(ctx);
   const n = pick(mail, "de").ticket;
   const ticketSubject = oneLine(t.subject);
@@ -216,7 +215,6 @@ export function ticketNotifyMail(t: TicketMailData & { adminUrl: string; origin?
   const category = categoryLabel(t.category, "de");
   const message = truncate(normalizeText(t.message), 1500);
   const footerNote = n.notify.footer;
-  const origin = t.origin && t.origin !== ctx.site.domain ? oneLine(t.origin) : "";
 
   const html = renderMailLayout({
     ctx,
@@ -228,7 +226,6 @@ export function ticketNotifyMail(t: TicketMailData & { adminUrl: string; origin?
         [n.notify.from, sender],
         [n.categoryLabel, category],
         [n.subjectLabel, ticketSubject],
-        [n.notify.site, origin],
       ]) + mailQuote({ label: n.notify.messageLabel, text: message }),
     cta: { label: n.notify.button, url: t.adminUrl },
     footerNote,
@@ -241,7 +238,6 @@ export function ticketNotifyMail(t: TicketMailData & { adminUrl: string; origin?
     `${n.notify.from}: ${sender}`,
     `${n.categoryLabel}: ${category}`,
     `${n.subjectLabel}: ${ticketSubject}`,
-    ...(origin ? [`${n.notify.site}: ${origin}`] : []),
     "",
     message,
     "",
@@ -406,9 +402,6 @@ export function newsletterCampaignMail(p: { subject: string; preheader: string; 
 // ---------------------------------------------------------------------------------------------
 export type LicenseDecisionKind = "keyApproved" | "keyRejected" | "keyRevoked" | "webspaceApproved" | "webspaceRejected" | "businessApproved" | "businessRejected";
 
-/** Produktname in der Sprache der Empfängerseite (englisch, sofern gepflegt). */
-export const productNameFor = (product: { name: string; nameEn?: string | null }, locale: Locale) => oneLine(localized(product, "name", locale));
-
 /**
  * Entscheidung zu einem Antrag an die Person (Sprache und Marke der Seite, bei der sich das Konto angelegt hat).
  * Der Lizenzschlüssel steht bewusst nie in der Mail: `accountUrl` führt ins Konto (/account/licenses der Domain).
@@ -461,11 +454,11 @@ export function licenseDecisionMail(
 }
 
 /**
- * Hinweis an das Team über einen neuen Antrag (immer deutsch, `ctx` = adminMailCtx, Link auf vylaris.eu).
+ * Hinweis an das Team über einen neuen Antrag (`ctx` = adminMailCtx).
  * Enthält nur das Nötige: Name, E-Mail, Produkt bzw. Firma und die gekürzte Nachricht.
  */
 export function licenseTeamMail(
-  p: { kind: "key" | "webspace" | "business"; userName: string; userEmail: string; product?: string; company?: string | null; message?: string | null; origin?: string; adminUrl: string },
+  p: { kind: "key" | "webspace" | "business"; userName: string; userEmail: string; product?: string; company?: string | null; message?: string | null; adminUrl: string },
   ctx: MailCtx,
 ): MailContent {
   const brand = brandOf(ctx);
@@ -474,13 +467,11 @@ export function licenseTeamMail(
   const company = truncate(oneLine(p.company ?? ""), 120);
   const sender = `${truncate(oneLine(p.userName), 100)} <${oneLine(p.userEmail)}>`;
   const message = truncate(normalizeText(p.message ?? ""), 300);
-  const origin = p.origin && p.origin !== ctx.site.domain ? oneLine(p.origin) : "";
   const subject = subjectLine(p.kind === "business" ? t.subject.business(company) : t.subject[p.kind](product));
   const labels = pick(mailLicenses, "de");
   const details: Array<[string, string]> = [
     [t.from, sender],
     ...(p.kind === "business" ? [[labels.companyLabel, company] as [string, string]] : [[labels.productLabel, product] as [string, string]]),
-    [t.site, origin],
   ];
 
   const html = renderMailLayout({

@@ -225,7 +225,7 @@ export function UserActions({
       <ConfirmDialog
         open={confirm === "business-reset"}
         title="Firmenkunden-Status zurücksetzen?"
-        description={`Der Status von ${user.name} wird auf „kein Firmenkunde“ gesetzt und der Firmenname gelöscht. Bereits ausgestellte Schlüssel bleiben bestehen. Der Nutzer kann erneut einen Antrag stellen.`}
+        description={`Der Status von ${user.name} wird auf «kein Firmenkunde» gesetzt und der Firmenname gelöscht. Bereits ausgestellte Schlüssel bleiben bestehen. Der Nutzer kann erneut einen Antrag stellen.`}
         confirmLabel="Zurücksetzen"
         danger
         busy={busy === "business-reset"}

@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # =============================================================================
-# VylarisGroupEurope – Installer
+# VylarisGroup Schweiz – Installer
 #
 # Richtet das komplette System auf einem frischen Linux-Server ein:
 #   1. installiert Abhängigkeiten + Docker
 #   2. fragt, wie die Seite erreichbar sein soll:
 #        1) eigene Domain mit automatischem HTTPS (Caddy + Let's Encrypt)
-#        2) Cloudflare Tunnel (mehrere Domains, kein offener Port nötig)
+#        2) Cloudflare Tunnel (kein offener Port nötig)
 #   3. fragt nach den Impressum-Daten (optional)
-#   4. Modus 1: wartet, bis der DNS-A-Record auf DIESEN Server zeigt, startet App + PostgreSQL + Caddy
+#   4. Modus 1: wartet, bis die DNS-A-Records (Domain und www) auf DIESEN Server zeigen, startet App + PostgreSQL + Caddy
 #      Modus 2: richtet per Cloudflare-API Tunnel + DNS ein und startet App + PostgreSQL + cloudflared
-#   5. prüft, ob die Seite(n) über https erreichbar sind
+#   5. prüft, ob die Seite über https erreichbar ist
 #
 # Aufruf (als root, im Projektordner):
 #   sudo ./install.sh                       # Installation (interaktiv)
@@ -18,23 +18,31 @@
 #   sudo ./install.sh cloudflare            # Cloudflare-Tunnel erneut einrichten / Token erneuern
 #   sudo ./install.sh --help                # alle Optionen
 #
-# Oder direkt von GitHub (klont das Projekt nach /opt/vylaris-europe):
-#   curl -fsSL https://raw.githubusercontent.com/cubiqstudio/vylarisgroup-europe/main/install.sh | sudo bash
+# Oder direkt von GitHub (klont das Projekt nach /opt/vylaris-schweiz):
+#   curl -fsSL https://raw.githubusercontent.com/cubiqstudio/vylarisgroupschweiz/main/install.sh | sudo bash
 #
 # Unterstützt: Debian/Ubuntu (apt) sowie Fedora/RHEL-Derivate (dnf/yum).
 # =============================================================================
 set -Eeuo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/cubiqstudio/vylarisgroup-europe}"
+REPO_URL="${REPO_URL:-https://github.com/cubiqstudio/vylarisgroupschweiz}"
 BRANCH="${BRANCH:-main}"
-INSTALL_DIR="${INSTALL_DIR:-/opt/vylaris-europe}"
+INSTALL_DIR="${INSTALL_DIR:-/opt/vylaris-schweiz}"
 ACME_PROD="https://acme-v02.api.letsencrypt.org/directory"
 ACME_STAGING="https://acme-staging-v02.api.letsencrypt.org/directory"
 
+# Die eine Domain des Vereins (ohne www); www.<Domain> leitet die App auf die Hauptadresse um.
+DEFAULT_DOMAIN="vylaris.ch"
 DOMAIN="${DOMAIN:-}"
 LE_EMAIL="${LE_EMAIL:-}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-}"
-# Impressum-/Rechtsdaten (Anfangswerte; später im Admin unter Einstellungen → Rechtliches änderbar)
+# Impressum-/Rechtsdaten (Anfangswerte; später im Admin unter Einstellungen → Rechtliches änderbar).
+# Vorgaben sind die öffentlich bekannten Angaben des Vereins.
+DEFAULT_LEGAL_STREET="Schützengasse 13"
+DEFAULT_LEGAL_ZIP_CITY="9410 Heiden (AR)"
+DEFAULT_LEGAL_COUNTRY="Schweiz"
+DEFAULT_LEGAL_PHONE="+41 78 322 21 39"
+DEFAULT_CONTACT_EMAIL="support@vylaris.ch"
 LEGAL_STREET="${LEGAL_STREET:-}"
 LEGAL_ZIP_CITY="${LEGAL_ZIP_CITY:-}"
 LEGAL_COUNTRY="${LEGAL_COUNTRY:-}"
@@ -48,12 +56,9 @@ SKIP_DNS_CHECK="${SKIP_DNS_CHECK:-0}"
 NO_PULL=0
 DNS_WAIT_MIN="${DNS_WAIT_MIN:-15}"
 COMMAND="install"
-# Zugangsart: caddy (eigene Domain, Let's Encrypt) oder cloudflare (Tunnel, mehrere Domains)
+# Zugangsart: caddy (eigene Domain, Let's Encrypt) oder cloudflare (Tunnel)
 ACCESS_MODE="${ACCESS_MODE:-}"
-CF_DOMAINS="${CLOUDFLARE_DOMAINS:-}"
-CF_DEFAULT_DOMAINS="vylaris.eu vylaris.de vylaris.net"
 CF_REPLACE=0
-NET_CONTACT_EMAIL="${NET_CONTACT_EMAIL:-}"
 HEALTH_TRIES="${HEALTH_TRIES:-60}"
 HEALTH_SLEEP="${HEALTH_SLEEP:-5}"
 
@@ -87,21 +92,19 @@ trap on_error ERR
 
 usage() {
   cat <<'EOF'
-VylarisGroupEurope – Installer
+VylarisGroup Schweiz – Installer
 
 Verwendung: install.sh [install|update|cloudflare] [Optionen]
 
   install     Installation (Standard)
   update      neueste Version holen und neu starten
-  cloudflare  Cloudflare-Tunnel erneut einrichten (z. B. weitere Domain, neuer Token)
+  cloudflare  Cloudflare-Tunnel erneut einrichten (z. B. neuer Token)
 
 Optionen:
   --mode <caddy|cloudflare>
                         Zugangsart: caddy = eigene Domain mit automatischem HTTPS (Let's Encrypt),
-                        cloudflare = Cloudflare Tunnel (mehrere Domains, kein offener Port); sonst Abfrage
-  --domain <name>       Domain (z. B. www.example.org, Modus caddy); sonst Abfrage
-  --domains "a b c"     Domains für den Cloudflare Tunnel (Standard: vylaris.eu vylaris.de vylaris.net;
-                        die erste ist die Hauptdomain, z. B. für SITE_URL und Admin-Links)
+                        cloudflare = Cloudflare Tunnel (kein offener Port); sonst Abfrage
+  --domain <name>       Domain ohne www (Standard: vylaris.ch); www.<Domain> wird mit eingerichtet
   --replace             Cloudflare: vorhandene DNS-Einträge gleichen Namens ersetzen
   --email <adresse>     E-Mail für Let's Encrypt (Ablauf-Hinweise); sonst Abfrage
   --admin-email <adr>   Login-E-Mail des Admin-Kontos; sonst Abfrage
@@ -114,7 +117,7 @@ Optionen:
 
 Umgebungsvariablen: DOMAIN, LE_EMAIL, ADMIN_EMAIL, BRANCH, REPO_URL, INSTALL_DIR,
                     USE_STAGING=1, SKIP_DNS_CHECK=1, ASSUME_YES=1, DNS_WAIT_MIN,
-                    ACCESS_MODE=caddy|cloudflare, CLOUDFLARE_DOMAINS
+                    ACCESS_MODE=caddy|cloudflare
 
 Cloudflare Tunnel: Den API-Token (Rechte: Account → Cloudflare Tunnel: Bearbeiten, Zone → DNS: Bearbeiten,
                     Zone → Zone: Lesen) fragt der Installer verdeckt ab bzw. liest ihn aus CLOUDFLARE_API_TOKEN.
@@ -134,7 +137,6 @@ parse_args() {
       install|update|cloudflare) COMMAND="$1" ;;
       --mode)          ACCESS_MODE="${2:?--mode braucht einen Wert}"; shift ;;
       --cloudflare)    ACCESS_MODE=cloudflare ;;
-      --domains)       CF_DOMAINS="${2:?--domains braucht einen Wert}"; shift ;;
       --replace)       CF_REPLACE=1 ;;
       --domain)        DOMAIN="${2:?--domain braucht einen Wert}"; shift ;;
       --email)         LE_EMAIL="${2:?--email braucht einen Wert}"; shift ;;
@@ -204,7 +206,7 @@ trim() { local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]
 
 # --- Zufallswerte -----------------------------------------------------------------
 rand_hex() { openssl rand -hex "$1"; }
-gen_password() { # 20 Zeichen, erfüllt die Passwort-Policy (Groß/Klein/Ziffer)
+gen_password() { # 20 Zeichen, erfüllt die Passwort-Policy (Gross/Klein/Ziffer)
   local p
   while :; do
     p=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 20 || true)
@@ -368,7 +370,13 @@ warn_aaaa() { # Let's Encrypt bevorzugt IPv6, wenn ein AAAA-Record existiert
   fi
 }
 
+# Wartet auf die A-Records von Domain und www.<Domain> (beide bekommen ein Zertifikat)
 wait_for_dns() {
+  local d
+  for d in "$@"; do wait_for_dns_one "$d"; done
+}
+
+wait_for_dns_one() {
   local d="$1" start now waited=0 ans
   if [ "$SKIP_DNS_CHECK" = "1" ]; then warn "DNS-Prüfung übersprungen (--skip-dns-check)."; return 0; fi
   SERVER_IP=$(public_ip || true)
@@ -413,7 +421,7 @@ wait_for_dns() {
 }
 
 check_ports() {
-  if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx 'vylaris-europe-caddy'; then return 0; fi
+  if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx 'vylaris-schweiz-caddy'; then return 0; fi
   local p info
   for p in 80 443; do
     info=$(ss -ltnpH "sport = :$p" 2>/dev/null | head -n1 || true)
@@ -448,6 +456,14 @@ current_mode() {
   esac
 }
 
+# Domain bestimmen: Option/Umgebung > .env > vylaris.ch; ohne www, geprüft.
+normalize_main_domain() {
+  [ -n "$DOMAIN" ] || { [ -f "$ENV_FILE" ] && DOMAIN=$(env_get DOMAIN); }
+  [ -n "$DOMAIN" ] || DOMAIN="$DEFAULT_DOMAIN"
+  DOMAIN=$(normalize_domain "$DOMAIN"); DOMAIN="${DOMAIN#www.}"
+  valid_domain "$DOMAIN" || die "'$DOMAIN' ist keine gültige Domain (IP-Adressen und localhost gehen nicht)."
+}
+
 choose_mode() {
   local cur ans def=1
   cur=$(current_mode)
@@ -459,7 +475,7 @@ choose_mode() {
       if [ -n "$TTY" ]; then
         hr; printf '%sWie soll die Seite erreichbar sein?%s\n' "$C_BLD" "$C_OFF" >"$TTY"
         printf '  1) Eigene Domain mit automatischem HTTPS (Caddy, Let'"'"'s Encrypt)\n' >"$TTY"
-        printf '  2) Cloudflare Tunnel (mehrere Domains: vylaris.eu/.de/.net, kein offener Port nötig)\n' >"$TTY"
+        printf '  2) Cloudflare Tunnel (kein offener Port nötig)\n' >"$TTY"
         while :; do
           ans=$(ask "Auswahl" "$def")
           case "$ans" in 1) ACCESS_MODE=caddy; break ;; 2) ACCESS_MODE=cloudflare; break ;; *) warn "Bitte 1 oder 2 eingeben." ;; esac
@@ -473,56 +489,8 @@ choose_mode() {
     [ -f "$PROJECT_DIR/docker-compose.cloudflare.yml" ] && [ -f "$PROJECT_DIR/scripts/cloudflare-setup.sh" ] \
       || die "docker-compose.cloudflare.yml bzw. scripts/cloudflare-setup.sh fehlt im Projekt ($PROJECT_DIR) – ist der Branch aktuell?"
     ensure_jq
-    load_cf_domains
+    normalize_main_domain
   fi
-}
-
-# Domains des Cloudflare-Tunnels: Option/Umgebung > .env > Standard. Die erste ist die Hauptseite.
-load_cf_domains() {
-  local d list=()
-  [ -n "$CF_DOMAINS" ] || { [ -f "$ENV_FILE" ] && CF_DOMAINS=$(env_get CLOUDFLARE_DOMAINS); }
-  [ -n "${CF_DOMAINS// /}" ] || CF_DOMAINS="$CF_DEFAULT_DOMAINS"
-  for d in ${CF_DOMAINS//,/ }; do
-    d=$(normalize_domain "$d"); d="${d#www.}"
-    valid_domain "$d" || die "'$d' ist keine gültige Domain (--domains)."
-    list+=("$d")
-  done
-  [ "${#list[@]}" -gt 0 ] || die "Keine Domain für den Cloudflare Tunnel angegeben."
-  CF_DOMAINS="${list[*]}"
-  DOMAIN="${list[0]}"
-}
-
-# Interaktiv: Domains des Tunnels bestätigen oder ändern (Enter = Vorgabe). Ohne Terminal/--yes bleibt die Vorgabe.
-ask_cf_domains() {
-  local ans
-  [ -n "$TTY" ] && [ "$ASSUME_YES" != "1" ] || return 0
-  hr
-  {
-    printf '%sDomains für den Cloudflare Tunnel%s\n' "$C_BLD" "$C_OFF"
-    printf '  Alle Domains laufen über DENSELBEN Tunnel zur selben App. Die erste ist die Hauptdomain (SITE_URL, Links des Teams); den Admin-Bereich gibt es auf allen.\n'
-    printf '  Voraussetzung: Jede Domain ist bei Cloudflare angelegt und aktiv (Nameserver bei der Registrierung auf\n'
-    printf '  Cloudflare umgestellt; im Cloudflare-Dashboard steht die Domain auf "Aktiv").\n'
-    printf '  vylaris.at ist noch offline – bitte erst eintragen, wenn die Seite fertig ist\n'
-    printf '  (dann in src/lib/sites.ts "online: true" setzen und neu bereitstellen).\n'
-  } >"$TTY"
-  ans=$(ask "Domains (mit Leerzeichen getrennt)" "$CF_DOMAINS")
-  CF_DOMAINS="$ans"
-  load_cf_domains
-  case " $CF_DOMAINS " in *" vylaris.at "*) warn "vylaris.at zeigt nur eine Offline-Seite, bis es in src/lib/sites.ts auf online gesetzt ist." ;; esac
-}
-
-# Kontakt-E-Mail für die Legal Notice von vylaris.net (nur wenn die Domain dabei ist)
-ask_net_contact() {
-  case " $CF_DOMAINS " in *" vylaris.net "*) ;; *) return 0 ;; esac
-  [ -n "$NET_CONTACT_EMAIL" ] || { [ -f "$ENV_FILE" ] && NET_CONTACT_EMAIL=$(env_get NET_CONTACT_EMAIL); }
-  [ -n "$TTY" ] && [ "$ASSUME_YES" != "1" ] || return 0
-  hr
-  printf '%sKontakt-E-Mail für vylaris.net%s\n  Diese Adresse steht in der Legal Notice und der Privacy Policy von vylaris.net.\n' "$C_BLD" "$C_OFF" >"$TTY"
-  while :; do
-    NET_CONTACT_EMAIL=$(ask "E-Mail-Adresse" "${NET_CONTACT_EMAIL:-contact@vylaris.net}")
-    valid_email "$NET_CONTACT_EMAIL" && break
-    warn "Bitte eine gültige E-Mail-Adresse angeben."
-  done
 }
 
 # Anleitung: Cloudflare-API-Token erstellen (nur für dieses Setup nötig)
@@ -531,13 +499,13 @@ print_cf_token_guide() {
     printf '%sSo erstellst du den Cloudflare-API-Token%s (dauert etwa 2 Minuten)\n\n' "$C_BLD" "$C_OFF"
     printf '  1. Öffne  https://dash.cloudflare.com/profile/api-tokens  (mit dem Cloudflare-Konto anmelden, in dem die Domains liegen).\n'
     printf '  2. Klicke auf "Token erstellen" und bei "Benutzerdefinierten Token erstellen" auf "Los geht'"'"'s".\n'
-    printf '  3. Name:  vylaris-tunnel-setup\n'
+    printf '  3. Name:  vylaris-schweiz-tunnel-setup\n'
     printf '  4. Berechtigungen – drei Zeilen ("+ Weiter hinzufügen" für jede weitere):\n'
     printf '       Konto     │ Cloudflare Tunnel │ Bearbeiten\n'
     printf '       Zone      │ DNS               │ Bearbeiten\n'
     printf '       Zone      │ Zone              │ Lesen\n'
-    printf '  5. Kontoressourcen:  Einschließen → dein Konto.\n'
-    printf '     Zonenressourcen:  Einschließen → Bestimmte Zone → je eine Zeile für %s\n' "$CF_DOMAINS"
+    printf '  5. Kontoressourcen:  Einschliessen → dein Konto.\n'
+    printf '     Zonenressourcen:  Einschliessen → Bestimmte Zone → %s\n' "$DOMAIN"
     printf '  6. Optional: unter "TTL" ein Ablaufdatum setzen (z. B. morgen) – der Token wird nur jetzt gebraucht.\n'
     printf '  7. "Weiter zur Zusammenfassung" → "Token erstellen" → den angezeigten Token KOPIEREN\n'
     printf '     (er wird nur einmal angezeigt).\n\n'
@@ -555,13 +523,11 @@ collect_config() {
   hr; printf '%sKonfiguration%s\n' "$C_BLD" "$C_OFF"
   if [ "$ACCESS_MODE" = "cloudflare" ]; then
     # Keine Let's-Encrypt-Abfrage: Zertifikate stellt Cloudflare aus.
-    ask_cf_domains
-    ask_net_contact
-    log "Cloudflare Tunnel für: $CF_DOMAINS (Hauptdomain: $DOMAIN)"
+    log "Cloudflare Tunnel für: $DOMAIN und www.$DOMAIN"
   else
     while :; do
-      [ -n "$DOMAIN" ] || DOMAIN=$(ask "Domain für die Website (z. B. www.example.org)" "$existing_domain")
-      DOMAIN=$(normalize_domain "$DOMAIN")
+      [ -n "$DOMAIN" ] || DOMAIN=$(ask "Domain für die Website (ohne www)" "${existing_domain:-$DEFAULT_DOMAIN}")
+      DOMAIN=$(normalize_domain "$DOMAIN"); DOMAIN="${DOMAIN#www.}"
       if valid_domain "$DOMAIN"; then break; fi
       warn "'$DOMAIN' ist keine gültige Domain (IP-Adressen und localhost gehen nicht – Let's Encrypt braucht einen Domainnamen)."
       [ -z "$TTY" ] && die "Ungültige Domain."
@@ -579,7 +545,7 @@ collect_config() {
 
   local admin_def="${ADMIN_EMAIL:-}"
   [ -z "$admin_def" ] && [ -f "$ENV_FILE" ] && admin_def=$(env_get ADMIN_EMAIL)
-  [ -z "$admin_def" ] || [ "$admin_def" = "lucas.wilms@vylaris.example" ] && admin_def="lucas.wilms@${DOMAIN#www.}"
+  [ -z "$admin_def" ] || [ "$admin_def" = "admin@vylaris.example" ] && admin_def="admin@${DOMAIN}"
   while :; do
     ADMIN_EMAIL=$(ask "Login-E-Mail für das Admin-Konto" "$admin_def")
     if valid_email "$ADMIN_EMAIL"; then break; fi
@@ -628,8 +594,11 @@ collect_legal() {
   for var in LEGAL_STREET LEGAL_ZIP_CITY LEGAL_COUNTRY LEGAL_PHONE LEGAL_REGISTER LEGAL_VAT_ID CONTACT_EMAIL; do
     if [ -z "${!var:-}" ] && [ -f "$ENV_FILE" ]; then printf -v "$var" '%s' "$(env_get "$var")"; fi
   done
-  [ -n "$LEGAL_COUNTRY" ] || LEGAL_COUNTRY="Deutschland"
-  [ -n "$CONTACT_EMAIL" ] || CONTACT_EMAIL="$LE_EMAIL"
+  [ -n "$LEGAL_STREET" ] || LEGAL_STREET="$DEFAULT_LEGAL_STREET"
+  [ -n "$LEGAL_ZIP_CITY" ] || LEGAL_ZIP_CITY="$DEFAULT_LEGAL_ZIP_CITY"
+  [ -n "$LEGAL_COUNTRY" ] || LEGAL_COUNTRY="$DEFAULT_LEGAL_COUNTRY"
+  [ -n "$LEGAL_PHONE" ] || LEGAL_PHONE="$DEFAULT_LEGAL_PHONE"
+  [ -n "$CONTACT_EMAIL" ] || CONTACT_EMAIL="$DEFAULT_CONTACT_EMAIL"
 
   hr; printf '%sImpressum & Rechtliches%s\n' "$C_BLD" "$C_OFF"
   if [ -n "$TTY" ]; then
@@ -639,17 +608,17 @@ collect_legal() {
   else
     log "Impressum-Daten aus Umgebungsvariablen bzw. bestehender .env (später im Admin änderbar)."
   fi
-  legal_ask LEGAL_STREET     "Straße und Hausnummer" 160
+  legal_ask LEGAL_STREET     "Strasse und Hausnummer" 160
   legal_ask LEGAL_ZIP_CITY   "PLZ und Ort" 120
   legal_ask LEGAL_COUNTRY    "Land" 80
   legal_ask LEGAL_PHONE      "Telefon" 60
-  legal_ask LEGAL_REGISTER   "Handelsregister / Register-Nr. (optional)" 200
-  legal_ask LEGAL_VAT_ID     "USt-IdNr. (optional)" 40
+  legal_ask LEGAL_REGISTER   "Registereintrag (optional)" 200
+  legal_ask LEGAL_VAT_ID     "MWST-/UID-Nummer (optional)" 40
   legal_ask CONTACT_EMAIL    "Kontakt-E-Mail für das Impressum" 200 email
-  [ -n "$LEGAL_COUNTRY" ] || LEGAL_COUNTRY="Deutschland"
+  [ -n "$LEGAL_COUNTRY" ] || LEGAL_COUNTRY="$DEFAULT_LEGAL_COUNTRY"
 
   if [ -z "$LEGAL_STREET" ] || [ -z "$LEGAL_ZIP_CITY" ] || [ -z "$CONTACT_EMAIL" ]; then
-    warn "Anschrift oder Kontakt-E-Mail fehlen – Impressum und Datenschutz zeigen so lange "Angabe ergänzen" (Ergänzen: Admin → Einstellungen → Rechtliches)."
+    warn "Anschrift oder Kontakt-E-Mail fehlen – Impressum und Datenschutz zeigen so lange «Angabe ergänzen» (Ergänzen: Admin → Einstellungen → Rechtliches)."
   else
     ok "Impressum-Daten erfasst"
   fi
@@ -666,11 +635,13 @@ write_env() {
   chmod 600 "$ENV_FILE"
 
   # Bestehende Datenbank + fehlendes Passwort = Zugriff würde scheitern
-  if [ -z "$(env_get POSTGRES_PASSWORD)" ] && docker volume inspect vylaris_pgdata >/dev/null 2>&1; then
-    die "Es existiert bereits ein Datenbank-Volume (vylaris_pgdata), aber in .env fehlt POSTGRES_PASSWORD.
+  if [ -z "$(env_get POSTGRES_PASSWORD)" ] && docker volume inspect vylaris_schweiz_pgdata >/dev/null 2>&1; then
+    die "Es existiert bereits ein Datenbank-Volume (vylaris_schweiz_pgdata), aber in .env fehlt POSTGRES_PASSWORD.
    Trage das ursprüngliche Passwort in $ENV_FILE ein, sonst kann die App die Datenbank nicht öffnen."
   fi
 
+  # LICENSE_SECRET nur bei einer Neuinstallation erzeugen: ein späterer Wechsel macht bestehende Lizenzschlüssel ungültig.
+  [ -n "$(env_get AUTH_SECRET)" ] || [ -n "$(env_get LICENSE_SECRET)" ] || env_set LICENSE_SECRET "$(rand_hex 32)"
   [ -n "$(env_get AUTH_SECRET)" ]        || env_set AUTH_SECRET "$(rand_hex 32)"
   [ -n "$(env_get POSTGRES_PASSWORD)" ]  || env_set POSTGRES_PASSWORD "$(rand_hex 24)"
   if [ -z "$(env_get ADMIN_PASSWORD)" ]; then ADMIN_PASSWORD_NEW=$(gen_password); env_set ADMIN_PASSWORD "$ADMIN_PASSWORD_NEW"; fi
@@ -687,15 +658,9 @@ write_env() {
   env_set CONTACT_EMAIL "$CONTACT_EMAIL"
   env_set SITE_URL "https://$DOMAIN"
   env_set COOKIE_SECURE "true"
-  # Basis-Domain der Beispieldienste im Seed (der Seed legt sie nur beim ersten Start an); eine
-  # bewusst gesetzte eigene Vorgabe bleibt erhalten.
-  case "$(env_get SEED_BASE_DOMAIN)" in ""|vylaris.example) env_set SEED_BASE_DOMAIN "${DOMAIN#www.}" ;; esac
   env_set APP_BIND "127.0.0.1"
-  if [ "$ACCESS_MODE" = "cloudflare" ]; then
-    env_set CLOUDFLARE_DOMAINS "$CF_DOMAINS"
-    [ -z "$NET_CONTACT_EMAIL" ] || env_set NET_CONTACT_EMAIL "$NET_CONTACT_EMAIL"
-    # COMPOSE_FILE wird erst nach erfolgreichem Cloudflare-Setup umgestellt (siehe run_cloudflare_setup)
-  else
+  # Im Cloudflare-Modus wird COMPOSE_FILE erst nach erfolgreichem Setup umgestellt (siehe run_cloudflare_setup).
+  if [ "$ACCESS_MODE" != "cloudflare" ]; then
     env_set COMPOSE_FILE "docker-compose.yml:docker-compose.https.yml"
     if [ "$USE_STAGING" = "1" ]; then env_set ACME_CA "$ACME_STAGING"; else env_set ACME_CA "$ACME_PROD"; fi
   fi
@@ -722,7 +687,7 @@ run_cloudflare_setup() {
     [ "${#tok}" -ge 30 ] || die "Das sieht nicht wie ein Cloudflare-API-Token aus (zu kurz). Bitte den ganzen Token kopieren."
   fi
 
-  args=(--env-file "$ENV_FILE" --domains "$CF_DOMAINS")
+  args=(--env-file "$ENV_FILE" --domain "$DOMAIN")
   [ "$CF_REPLACE" = "1" ] && args+=(--replace)
   log "Richte den Cloudflare Tunnel ein …"
   rc=0
@@ -745,7 +710,6 @@ run_cloudflare_setup() {
   env_set SITE_URL "https://$DOMAIN"
   env_set COOKIE_SECURE "true"
   env_set APP_BIND "127.0.0.1"
-  env_set CLOUDFLARE_DOMAINS "$CF_DOMAINS"
   env_set COMPOSE_FILE "docker-compose.yml:docker-compose.cloudflare.yml"
   chmod 600 "$ENV_FILE"
 }
@@ -753,7 +717,7 @@ run_cloudflare_setup() {
 # --- Deploy ---------------------------------------------------------------------------
 deploy() {
   log "Baue und starte die Container (der erste Build dauert einige Minuten) …"
-  if [ "$ACCESS_MODE" = "cloudflare" ] || docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx 'vylaris-europe-cloudflared'; then
+  if [ "$ACCESS_MODE" = "cloudflare" ] || docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx 'vylaris-schweiz-cloudflared'; then
     # --remove-orphans: beim Wechsel zwischen Caddy und Cloudflare Tunnel wird der nicht mehr benötigte
     # Container (Caddy bzw. cloudflared) entfernt; bei reinen Caddy-Installationen bleibt alles wie bisher.
     docker compose up -d --build --remove-orphans
@@ -796,28 +760,19 @@ curl_domain() { # liefert HTTP-Code oder 000
   curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "https://$1/api/health" 2>/dev/null || true
 }
 
-# Prüft alle Cloudflare-Domains über die öffentliche Adresse (mit Wiederholungen: Tunnel und DNS brauchen etwas Zeit).
-# Nur die Hauptseite ist Pflicht; fehlende Nebendomains führen zu einer Warnung.
+# Prüft die Domain über die öffentliche Adresse (mit Wiederholungen: Tunnel und DNS brauchen etwas Zeit).
+# www.<Domain> wird nicht geprüft: die App antwortet dort mit einer Weiterleitung (308), nicht mit 200.
 wait_for_cloudflare() {
-  local i d code pending=() next=() primary_missing=0
-  IFS=' ' read -ra pending <<<"$CF_DOMAINS"
-  log "Warte, bis die Seiten über Cloudflare erreichbar sind (bis zu $((HEALTH_TRIES * HEALTH_SLEEP / 60 + 1)) Minuten) …"
+  local i code
+  log "Warte, bis die Seite über Cloudflare erreichbar ist (bis zu $((HEALTH_TRIES * HEALTH_SLEEP / 60 + 1)) Minuten) …"
   for i in $(seq 1 "$HEALTH_TRIES"); do
-    next=()
-    for d in "${pending[@]}"; do
-      code=$(curl_domain "$d")
-      if [ "$code" = "200" ]; then ok "https://$d antwortet (HTTP 200)"; else next+=("$d"); fi
-    done
-    pending=("${next[@]+"${next[@]}"}")
-    [ "${#pending[@]}" -eq 0 ] && return 0
-    printf '  … Versuch %s/%s, noch offen: %s\r' "$i" "$HEALTH_TRIES" "${pending[*]}"
+    code=$(curl_domain "$DOMAIN")
+    if [ "$code" = "200" ]; then ok "https://$DOMAIN antwortet (HTTP 200)"; return 0; fi
+    printf '  … Versuch %s/%s (Antwort: %s)\r' "$i" "$HEALTH_TRIES" "${code:-000}"
     sleep "$HEALTH_SLEEP"
   done
   printf '\n'
-  for d in "${pending[@]}"; do
-    warn "https://$d ist noch nicht erreichbar."
-    [ "$d" = "$DOMAIN" ] && primary_missing=1
-  done
+  warn "https://$DOMAIN ist noch nicht erreichbar."
   docker compose logs --tail 15 cloudflared 2>&1 | sed 's/^/   cloudflared | /' || true
   docker compose logs --tail 10 app 2>&1 | sed 's/^/   app         | /' || true
   cat <<EOF
@@ -828,7 +783,7 @@ Häufige Ursachen:
   • Der DNS-Cache braucht noch einen Moment – in ein paar Minuten erneut prüfen
 Danach einfach erneut starten:  sudo $SELF cloudflare   (bereits Erledigtes wird übersprungen)
 EOF
-  [ "$primary_missing" -eq 0 ]
+  return 1
 }
 
 cert_info() {
@@ -842,16 +797,9 @@ summary() {
   hr
   printf '%s✔ Installation abgeschlossen%s\n\n' "$C_GRN$C_BLD" "$C_OFF"
   if [ "$ACCESS_MODE" = "cloudflare" ]; then
-    local d
-    printf '  Adressen (alle über den Cloudflare Tunnel, dieselbe App und Datenbank):\n'
-    for d in $CF_DOMAINS; do
-      if [ "$d" = "$DOMAIN" ]; then printf '    https://%s   (Hauptdomain)\n' "$d"; else printf '    https://%s\n' "$d"; fi
-    done
-    case " $CF_DOMAINS " in *" vylaris.at "*) ;; *) printf '    vylaris.at ist noch offline (kein Tunnel-Hostname, kein DNS-Eintrag).\n' ;; esac
-    printf '\n'
-    printf '  Login:    https://%s/login   (Admins und Website-Nutzer; der Admin-Bereich /admin ist auf allen Domains erreichbar)\n' "$DOMAIN"
-    printf '  Status:   https://%s/status\n' "$DOMAIN"
-    printf '  Hinweis:  Die Anmeldung gilt je Domain getrennt (Cookies sind domaingebunden); Konten und Daten sind gemeinsam.\n\n'
+    printf '  Website:  https://%s   (über den Cloudflare Tunnel; www.%s leitet hierher um)\n' "$DOMAIN" "$DOMAIN"
+    printf '  Login:    https://%s/login   (Admins und Website-Nutzer – /admin ist ohne Admin-Anmeldung nicht erreichbar)\n' "$DOMAIN"
+    printf '  Status:   https://%s/status\n\n' "$DOMAIN"
     printf '  Der Cloudflare-API-Token wurde nicht gespeichert. Du kannst ihn jetzt bei Cloudflare löschen:\n'
     printf '  https://dash.cloudflare.com/profile/api-tokens\n\n'
   else
@@ -875,8 +823,8 @@ Nächste Schritte (siehe README, Abschnitt "Vor dem Go-Live"):
   2. Admin → Einstellungen → E-Mail (SMTP): Mailserver eintragen und eine Testmail senden.
   3. Danach die Registrierung für Website-Nutzer aktivieren (nur mit funktionierendem Mailversand möglich).
   4. Admin → Einstellungen → Rechtliches: Impressum-Daten prüfen/ergänzen (Anfangswerte kamen aus dem Installer).
-  5. Beispieldienste und Zitate im Admin bzw. mit Lucas Wilms abstimmen.
-  6. Backups: docker compose exec db pg_dump -U vylaris vylaris > backup.sql
+  5. Dienste, Infrastruktur-Komponenten und Lizenz-Produkte im Admin mit den echten Angaben erfassen.
+  6. Backups: docker compose exec db pg_dump -U vylaris vylaris_schweiz > backup.sql
 
 Wichtig: AUTH_SECRET in $ENV_FILE nicht mehr ändern – es verschlüsselt auch das SMTP-Passwort
 in der Datenbank (bei Änderung muss es im Admin neu eingegeben werden).
@@ -884,7 +832,7 @@ in der Datenbank (bei Änderung muss es im Admin neu eingegeben werden).
 Nützlich:
   Logs:      cd $PROJECT_DIR && docker compose logs -f
   Update:    sudo $SELF update
-  Cloudflare: sudo $SELF cloudflare   (Tunnel/DNS erneut einrichten, z. B. weitere Domain)
+  Cloudflare: sudo $SELF cloudflare   (Tunnel/DNS erneut einrichten, z. B. mit neuem Token)
   Stoppen:   cd $PROJECT_DIR && docker compose down      (Daten bleiben im Volume erhalten)
 EOF
   hr
@@ -893,7 +841,7 @@ EOF
 # --- Abläufe ----------------------------------------------------------------------------
 do_install() {
   need_root "$@"
-  printf '%sVylarisGroupEurope – Installation%s\n' "$C_BLD" "$C_OFF"; hr
+  printf '%sVylarisGroup Schweiz – Installation%s\n' "$C_BLD" "$C_OFF"; hr
   detect_pkg
   install_base_packages
   install_docker
@@ -904,7 +852,7 @@ do_install() {
   ensure_memory
   if [ "$ACCESS_MODE" = "caddy" ]; then
     check_ports
-    wait_for_dns "$DOMAIN"
+    wait_for_dns "$DOMAIN" "www.$DOMAIN"
     open_firewall
   fi
   write_env
@@ -922,7 +870,7 @@ do_install() {
 # Cloudflare Tunnel (erneut) einrichten: Tunnel/DNS per API, danach Container neu starten
 do_cloudflare() {
   need_root "$@"
-  printf '%sVylarisGroupEurope – Cloudflare Tunnel%s\n' "$C_BLD" "$C_OFF"; hr
+  printf '%sVylarisGroup Schweiz – Cloudflare Tunnel%s\n' "$C_BLD" "$C_OFF"; hr
   detect_pkg; install_base_packages; install_docker; get_project
   [ -f "$ENV_FILE" ] || die "Keine .env gefunden – bitte zuerst './install.sh' ausführen."
   local was; was=$(current_mode)
@@ -933,9 +881,6 @@ do_cloudflare() {
     confirm "Auf Cloudflare Tunnel umstellen?" y || die "Abgebrochen."
   fi
   ADMIN_EMAIL=$(env_get ADMIN_EMAIL)
-  ask_cf_domains
-  ask_net_contact
-  [ -z "$NET_CONTACT_EMAIL" ] || env_set NET_CONTACT_EMAIL "$NET_CONTACT_EMAIL"
   run_cloudflare_setup
   deploy
   wait_for_cloudflare || exit 1
@@ -949,9 +894,6 @@ do_update() {
   DOMAIN=$(env_get DOMAIN); [ -n "$DOMAIN" ] || die "DOMAIN fehlt in .env."
   ADMIN_EMAIL=$(env_get ADMIN_EMAIL)
   ACCESS_MODE=$(current_mode); ACCESS_MODE="${ACCESS_MODE:-caddy}"
-  if [ "$ACCESS_MODE" = "cloudflare" ]; then
-    CF_DOMAINS=$(env_get CLOUDFLARE_DOMAINS); CF_DOMAINS="${CF_DOMAINS:-$CF_DEFAULT_DOMAINS}"
-  fi
   [ "$(env_get ACME_CA)" = "$ACME_STAGING" ] && USE_STAGING=1
   if [ -d "$PROJECT_DIR/.git" ] && [ "$NO_PULL" != "1" ]; then
     local before after

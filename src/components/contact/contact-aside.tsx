@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { Activity, ArrowRight, EyeOff, MailCheck, Server, ShieldCheck } from "lucide-react";
+import { Activity, ArrowRight, EyeOff, MailCheck, MessageCircle, Server, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { getMessages, getSite } from "@/i18n/server";
+import { getMessages } from "@/i18n/server";
 import { contact } from "@/i18n/contact";
+import { getLegal } from "@/lib/legal";
+import { site } from "@/lib/site";
 
 function InfoCard({
   icon: Icon,
@@ -37,9 +39,28 @@ function InfoCard({
   );
 }
 
+/**
+ * Direkte Kontaktwege aus der Konfiguration: Telefon und E-Mail aus den Admin-Einstellungen (bzw. CONTACT_EMAIL),
+ * Discord aus den Stammdaten. Was nicht hinterlegt ist, wird nicht angezeigt.
+ */
+async function loadChannels() {
+  const legal = await getLegal().catch(() => null);
+  const phone = legal?.phone;
+  const digits = phone?.replace(/\D/g, "") ?? "";
+  const email = legal?.email ?? site.contactEmail;
+  return {
+    // WhatsApp-Link nur bei einer plausiblen internationalen Nummer (E.164 hat höchstens 15 Ziffern)
+    whatsapp: phone && digits.length >= 8 && digits.length <= 15 ? { label: phone, href: `https://wa.me/${digits}` } : null,
+    email: email ? { label: email, href: `mailto:${email}` } : null,
+    discord: site.social.discord ? { label: site.social.discord.replace(/^https?:\/\//, ""), href: site.social.discord } : null,
+  };
+}
+
 export async function ContactAside() {
-  const site = await getSite();
   const m = (await getMessages(contact)).aside;
+  const channels = await loadChannels();
+  const hasChannels = Boolean(channels.whatsapp || channels.email || channels.discord);
+  const linkClass = "font-medium text-emerald-400 underline-offset-4 hover:text-emerald-300 hover:underline";
   return (
     <aside aria-label={m.label} className="space-y-4">
       <InfoCard icon={EyeOff} title={m.privacy.title}>
@@ -52,6 +73,38 @@ export async function ContactAside() {
         </p>
       </InfoCard>
 
+      {hasChannels && (
+        <InfoCard icon={MessageCircle} title={m.channels.title}>
+          <p>{m.channels.text}</p>
+          <ul className="mt-3 space-y-1.5">
+            {channels.whatsapp && (
+              <li>
+                <span className="text-zinc-500">{m.channels.whatsapp}: </span>
+                <a href={channels.whatsapp.href} target="_blank" rel="noopener noreferrer" aria-label={m.channels.whatsappAria} className={linkClass}>
+                  {channels.whatsapp.label}
+                </a>
+              </li>
+            )}
+            {channels.email && (
+              <li>
+                <span className="text-zinc-500">{m.channels.email}: </span>
+                <a href={channels.email.href} className={linkClass}>
+                  {channels.email.label}
+                </a>
+              </li>
+            )}
+            {channels.discord && (
+              <li>
+                <span className="text-zinc-500">{m.channels.discord}: </span>
+                <a href={channels.discord.href} target="_blank" rel="noopener noreferrer" aria-label={m.channels.discordAria} className={linkClass}>
+                  {channels.discord.label}
+                </a>
+              </li>
+            )}
+          </ul>
+        </InfoCard>
+      )}
+
       <InfoCard icon={MailCheck} title={m.reply.title}>
         <p>{m.reply.text}</p>
       </InfoCard>
@@ -60,8 +113,8 @@ export async function ContactAside() {
         <p>{m.security.text}</p>
       </InfoCard>
 
-      <InfoCard icon={Server} title={m.b2b.title}>
-        <p>{m.b2b.text(site)}</p>
+      <InfoCard icon={Server} title={m.custom.title}>
+        <p>{m.custom.text}</p>
       </InfoCard>
 
       <InfoCard icon={Activity} title={m.status.title} accent="indigo">

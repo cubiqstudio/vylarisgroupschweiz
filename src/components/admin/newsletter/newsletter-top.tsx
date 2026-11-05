@@ -13,7 +13,7 @@ import { NewsletterToggle } from "./newsletter-toggle";
 
 /**
  * Gemeinsamer Kopf der Newsletter-Übersichten: dunkles Banner mit dem V-Zeichen (Variante für dunkle Flächen),
- * Schalter, Kennzahlen und Tabs „Kampagnen | Abonnenten“.
+ * Schalter, Kennzahlen und Tabs «Kampagnen | Abonnenten».
  */
 export async function NewsletterTop({ active }: { active: "campaigns" | "subscribers" }) {
   const [availability, grouped, campaignCount] = await Promise.all([
@@ -67,10 +67,10 @@ export async function NewsletterTop({ active }: { active: "campaigns" | "subscri
       </Card>
 
       <section aria-label="Kennzahlen" className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Abonnenten" value={(by.ACTIVE ?? 0).toLocaleString("de-DE")} detail="Aktiv und bestätigt" href="/admin/newsletter/subscribers?status=ACTIVE" icon={<UserCheck className="size-[18px]" />} />
-        <StatCard label="Ausstehend" value={(by.PENDING ?? 0).toLocaleString("de-DE")} detail="Warten auf Bestätigung" href="/admin/newsletter/subscribers?status=PENDING" icon={<Hourglass className="size-[18px]" />} />
-        <StatCard label="Abgemeldet" value={(by.UNSUBSCRIBED ?? 0).toLocaleString("de-DE")} detail="Erhalten nichts mehr" href="/admin/newsletter/subscribers?status=UNSUBSCRIBED" icon={<UserMinus className="size-[18px]" />} />
-        <StatCard label="Kampagnen" value={campaignCount.toLocaleString("de-DE")} detail="Entwürfe und versendete" href="/admin/newsletter" icon={<Send className="size-[18px]" />} />
+        <StatCard label="Abonnenten" value={(by.ACTIVE ?? 0).toLocaleString("de-CH")} detail="Aktiv und bestätigt" href="/admin/newsletter/subscribers?status=ACTIVE" icon={<UserCheck className="size-[18px]" />} />
+        <StatCard label="Ausstehend" value={(by.PENDING ?? 0).toLocaleString("de-CH")} detail="Warten auf Bestätigung" href="/admin/newsletter/subscribers?status=PENDING" icon={<Hourglass className="size-[18px]" />} />
+        <StatCard label="Abgemeldet" value={(by.UNSUBSCRIBED ?? 0).toLocaleString("de-CH")} detail="Erhalten nichts mehr" href="/admin/newsletter/subscribers?status=UNSUBSCRIBED" icon={<UserMinus className="size-[18px]" />} />
+        <StatCard label="Kampagnen" value={campaignCount.toLocaleString("de-CH")} detail="Entwürfe und versendete" href="/admin/newsletter" icon={<Send className="size-[18px]" />} />
       </section>
 
       <nav aria-label="Newsletter-Bereiche" className="-mx-1 mb-5 overflow-x-auto px-1 pb-1">

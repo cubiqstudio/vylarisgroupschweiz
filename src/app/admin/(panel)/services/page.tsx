@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Plus } from "lucide-react";
 import { db } from "@/lib/db";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { ButtonLink } from "@/components/ui/button";
 import { PageTitle } from "@/components/admin/core/page-title";
 import { ServiceManager } from "@/components/admin/core/service-manager";
@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Services" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminServicesPage() {
-  await requireAdminPage();
+  await requireModulePage("website");
   const services = await db.saasService.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] });
 
   return (

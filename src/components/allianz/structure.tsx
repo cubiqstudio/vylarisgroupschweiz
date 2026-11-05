@@ -12,11 +12,10 @@ import {
 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { Container, SectionHeading } from "@/components/ui/section";
-import { branches, dataCenter, units } from "@/lib/alliance";
+import { branches, europe, units } from "@/lib/alliance";
 import { allianz } from "@/i18n/allianz";
 import { getMessages } from "@/i18n/server";
-import { site as group } from "@/lib/site";
-import { SITES } from "@/lib/sites";
+import { site } from "@/lib/site";
 
 const LINE = "bg-zinc-700";
 
@@ -55,12 +54,11 @@ function Fact({
   );
 }
 
-/** Oben: Verein CH und VylarisGroupEurope; darunter wachsen die Niederlassungen aus VylarisGroupEurope heraus. */
+/** Oben: der Schweizer Ursprungsverein (diese Website) und VylarisGroupEurope als eigenständiger Partner; darunter wachsen die Niederlassungen aus VylarisGroupEurope heraus. */
 export async function AllianceStructure() {
   const all = await getMessages(allianz);
   const m = all.structure;
-  // Gruppenüberblick: Europa wird auf allen Domains gleich beschrieben.
-  const eu = SITES.eu;
+  const eu = europe;
   const planned = branches.filter((b) => b.status === "geplant");
   return (
     <section className="py-16 sm:py-24" aria-labelledby="struktur-heading">
@@ -73,27 +71,32 @@ export async function AllianceStructure() {
         />
 
         <div className="mt-14">
-          {/* Ebene 1: Europa + Verein */}
+          {/* Ebene 1: Verein (diese Website) + Europa */}
           <div className="grid gap-6 md:grid-cols-[1fr_8rem_1fr] md:gap-0">
             <div className="relative">
               <div className="h-full rounded-2xl border border-zinc-800 bg-surface p-6 shadow-sm shadow-slate-900/5 sm:p-8">
                 <div className="flex items-center gap-3">
-                  <HeadIcon tone="eu">
-                    <Building2 className="h-5 w-5" aria-hidden />
+                  <HeadIcon tone="ch">
+                    <Users className="h-5 w-5" aria-hidden />
                   </HeadIcon>
                   <div>
                     <h3 className="text-lg font-semibold tracking-tight text-white">
-                      {eu.name}
+                      {site.name}
                     </h3>
-                    <p className="text-sm text-zinc-500">{m.euSubtitle}</p>
+                    <p className="text-sm text-zinc-500">
+                      {m.association} · {site.domain}
+                    </p>
                   </div>
                 </div>
                 <dl className="mt-6 space-y-4">
-                  <Fact label={m.lead}>
-                    {m.euLead(eu.leader.name, eu.leader.company ?? "")}
+                  <Fact label={m.associationFact}>
+                    {m.members(site.members, site.board.length)}
                   </Fact>
-                  <Fact label={m.task}>{m.euTask}</Fact>
-                  <Fact label={m.branchesLabel}>{m.euBranches(eu.name)}</Fact>
+                  <Fact label={m.lead}>
+                    {m.associationLead(site.leader.name, site.leader.role)}
+                  </Fact>
+                  <Fact label={m.origin}>{m.originText}</Fact>
+                  <Fact label={m.contribution}>{m.contributionText}</Fact>
                 </dl>
               </div>
             </div>
@@ -113,27 +116,29 @@ export async function AllianceStructure() {
               </span>
             </div>
 
-            <div className="rounded-2xl border border-zinc-800 bg-surface p-6 shadow-sm shadow-slate-900/5 sm:p-8">
-              <div className="flex items-center gap-3">
-                <HeadIcon tone="ch">
-                  <Users className="h-5 w-5" aria-hidden />
-                </HeadIcon>
-                <div>
-                  <h3 className="text-lg font-semibold tracking-tight text-white">
-                    {all.partnerName}
-                  </h3>
-                  <p className="text-sm text-zinc-500">
-                    {m.association} · {group.partner.domain}
-                  </p>
+            <div className="relative">
+              <div className="h-full rounded-2xl border border-zinc-800 bg-surface p-6 shadow-sm shadow-slate-900/5 sm:p-8">
+                <div className="flex items-center gap-3">
+                  <HeadIcon tone="eu">
+                    <Building2 className="h-5 w-5" aria-hidden />
+                  </HeadIcon>
+                  <div>
+                    <h3 className="text-lg font-semibold tracking-tight text-white">
+                      {eu.name}
+                    </h3>
+                    <p className="text-sm text-zinc-500">
+                      {m.euSubtitle} · {eu.domain}
+                    </p>
+                  </div>
                 </div>
+                <dl className="mt-6 space-y-4">
+                  <Fact label={m.lead}>
+                    {m.euLead(eu.leader.name, eu.leader.company)}
+                  </Fact>
+                  <Fact label={m.task}>{m.euTask}</Fact>
+                  <Fact label={m.branchesLabel}>{m.euBranches(eu.name)}</Fact>
+                </dl>
               </div>
-              <dl className="mt-6 space-y-4">
-                <Fact label={m.associationFact}>
-                  {m.members(group.partner.members, group.partner.board)}
-                </Fact>
-                <Fact label={m.origin}>{m.originText}</Fact>
-                <Fact label={m.contribution}>{m.contributionText}</Fact>
-              </dl>
             </div>
           </div>
 
@@ -190,13 +195,6 @@ export async function AllianceStructure() {
                           {u.name === "VylarisData" && <> · {m.brandOf("CircleUpWilms")}</>}
                         </p>
                         <p className="mt-3 text-sm leading-relaxed text-zinc-400">{t.text}</p>
-                        {u.name === "VylarisData" && (
-                          <ul className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-zinc-300">
-                            <li className="rounded-full bg-zinc-900/60 px-2.5 py-1 ring-1 ring-inset ring-zinc-800">{m.servers(dataCenter.servers)}</li>
-                            <li className="rounded-full bg-zinc-900/60 px-2.5 py-1 ring-1 ring-inset ring-zinc-800">{m.ssd(dataCenter.ssdTb)}</li>
-                            <li className="rounded-full bg-zinc-900/60 px-2.5 py-1 ring-1 ring-inset ring-zinc-800">{m.goal}</li>
-                          </ul>
-                        )}
                         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
                           {u.domain ? (
                             <a
@@ -321,7 +319,7 @@ export async function AllianceStructure() {
               })}
             </ul>
             <p className="mx-auto mt-6 max-w-2xl text-center text-sm leading-relaxed text-zinc-500">
-              {m.centralNote(eu.name, eu.domain)}
+              {m.centralNote(eu.name, eu.domain, site.domain)}
               {planned.map((b) => (
                 <span key={b.domain}> {m.plannedNote(b.domain)}</span>
               ))}
@@ -338,8 +336,8 @@ export async function AllianceStructure() {
           </div>
 
           <div className="mt-12 flex justify-center">
-            <ButtonLink href={group.partner.url} external variant="secondary">
-              {m.visit(group.partner.domain)}
+            <ButtonLink href={eu.url} external variant="secondary">
+              {m.visit(eu.domain)}
               <ExternalLink className="h-4 w-4" aria-hidden />
               <span className="sr-only">{m.newTab}</span>
             </ButtonLink>

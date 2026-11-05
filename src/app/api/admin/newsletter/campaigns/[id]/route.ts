@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { ApiError, handle, requireAdmin } from "@/lib/api";
 import { serializeCampaign } from "@/lib/newsletter";
+import { resolveSegmentInput } from "@/lib/verein/newsletter-segment-data";
 import { campaignSchema } from "@/lib/validation";
 import { adminOk, notFound, parsePatch, type IdContext } from "../../../../_lib/http";
 
@@ -33,12 +34,20 @@ export const GET = handle(async (req: Request, ctx: IdContext) => {
 export const PATCH = handle(async (req: Request, ctx: IdContext) => {
   await requireAdmin(req);
   const { id } = await ctx.params;
-  const data = await parsePatch(req, campaignSchema.partial());
+  const patch = await parsePatch(req, campaignSchema.partial());
 
-  const existing = await db.newsletterCampaign.findUnique({ where: { id }, select: { status: true } });
+  const existing = await db.newsletterCampaign.findUnique({ where: { id }, select: { status: true, segment: true, segmentTypeId: true } });
   if (!existing) notFound("Kampagne");
   if (existing.status !== "DRAFT") {
     throw new ApiError(409, "NOT_EDITABLE", "Nur Entwürfe können bearbeitet werden.");
+  }
+
+  // Empfängerkreis: gesendete und bisherige Angaben zusammen prüfen (Mitgliedschaftsart nur beim passenden Segment).
+  const data: typeof patch = { ...patch };
+  if (patch.segment !== undefined || patch.segmentTypeId !== undefined) {
+    const selection = await resolveSegmentInput(patch.segment ?? existing.segment, patch.segmentTypeId !== undefined ? patch.segmentTypeId : existing.segmentTypeId);
+    data.segment = selection.segment;
+    data.segmentTypeId = selection.segmentTypeId;
   }
 
   // Atomar absichern: zwischen Prüfung und Schreiben könnte der Versand gestartet worden sein.

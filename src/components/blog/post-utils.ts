@@ -1,6 +1,4 @@
 /** Hilfsfunktionen für Blog-Beiträge (reine Funktionen, serverseitig und clientseitig nutzbar). */
-import { hasEnglish, localized, type Locale } from "@/i18n";
-
 export type PostListItem = {
   id: string;
   title: string;
@@ -10,15 +8,12 @@ export type PostListItem = {
   date: Date;
 };
 
-/** Felder, die Listen und Karten aus der DB brauchen (contentEn nur, um englische Beiträge zu erkennen). */
+/** Felder, die Listen und Karten aus der DB brauchen. */
 export const POST_LIST_SELECT = {
   id: true,
   title: true,
-  titleEn: true,
   slug: true,
   excerpt: true,
-  excerptEn: true,
-  contentEn: true,
   author: true,
   publishedAt: true,
   createdAt: true,
@@ -37,28 +32,21 @@ export function readingMinutes(markdown: string): number {
 type PostRow = {
   id: string;
   title: string;
-  titleEn: string | null;
   slug: string;
   excerpt: string;
-  excerptEn: string | null;
-  contentEn: string | null;
   author: string;
   publishedAt: Date | null;
   createdAt: Date;
 };
 
-/**
- * Sortiert absteigend nach Veröffentlichungsdatum (Fallback: Erstellungsdatum).
- * Auf der englischen Seite erscheinen nur Beiträge mit englischem Inhalt (contentEn); Titel und Auszug in der Sprache der Seite.
- */
-export function toListItems(rows: PostRow[], locale: Locale): PostListItem[] {
+/** Sortiert absteigend nach Veröffentlichungsdatum (Fallback: Erstellungsdatum). */
+export function toListItems(rows: PostRow[]): PostListItem[] {
   return rows
-    .filter((r) => locale !== "en" || hasEnglish(r, "content"))
     .map((r) => ({
       id: r.id,
-      title: localized(r, "title", locale),
+      title: r.title,
       slug: r.slug,
-      excerpt: localized(r, "excerpt", locale),
+      excerpt: r.excerpt,
       author: r.author,
       date: r.publishedAt ?? r.createdAt,
     }))

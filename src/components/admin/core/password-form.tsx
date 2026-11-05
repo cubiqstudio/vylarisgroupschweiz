@@ -23,7 +23,7 @@ export function PasswordForm() {
   const rules = [
     { ok: next.length >= 12, text: "Mindestens 12 Zeichen" },
     { ok: /[a-z]/.test(next), text: "Kleinbuchstaben" },
-    { ok: /[A-Z]/.test(next), text: "Großbuchstaben" },
+    { ok: /[A-Z]/.test(next), text: "Grossbuchstaben" },
     { ok: /\d/.test(next), text: "Ziffern" },
   ];
 
@@ -38,7 +38,7 @@ export function PasswordForm() {
     if (!current) local.currentPassword = "Aktuelles Passwort erforderlich.";
     if (next.length < 12) local.newPassword = "Mindestens 12 Zeichen.";
     else if (next.length > 200) local.newPassword = "Maximal 200 Zeichen.";
-    else if (!(/[a-z]/.test(next) && /[A-Z]/.test(next) && /\d/.test(next))) local.newPassword = "Groß-/Kleinbuchstaben und Ziffern verwenden.";
+    else if (!(/[a-z]/.test(next) && /[A-Z]/.test(next) && /\d/.test(next))) local.newPassword = "Gross-/Kleinbuchstaben und Ziffern verwenden.";
     else if (next === current) local.newPassword = "Das neue Passwort muss sich vom aktuellen unterscheiden.";
     if (next !== repeat) local.repeat = "Die Wiederholung stimmt nicht überein.";
     if (Object.keys(local).length > 0) {

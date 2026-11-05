@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarClock, ChevronLeft, ChevronRight, Hash, Lock, Mail, MessageSquareReply, ShieldAlert, Trash2, UserRound } from "lucide-react";
 import { db } from "@/lib/db";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { isMailConfigured } from "@/lib/mailer";
 import { cn, formatDateTime } from "@/lib/utils";
 import { buttonClass } from "@/components/ui/button";
@@ -27,7 +27,7 @@ type Props = {
 };
 
 export default async function AdminTicketDetailPage({ params, searchParams }: Props) {
-  await requireAdminPage();
+  await requireModulePage("website");
   const { id } = await params;
   const { from } = await searchParams;
 

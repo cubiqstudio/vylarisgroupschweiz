@@ -41,7 +41,7 @@ function MailStatus({ sent, error }: { sent: boolean; error: string }) {
   );
 }
 
-/** Konversationsverlauf: ursprüngliche Nachricht + Antworten (alles ausschließlich als Text, nie als HTML). */
+/** Konversationsverlauf: ursprüngliche Nachricht + Antworten (alles ausschliesslich als Text, nie als HTML). */
 export function TicketThread({
   senderName,
   senderEmail,

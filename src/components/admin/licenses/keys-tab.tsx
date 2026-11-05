@@ -34,7 +34,7 @@ export async function KeysTab({ searchParams }: { searchParams: Record<string, s
   const requestedPage = Math.max(1, Number.parseInt(first(searchParams.page), 10) || 1);
   const filters = { status, product, q };
 
-  // `contains` ist unter SQLite case-insensitive; der Hinweis (letzte 4 Zeichen) wird groß gespeichert.
+  // `contains` ist unter SQLite case-insensitive; der Hinweis (letzte 4 Zeichen) wird gross gespeichert.
   const where = {
     ...(status && { status }),
     ...(product && { product: { slug: product } }),

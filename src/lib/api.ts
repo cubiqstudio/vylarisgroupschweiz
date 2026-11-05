@@ -3,10 +3,9 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { Prisma } from "@prisma/client";
-import { headers } from "next/headers";
 import { getCurrentAdmin, type CurrentAdmin } from "@/lib/auth";
-import { translateApiFields, translateApiMessage } from "@/i18n/server-messages";
-import { siteForHost, type Locale } from "@/lib/sites";
+import { swissFields, swissText } from "@/i18n/server-messages";
+import { canAccess, levelForMethod, moduleForPath, type AccessLevel, type VereinModule } from "@/lib/verein/permissions";
 
 export class ApiError extends Error {
   constructor(
@@ -22,7 +21,7 @@ export class ApiError extends Error {
 export const ok = <T>(data: T, status = 200, init?: ResponseInit) => NextResponse.json({ data }, { status, ...init });
 
 export const fail = (status: number, code: string, message: string, fields?: Record<string, string>, headers?: HeadersInit) =>
-  NextResponse.json({ error: { code, message, ...(fields ? { fields } : {}) } }, { status, headers });
+  NextResponse.json({ error: { code, message: swissText(message), ...(fields ? { fields: swissFields(fields) } : {}) } }, { status, headers });
 
 function zodFields(err: ZodError): Record<string, string> {
   const fields: Record<string, string> = {};
@@ -33,63 +32,17 @@ function zodFields(err: ZodError): Record<string, string> {
   return fields;
 }
 
-/** Sprache der laufenden Anfrage (Host-Header, hinter Proxy/Tunnel X-Forwarded-Host). Außerhalb einer Anfrage: Deutsch. */
-async function requestLocale(): Promise<Locale> {
-  try {
-    const h = await headers();
-    return siteForHost(h.get("x-forwarded-host") ?? h.get("host")).locale;
-  } catch {
-    return "de";
-  }
-}
-
-/**
- * Übersetzt die Meldungen einer JSON-Fehlerantwort (error.message und error.fields) in die Sprache der Anfrage.
- * Status, Header (auch Cookies) und alle übrigen Felder bleiben erhalten; andere Antworten werden nicht angefasst.
- */
-export async function localizeErrorResponse(res: Response, locale: Locale): Promise<Response> {
-  if (locale === "de" || res.status < 400) return res;
-  if (!(res.headers.get("content-type") ?? "").toLowerCase().includes("json")) return res;
-
-  const raw = await res.clone().text();
-  let body: unknown;
-  try {
-    body = JSON.parse(raw);
-  } catch {
-    return res;
-  }
-  const error = (body as { error?: { message?: unknown; fields?: unknown } } | null)?.error;
-  if (!error || typeof error !== "object") return res;
-
-  if (typeof error.message === "string") error.message = translateApiMessage(error.message, locale);
-  if (error.fields && typeof error.fields === "object") {
-    error.fields = translateApiFields(error.fields as Record<string, string>, locale);
-  }
-
-  const headersOut = new Headers(res.headers);
-  headersOut.delete("content-length");
-  return new Response(JSON.stringify(body), {
-    status: res.status,
-    statusText: res.statusText,
-    headers: headersOut,
-  });
-}
-
 /**
  * Wrapper: fängt ApiError, Zod- und Prisma-Fehler und mappt sie auf JSON-Antworten.
- * Fehlerantworten (auch solche, die eine Route direkt per fail()/tooManyRequests liefert) werden für englische Domains übersetzt.
+ * Auch Fehlerantworten, die eine Route direkt per fail() liefert, laufen durch die Schweizer Schreibweise.
  */
 export function handle<A extends unknown[]>(fn: (...args: A) => Promise<Response>) {
   return async (...args: A): Promise<Response> => {
-    let res: Response;
     try {
-      res = await fn(...args);
+      return await fn(...args);
     } catch (e) {
-      res = errorResponse(e);
+      return errorResponse(e);
     }
-    // Die Sprache wird nur bei Fehlerantworten ermittelt, damit erfolgreiche Antworten nichts von den Headern abhängig machen.
-    if (res.status < 400) return res;
-    return localizeErrorResponse(res, await requestLocale());
   };
 }
 
@@ -119,12 +72,24 @@ export function assertSameOrigin(req: Request) {
   if (originHost !== host) throw new ApiError(403, "FORBIDDEN", "Cross-Origin-Anfrage abgelehnt.");
 }
 
-/** Pflicht für alle /api/admin/*-Handler (Defense in Depth zusätzlich zur Middleware). */
+/**
+ * Pflicht für alle /api/admin/*-Handler (Defense in Depth zusätzlich zur Middleware).
+ * Prüft Sitzung, Origin UND die Rolle: Das Modul ergibt sich aus dem Pfad (moduleForPath), die Stufe aus der Methode
+ * (GET = lesen, sonst ändern). Strengere Prüfungen innerhalb eines Moduls: requireAdminModule (src/lib/verein/guard.ts).
+ */
 export async function requireAdmin(req: Request): Promise<CurrentAdmin> {
   assertSameOrigin(req);
   const admin = await getCurrentAdmin();
   if (!admin) throw new ApiError(401, "UNAUTHORIZED", "Nicht angemeldet.");
+  assertRole(admin, moduleForPath(new URL(req.url).pathname), levelForMethod(req.method));
   return admin;
+}
+
+/** Wirft 403, wenn die Rollen des Admins das Modul nicht auf der verlangten Stufe erlauben. */
+export function assertRole(admin: CurrentAdmin, module: VereinModule, level: AccessLevel = "read"): void {
+  if (!canAccess(admin.roles, module, level)) {
+    throw new ApiError(403, "FORBIDDEN", "Dafür fehlt dir die Berechtigung.");
+  }
 }
 
 /** Lehnt NUL-Zeichen (\u0000) in beliebiger Tiefe ab: PostgreSQL kann sie nicht speichern (sonst Fehler 500), SQLite schon. */

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { formatDateTime } from "@/lib/utils";
 import { ContentHeader } from "@/components/admin/content/page-header";
 import { BlogEditor } from "@/components/admin/content/blog-editor";
@@ -17,7 +17,7 @@ type Props = {
 };
 
 export default async function EditBlogPostPage({ params, searchParams }: Props) {
-  const admin = await requireAdminPage();
+  const admin = await requireModulePage("website");
   const { id } = await params;
   const { created } = await searchParams;
 
@@ -49,9 +49,6 @@ export default async function EditBlogPostPage({ params, searchParams }: Props) 
           content: post.content,
           author: post.author,
           published: post.published,
-          titleEn: post.titleEn,
-          excerptEn: post.excerptEn,
-          contentEn: post.contentEn,
         }}
       />
     </div>

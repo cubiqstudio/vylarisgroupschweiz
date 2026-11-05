@@ -6,7 +6,8 @@ import { useMessages } from "@/i18n/client";
 import { account } from "@/i18n/account";
 import { cn } from "@/lib/utils";
 
-export type AccountTab = { href: string; label: string };
+/** `prefix`: Reiter bleibt aktiv, solange der Pfad darunter liegt (z. B. /account/verein/beitraege). */
+export type AccountTab = { href: string; label: string; prefix?: boolean };
 
 export function AccountTabs({ tabs }: { tabs: AccountTab[] }) {
   const pathname = usePathname();
@@ -14,7 +15,7 @@ export function AccountTabs({ tabs }: { tabs: AccountTab[] }) {
   return (
     <nav aria-label={m.area.tabsLabel} className="-mb-px flex gap-1 overflow-x-auto">
       {tabs.map((t) => {
-        const active = pathname === t.href;
+        const active = pathname === t.href || (t.prefix === true && !!pathname?.startsWith(`${t.href}/`));
         return (
           <Link
             key={t.href}

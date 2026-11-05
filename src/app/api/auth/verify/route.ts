@@ -4,6 +4,7 @@ import { tokenSchema } from "@/lib/validation";
 import { consumeToken } from "@/lib/tokens";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { tooManyRequests } from "@/lib/account";
+import { linkAccountByVerifiedEmail } from "@/lib/verein/members-data";
 import { adminOk, readJson } from "../../_lib/http";
 
 export const dynamic = "force-dynamic";
@@ -24,5 +25,11 @@ export const POST = handle(async (req: Request) => {
 
   // Bereits gesetzte Bestätigungszeitpunkte nicht überschreiben.
   await db.user.updateMany({ where: { id: userId, emailVerifiedAt: null }, data: { emailVerifiedAt: new Date() } });
+  // Gehört die bestätigte Adresse einem aktiven Mitglied, das Konto verknüpfen (best effort, nie blockierend).
+  try {
+    await linkAccountByVerifiedEmail(userId);
+  } catch (e) {
+    console.error("[verify] Mitglieder-Verknüpfung nicht möglich:", e instanceof Error ? e.name : "unbekannt");
+  }
   return adminOk({ verified: true });
 });

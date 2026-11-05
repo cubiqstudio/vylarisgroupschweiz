@@ -6,9 +6,10 @@ import { blog } from "@/i18n/blog";
 import { authorName } from "@/i18n/labels";
 import { getLocale, getMessages } from "@/i18n/server";
 import { cn, formatDate } from "@/lib/utils";
+import type { Locale } from "@/i18n";
 import type { PostListItem } from "./post-utils";
 
-function Meta({ post, locale }: { post: PostListItem; locale: "de" | "en" }) {
+function Meta({ post, locale }: { post: PostListItem; locale: Locale }) {
   return (
     <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-500">
       <span className="inline-flex items-center gap-1.5">
