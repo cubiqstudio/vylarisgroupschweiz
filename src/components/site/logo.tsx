@@ -36,7 +36,7 @@ function Wordmark({ region, tone, size, markSrc }: { region: string; tone: Tone;
 
 /**
  * Logo der aktuellen Marke. vylaris.eu nutzt die Bilddateien aus public/images (siehe src/lib/brand.ts):
- * `logo-europe-on-light.*` für helle, `logo-europe-on-dark.*` für dunkle Flächen. Für die anderen Marken gibt es keine
+ * `logo-schweiz-on-light.*` für helle, `logo-schweiz-on-dark.*` für dunkle Flächen. Für die anderen Marken gibt es keine
  * Wortmarken-Bilder: dort stehen das vorhandene V-Zeichen (`logo-mark-on-light/dark`) und die Wortmarke als Text.
  * `tone` gibt den Untergrund an: "onLight" (Standard, Header) oder "onDark" (Footer).
  */
@@ -46,8 +46,8 @@ export async function Logo({ className, size = "md", tone = "onLight" }: { class
   const eu = site.key === "eu";
   const imgClass = cn("w-auto", size === "lg" ? "h-28" : "h-[4.25rem]");
   // Auf hellem Untergrund (Header) gibt es im Dunkelmodus die Variante für dunkle Flächen; der Footer ist immer dunkel.
-  const light = eu ? findBrandAsset("logo-europe-on-light") : null;
-  const dark = eu ? findBrandAsset("logo-europe-on-dark") : null;
+  const light = eu ? findBrandAsset("logo-schweiz-on-light") : null;
+  const dark = eu ? findBrandAsset("logo-schweiz-on-dark") : null;
   const markLight = eu ? null : findBrandAsset("logo-mark-on-light");
   const markDark = eu ? null : findBrandAsset("logo-mark-on-dark");
   const swap = tone === "onLight";
