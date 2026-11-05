@@ -39,7 +39,7 @@ export async function LegalPage({
   title: string;
   description: string;
   toc: TocItem[];
-  /** Optionaler Hinweis oberhalb des Textes . */
+  /** Optionaler Hinweis oberhalb des Textes (z. B. Stand-Datum). */
   notice?: ReactNode;
   children: ReactNode;
 }) {

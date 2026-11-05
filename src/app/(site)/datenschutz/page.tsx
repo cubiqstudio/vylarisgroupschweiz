@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { DatenschutzDe } from "@/components/legal/datenschutz-de";
-import { DatenschutzNet } from "@/components/legal/datenschutz-net";
+import { Datenschutz } from "@/components/legal/datenschutz";
 import { legalUi } from "@/i18n/legal";
 import { getMessages, getSite } from "@/i18n/server";
 
@@ -14,10 +13,9 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+// Der Verantwortliche kommt aus den Admin-Einstellungen und soll nach dem Speichern sofort sichtbar sein.
 export const dynamic = "force-dynamic";
 
-/** Datenschutzerklärung bzw. Privacy Policy: Fassung und Sprache hängen von der Domain ab (site.legal). */
-export default async function DatenschutzPage() {
-  const site = await getSite();
-  return site.legal === "net" ? <DatenschutzNet /> : <DatenschutzDe />;
+export default function DatenschutzPage() {
+  return <Datenschutz />;
 }

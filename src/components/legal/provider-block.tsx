@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { SITES } from "@/lib/sites";
+import { SITE } from "@/lib/sites";
 import type { getLegal } from "@/lib/legal";
 import { legalUi } from "@/i18n/legal";
 import { getMessages } from "@/i18n/server";
@@ -21,13 +21,10 @@ async function Mail({ email }: { email?: string }) {
   return <a href={`mailto:${email}`}>{email}</a>;
 }
 
-/**
- * Anbieter-/Verantwortlichen-Anschrift aus getLegal(); fehlende Pflichtangaben werden markiert.
- * Die Anschrift gehört dem Betreiber VylarisGroupEurope – auch auf vylaris.de (gleiche Anschrift).
- */
+/** Anbieter-/Verantwortlichen-Anschrift aus getLegal(); fehlende Pflichtangaben werden markiert. */
 export function ProviderAddress({
   legal,
-  name = SITES.eu.name,
+  name = SITE.legalName,
 }: {
   legal: Legal;
   name?: string;
