@@ -69,7 +69,7 @@ export default async function TransactionPage({ params }: { params: Promise<{ id
       )}
       {t.locked && <Notice variant="info" className="mb-4">Das Geschäftsjahr {t.fiscalYear} ist abgeschlossen.</Notice>}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
           <Card className="px-5 py-2 sm:px-6">
             <dl className="divide-y divide-zinc-800">

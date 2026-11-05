@@ -59,7 +59,7 @@ export default async function AdminDocumentDetailPage({ params }: Props) {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <section aria-labelledby="versions-heading">
           <h2 id="versions-heading" className="mb-3 text-base font-semibold text-white">
             Versionen
