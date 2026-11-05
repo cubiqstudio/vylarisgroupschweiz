@@ -160,7 +160,7 @@ function SettingsBody({ markLight, markDark, titleId, onClose }: { markLight: st
 
 /**
  * Einstellungs-Dialog auf Basis von <dialog>.showModal() (Fokusfalle, inerter Hintergrund, Fokus-Rückgabe durch den
- * Browser). Escape und Klick auf den Hintergrund schließen ihn, ohne zu speichern.
+ * Browser). Escape und Klick auf den Hintergrund schliessen ihn, ohne zu speichern.
  */
 export function CookieSettingsDialog({ markLight, markDark }: { markLight: string | null; markDark: string | null }) {
   const { settingsOpen, close } = useConsent();

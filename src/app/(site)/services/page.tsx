@@ -58,11 +58,8 @@ async function load(category: string | null): Promise<Loaded | null> {
           id: true,
           name: true,
           slug: true,
-          nameEn: true,
           tagline: true,
-          taglineEn: true,
           description: true,
-          descriptionEn: true,
           category: true,
           url: true,
           repoUrl: true,
@@ -129,7 +126,7 @@ export default async function ServicesPage({
           </span>
           <span className="inline-flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-indigo-400" aria-hidden />{" "}
-            {m.hero.noTracking}
+            {m.hero.privacy}
           </span>
         </div>
       </PageHeader>

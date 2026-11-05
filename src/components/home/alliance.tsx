@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { ArrowRight, Building2, ExternalLink, Users } from "lucide-react";
+import { ArrowRight, Network, Users } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Container, SectionHeading } from "@/components/ui/section";
@@ -55,23 +54,21 @@ export async function Alliance() {
           <Card className="border-emerald-400/30 p-7 sm:p-8">
             <div className="flex items-center gap-3">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-400 ring-1 ring-inset ring-emerald-400/20">
-                <Building2 className="h-5 w-5" aria-hidden />
+                <Users className="h-5 w-5" aria-hidden />
               </span>
               <div>
-                <h3 className="text-lg font-semibold tracking-tight text-white">{site.name}</h3>
-                <p className="text-sm text-zinc-500">{m.euRole}</p>
+                <h3 className="text-lg font-semibold tracking-tight text-white">{m.originName}</h3>
+                <p className="text-sm text-zinc-500">{m.originRole(site.domain)}</p>
               </div>
             </div>
             <dl className="mt-6 space-y-4 text-sm">
               <div>
-                <dt className="font-medium text-zinc-200">{m.leadership}</dt>
-                <dd className="mt-1 text-zinc-400">{m.leaderText(site.leader.name, site.leader.company)}</dd>
+                <dt className="font-medium text-zinc-200">{m.association}</dt>
+                <dd className="mt-1 text-zinc-400">{m.associationText(site.members, site.board.length)}</dd>
               </div>
               <div>
-                <dt className="font-medium text-zinc-200">{m.task}</dt>
-                <dd className="mt-1 leading-relaxed text-zinc-400">
-                  {m.taskText}
-                </dd>
+                <dt className="font-medium text-zinc-200">{m.origin}</dt>
+                <dd className="mt-1 leading-relaxed text-zinc-400">{m.originText}</dd>
               </div>
             </dl>
           </Card>
@@ -81,43 +78,31 @@ export async function Alliance() {
           <Card className="border-indigo-400/30 p-7 sm:p-8">
             <div className="flex items-center gap-3">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-400/10 text-indigo-300 ring-1 ring-inset ring-indigo-400/20">
-                <Users className="h-5 w-5" aria-hidden />
+                <Network className="h-5 w-5" aria-hidden />
               </span>
               <div>
-                <h3 className="text-lg font-semibold tracking-tight text-white">{m.partnerName}</h3>
-                <p className="text-sm text-zinc-500">{m.partnerRole(site.partner.domain)}</p>
+                <h3 className="text-lg font-semibold tracking-tight text-white">{m.allianceName}</h3>
+                <p className="text-sm text-zinc-500">{m.allianceRole}</p>
               </div>
             </div>
             <dl className="mt-6 space-y-4 text-sm">
               <div>
-                <dt className="font-medium text-zinc-200">{m.association}</dt>
-                <dd className="mt-1 text-zinc-400">
-                  {m.associationText(site.partner.members, site.partner.board)}
-                </dd>
+                <dt className="font-medium text-zinc-200">{m.mission}</dt>
+                <dd className="mt-1 text-zinc-400">{m.missionText}</dd>
               </div>
               <div>
-                <dt className="font-medium text-zinc-200">{m.origin}</dt>
-                <dd className="mt-1 leading-relaxed text-zinc-400">
-                  {m.originText}
-                </dd>
+                <dt className="font-medium text-zinc-200">{m.structure}</dt>
+                <dd className="mt-1 leading-relaxed text-zinc-400">{m.structureText}</dd>
               </div>
             </dl>
           </Card>
         </div>
 
-        <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <ButtonLink href={site.partner.url} external variant="secondary">
-            {m.visit(site.partner.domain)}
-            <ExternalLink className="h-4 w-4" aria-hidden />
-            <span className="sr-only">{m.newTab}</span>
-          </ButtonLink>
-          <Link
-            href="/allianz"
-            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-emerald-400 transition-colors hover:text-emerald-300"
-          >
+        <div className="mt-10 flex justify-center">
+          <ButtonLink href="/allianz" variant="secondary">
             {m.more}
             <ArrowRight className="h-4 w-4" aria-hidden />
-          </Link>
+          </ButtonLink>
         </div>
       </Container>
     </section>

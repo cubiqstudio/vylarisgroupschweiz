@@ -1,9 +1,9 @@
-import { Asterisk, ServerCog, Wallet } from "lucide-react";
+import { Asterisk, Users, Wallet } from "lucide-react";
 import { Container } from "@/components/ui/section";
 import { getMessages } from "@/i18n/server";
 import { home } from "@/i18n/home";
 
-const ICONS = [Asterisk, Wallet, ServerCog] as const;
+const ICONS = [Asterisk, Wallet, Users] as const;
 
 export async function ValueGrid() {
   const m = (await getMessages(home)).values;

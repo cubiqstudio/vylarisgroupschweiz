@@ -7,7 +7,7 @@ import { themeMsgs } from "@/i18n/theme";
 import { cn } from "@/lib/utils";
 
 type Pref = "light" | "dark" | "system";
-const KEY = "vge-theme";
+const KEY = "vgs-theme";
 
 function readPref(): Pref {
   try {

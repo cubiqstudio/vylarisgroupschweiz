@@ -5,7 +5,7 @@ import "@fontsource/poppins/600.css";
 import "@fontsource/poppins/700.css";
 import "./globals.css";
 import { findBrandAsset } from "@/lib/brand";
-import { baseUrlFor, getSite } from "@/i18n/server";
+import { baseUrl, getSite } from "@/i18n/server";
 import { pick } from "@/i18n";
 import { siteMeta } from "@/i18n/meta";
 import { ThemeScript } from "@/components/theme/theme-script";
@@ -16,12 +16,11 @@ export async function generateMetadata(): Promise<Metadata> {
   const description = m.description(s.name);
   return {
     icons: { icon: findBrandAsset("logo-mark-on-light") ?? undefined },
-    metadataBase: new URL(baseUrlFor(s)),
+    metadataBase: new URL(baseUrl()),
     title: { default: `${s.name} – ${m.tagline}`, template: `%s | ${s.name}` },
     description,
     applicationName: s.name,
-    openGraph: { title: s.name, description, type: "website", locale: s.locale === "en" ? "en_US" : "de_DE", siteName: s.name },
-    robots: { index: s.online, follow: s.online },
+    openGraph: { title: s.name, description, type: "website", locale: "de_CH", siteName: s.name },
   };
 }
 

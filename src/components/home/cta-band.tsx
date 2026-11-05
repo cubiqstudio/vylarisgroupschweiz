@@ -19,13 +19,13 @@ export async function CtaBand() {
               {m.text}
             </p>
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <ButtonLink href="/services" size="lg">
-                {m.services}
-                <ArrowRight className="h-4 w-4" aria-hidden />
-              </ButtonLink>
-              <ButtonLink href="/contact" variant="secondary" size="lg">
+              <ButtonLink href="/contact" size="lg">
                 <Mail className="h-4 w-4" aria-hidden />
                 {m.contact}
+              </ButtonLink>
+              <ButtonLink href="/blog" variant="secondary" size="lg">
+                {m.blog}
+                <ArrowRight className="h-4 w-4" aria-hidden />
               </ButtonLink>
             </div>
           </div>

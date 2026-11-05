@@ -1,10 +1,8 @@
-import { Server, Wrench } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { about } from "@/i18n/about";
-import { getMessages, getSite } from "@/i18n/server";
-import { site as group } from "@/lib/site";
-import { SITES } from "@/lib/sites";
+import { getMessages } from "@/i18n/server";
+import { site } from "@/lib/site";
 
 function initials(name: string) {
   return name
@@ -15,87 +13,50 @@ function initials(name: string) {
     .join("");
 }
 
-/** vylaris.eu: Leitungsvorstellung. vylaris.de/.net: neutrale Ansprechpartner-Karte mit Hinweis auf den zentralen Betrieb. */
+/** Vorstand des Vereins: Name, Funktion und Berufsstand aus dem Stammprofil (src/lib/sites.ts). */
 export async function Leadership() {
-  const site = await getSite();
-  const m = (await getMessages(about)).leadership;
-  const isEu = site.key === "eu";
-  const leader = site.leader;
-  const eu = SITES.eu;
+  const m = (await getMessages(about)).board;
 
   return (
     <section
       className="border-t border-zinc-900 py-20 sm:py-28"
-      aria-labelledby="leitung-heading"
+      aria-labelledby="vorstand-heading"
     >
       <Container>
         <SectionHeading
-          eyebrow={isEu ? m.eyebrow : m.contactEyebrow}
-          title={
-            <span id="leitung-heading">
-              {isEu ? m.title(site.name) : m.contactTitle(site.name)}
-            </span>
-          }
-          description={isEu ? m.description : m.contactDescription}
+          eyebrow={m.eyebrow}
+          title={<span id="vorstand-heading">{m.title}</span>}
+          description={m.description}
         />
-        <Card className="relative mt-12 overflow-hidden p-7 sm:p-10">
-          <div
-            className="bg-glow pointer-events-none absolute inset-0 opacity-60"
-            aria-hidden
-          />
-          <div className="relative flex flex-col gap-8 sm:flex-row sm:items-start">
-            <div
-              className="flex h-24 w-24 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400/20 to-indigo-400/20 text-3xl font-semibold tracking-tight text-white ring-1 ring-inset ring-zinc-700"
-              role="img"
-              aria-label={m.initialsOf(leader.name)}
-            >
-              {initials(leader.name)}
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-2xl font-semibold tracking-tight text-white">
-                {leader.name}
-              </h3>
-              {isEu ? (
-                <>
-                  <p className="mt-1 text-emerald-400">{group.leader.role}</p>
-                  <p className="mt-1 text-sm text-zinc-500">{leader.company}</p>
-                  <p className="mt-5 max-w-2xl leading-relaxed text-zinc-400">
-                    {m.bio(leader.name, site.name)}
-                  </p>
-                  <ul className="mt-6 flex flex-wrap gap-3 text-sm text-zinc-300">
-                    <li className="inline-flex items-center gap-2 rounded-full bg-zinc-800/70 px-3 py-1.5 ring-1 ring-inset ring-zinc-700">
-                      <Server
-                        className="h-4 w-4 text-emerald-400"
-                        aria-hidden
-                      />
-                      {m.skills.hosting}
-                    </li>
-                    <li className="inline-flex items-center gap-2 rounded-full bg-zinc-800/70 px-3 py-1.5 ring-1 ring-inset ring-zinc-700">
-                      <Wrench className="h-4 w-4 text-indigo-300" aria-hidden />
-                      {m.skills.it}
-                    </li>
-                  </ul>
-                </>
-              ) : (
-                <>
-                  <p className="mt-1 text-emerald-400">
-                    {site.key === "net"
-                      ? m.roleResponsible(site.name)
-                      : m.roleContact(site.name)}
-                  </p>
-                  {leader.company && (
-                    <p className="mt-1 text-sm text-zinc-500">
-                      {leader.company}
-                    </p>
-                  )}
-                  <p className="mt-5 max-w-2xl leading-relaxed text-zinc-400">
-                    {m.centralNote(eu.name, eu.domain)}
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-        </Card>
+        <ul className="mt-12 grid gap-6 md:grid-cols-3">
+          {site.board.map((person) => (
+            <li key={person.name} className="flex">
+              <Card className="relative w-full overflow-hidden p-7 sm:p-8">
+                <div
+                  className="bg-glow pointer-events-none absolute inset-0 opacity-60"
+                  aria-hidden
+                />
+                <div className="relative">
+                  <div
+                    className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400/20 to-indigo-400/20 text-2xl font-semibold tracking-tight text-white ring-1 ring-inset ring-zinc-700"
+                    role="img"
+                    aria-label={m.initialsOf(person.name)}
+                  >
+                    {initials(person.name)}
+                  </div>
+                  <h3 className="mt-6 text-xl font-semibold tracking-tight text-white">
+                    {person.name}
+                  </h3>
+                  <p className="mt-1 text-emerald-400">{person.role}</p>
+                  <p className="mt-1 text-sm text-zinc-500">{person.occupation}</p>
+                </div>
+              </Card>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-8 text-sm text-zinc-500">
+          {m.members(site.members, site.board.length)} {m.training}
+        </p>
       </Container>
     </section>
   );

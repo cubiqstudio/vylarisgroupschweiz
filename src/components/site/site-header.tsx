@@ -18,6 +18,7 @@ function navItems(n: NavLabels): NavItem[] {
   return [
     { href: "/", label: n.home },
     { href: "/services", label: n.services },
+    { href: "/preise", label: n.pricing },
     { href: "/status", label: n.status },
     { href: "/contact", label: n.contact },
     { href: "/blog", label: n.blog },

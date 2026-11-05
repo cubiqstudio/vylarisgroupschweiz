@@ -2,8 +2,8 @@ import Link from "next/link";
 import {
   ArrowRight,
   Heart,
-  KeyRound,
   Server,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Container, SectionHeading } from "@/components/ui/section";
 import { about } from "@/i18n/about";
 import { getMessages } from "@/i18n/server";
 
-const icons: LucideIcon[] = [Heart, KeyRound, Server];
+const icons: LucideIcon[] = [Heart, Users, Server];
 
 export async function FundingPrinciples() {
   const m = (await getMessages(about)).funding;
@@ -48,7 +48,7 @@ export async function FundingPrinciples() {
         </ul>
         <p className="mt-8">
           <Link
-            href="/contact?category=B2B_HOSTING"
+            href="/preise"
             className="inline-flex items-center gap-2 text-sm font-medium text-emerald-400 transition-colors hover:text-emerald-300"
           >
             {m.cta}

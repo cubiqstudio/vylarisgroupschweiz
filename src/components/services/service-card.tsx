@@ -6,18 +6,14 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { labelFor } from "@/i18n/labels";
 import { services } from "@/i18n/services";
 import { getLocale, getMessages } from "@/i18n/server";
-import { localized } from "@/i18n";
 import { formatUptime } from "@/lib/utils";
 
 export type ServiceCardData = {
   id: string;
   name: string;
-  nameEn: string | null;
   slug: string;
   tagline: string;
-  taglineEn: string | null;
   description: string;
-  descriptionEn: string | null;
   category: string;
   url: string;
   repoUrl: string | null;
@@ -29,9 +25,7 @@ export type ServiceCardData = {
 export async function ServiceCard({ service }: { service: ServiceCardData }) {
   const locale = await getLocale();
   const m = (await getMessages(services)).card;
-  const name = localized(service, "name", locale);
-  const tagline = localized(service, "tagline", locale);
-  const description = localized(service, "description", locale);
+  const { name, tagline, description } = service;
   const headingId = `service-${service.slug}-title`;
   return (
     <Card

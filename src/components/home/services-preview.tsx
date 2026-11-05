@@ -3,13 +3,11 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { db } from "@/lib/db";
-import { localized } from "@/i18n";
 import { getLocale, getMessages } from "@/i18n/server";
 import { home } from "@/i18n/home";
-import type { Locale } from "@/lib/sites";
 import { HomeServiceCard, type HomeService } from "./service-card";
 
-async function loadServices(locale: Locale): Promise<{ services: HomeService[]; failed: boolean }> {
+async function loadServices(): Promise<{ services: HomeService[]; failed: boolean }> {
   try {
     const rows = await db.saasService.findMany({
       orderBy: [{ featured: "desc" }, { sortOrder: "asc" }, { name: "asc" }],
@@ -17,9 +15,7 @@ async function loadServices(locale: Locale): Promise<{ services: HomeService[]; 
       select: {
         id: true,
         name: true,
-        nameEn: true,
         tagline: true,
-        taglineEn: true,
         category: true,
         url: true,
         repoUrl: true,
@@ -27,18 +23,7 @@ async function loadServices(locale: Locale): Promise<{ services: HomeService[]; 
         comingSoon: true,
       },
     });
-    // Name und Slogan in der Sprache der Seite (englisch: Übersetzung, sonst deutscher Text)
-    const services: HomeService[] = rows.map((r) => ({
-      id: r.id,
-      name: localized(r, "name", locale),
-      tagline: localized(r, "tagline", locale),
-      category: r.category,
-      url: r.url,
-      repoUrl: r.repoUrl,
-      status: r.status,
-      comingSoon: r.comingSoon,
-    }));
-    return { services, failed: false };
+    return { services: rows satisfies HomeService[], failed: false };
   } catch {
     return { services: [], failed: true };
   }
@@ -47,7 +32,7 @@ async function loadServices(locale: Locale): Promise<{ services: HomeService[]; 
 export async function ServicesPreview() {
   const locale = await getLocale();
   const m = (await getMessages(home)).services;
-  const { services, failed } = await loadServices(locale);
+  const { services, failed } = await loadServices();
 
   return (
     <section className="py-20 sm:py-28" aria-labelledby="dienste-heading">

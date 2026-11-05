@@ -17,14 +17,14 @@ export interface ConsentApi {
   reset: () => void;
   /** Einstellungs-Dialog öffnen */
   open: () => void;
-  /** Einstellungs-Dialog schließen */
+  /** Einstellungs-Dialog schliessen */
   close: () => void;
   settingsOpen: boolean;
   /** Ist für die Kategorie zugestimmt? "necessary" ist immer true. */
   hasConsent: (categoryId: string) => boolean;
 }
 
-/** Rückfallwert außerhalb des Providers: nichts passiert, nichts bricht. */
+/** Rückfallwert ausserhalb des Providers: nichts passiert, nichts bricht. */
 export const fallbackConsent: ConsentApi = {
   ready: false,
   decided: false,

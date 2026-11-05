@@ -1,4 +1,4 @@
-// VylarisGroupEurope – Datenbankschema
+// VylarisGroup Schweiz – Datenbankschema
 //
 // Entwicklung: SQLite. Produktion: PostgreSQL.
 // Das Schema ist bewusst provider-neutral gehalten (keine Enums, keine nativen Typen),
@@ -29,26 +29,22 @@ model AdminUser {
 }
 
 model SaasService {
-  id            String     @id @default(cuid())
-  name          String
-  slug          String     @unique
-  tagline       String     @default("")
-  description   String
-  // Englische Fassung für vylaris.net (leer = deutscher Text wird angezeigt)
-  nameEn        String?
-  taglineEn     String?
-  descriptionEn String?
-  category      String
-  url           String
-  repoUrl       String?
-  status        String     @default("OPERATIONAL") // OPERATIONAL | MAINTENANCE | OUTAGE
-  uptime        Float      @default(100)
-  featured      Boolean    @default(false)
-  comingSoon    Boolean    @default(false) // angekündigt: noch ohne Links, kein Status/Uptime auf der Statusseite
-  sortOrder     Int        @default(0)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  incidents     Incident[]
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  tagline     String     @default("")
+  description String
+  category    String
+  url         String
+  repoUrl     String?
+  status      String     @default("OPERATIONAL") // OPERATIONAL | MAINTENANCE | OUTAGE
+  uptime      Float      @default(100)
+  featured    Boolean    @default(false)
+  comingSoon  Boolean    @default(false) // angekündigt: noch ohne Links, kein Status/Uptime auf der Statusseite
+  sortOrder   Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  incidents   Incident[]
 
   @@index([category])
   @@index([featured, sortOrder])
@@ -60,10 +56,6 @@ model BlogPost {
   slug        String    @unique
   excerpt     String
   content     String // Markdown
-  // Englische Fassung für vylaris.net (leer = Beitrag erscheint dort nicht)
-  titleEn     String?
-  excerptEn   String?
-  contentEn   String?
   published   Boolean   @default(false)
   author      String
   publishedAt DateTime?
@@ -83,8 +75,7 @@ model ContactTicket {
   message      String
   status       String        @default("OPEN") // OPEN | IN_PROGRESS | CLOSED
   internalNote String        @default("")
-  // Von welcher Domain/Sprache kam die Anfrage (Antwort-Mails folgen dieser Sprache)
-  siteKey      String        @default("eu")
+  // Sprache der Anfrage (Antwort-Mails folgen dieser Sprache)
   locale       String        @default("de")
   assignedToId String? // zuständiges Teammitglied (Website-Konto)
   assignedTo   User?         @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
@@ -115,8 +106,6 @@ model Incident {
   id         String       @id @default(cuid())
   title      String
   body       String
-  titleEn    String?
-  bodyEn     String?
   severity   String       @default("MINOR") // MINOR | MAJOR | MAINTENANCE
   status     String       @default("INVESTIGATING") // SCHEDULED | INVESTIGATING | IDENTIFIED | MONITORING | RESOLVED
   serviceId  String?
@@ -138,14 +127,13 @@ model User {
   emailVerifiedAt  DateTime?
   disabled         Boolean           @default(false)
   lastLoginAt      DateTime?
-  // Team: vom Admin vergeben. Teammitglieder haben einen Team-Bereich und dürfen ein Profilbild hochladen.
-  // Bei welcher Domain/Sprache registriert (für Mails außerhalb einer Anfrage)
-  siteKey          String            @default("eu")
+  // Sprache bei der Registrierung (für Mails außerhalb einer Anfrage)
   locale           String            @default("de")
-  // Firmenkunde: Nutzer beantragt den Status (PENDING), Admin gibt frei (APPROVED) oder lehnt ab (REJECTED)
   sessionVersion   Int               @default(0) // wird bei Passwortänderung/-reset erhöht und entwertet bestehende Sitzungen
+  // Firmenkunde: Nutzer beantragt den Status (PENDING), Admin gibt frei (APPROVED) oder lehnt ab (REJECTED)
   businessStatus   String            @default("NONE") // NONE | PENDING | APPROVED | REJECTED
   companyName      String?
+  // Team: vom Admin vergeben. Teammitglieder haben einen Team-Bereich und dürfen ein Profilbild hochladen.
   isTeam           Boolean           @default(false)
   teamTitle        String?
   avatar           Bytes?
@@ -187,7 +175,6 @@ model NewsletterSubscriber {
   email            String               @unique
   name             String               @default("")
   status           String               @default("PENDING") // PENDING | ACTIVE | UNSUBSCRIBED
-  siteKey          String               @default("eu") // Domain der Anmeldung (Links in Mails)
   locale           String               @default("de")
   confirmTokenHash String?              @unique // SHA-256 des Bestätigungs-Tokens (nur bis zur Bestätigung)
   confirmExpiresAt DateTime?
@@ -207,10 +194,6 @@ model NewsletterCampaign {
   subject        String
   preheader      String               @default("")
   content        String // Markdown
-  // Englische Fassung: englischsprachige Abonnenten erhalten nur Kampagnen mit contentEn
-  subjectEn      String?
-  preheaderEn    String?
-  contentEn      String?
   status         String               @default("DRAFT") // DRAFT | SENDING | SENT | FAILED
   recipientCount Int                  @default(0)
   sentCount      Int                  @default(0)
@@ -262,9 +245,7 @@ model Product {
   slug                String            @unique
   code                String            @unique // 3–4 Großbuchstaben, Präfix der Schlüssel (z. B. WEB)
   name                String
-  nameEn              String?
   description         String            @default("")
-  descriptionEn       String?
   businessOnly        Boolean           @default(false) // Schlüssel nur für freigegebene Firmenkunden
   allowAccountRequest Boolean           @default(false) // alle anderen können stattdessen ein Konto beantragen (z. B. Webspace über VylarisGroup)
   approvalMode        String            @default("AUTO") // AUTO = Schlüssel sofort, MANUAL = erst nach Freigabe durch das Team

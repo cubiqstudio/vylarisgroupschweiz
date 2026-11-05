@@ -21,7 +21,7 @@ export async function AboutCta() {
             >
               {m.titlePre}{" "}
               <span className="text-gradient">{m.titleAccent}</span>
-              {m.titlePost && <> {m.titlePost}</>}
+              {m.titlePost}
             </h2>
             <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-zinc-400">
               {m.description}
