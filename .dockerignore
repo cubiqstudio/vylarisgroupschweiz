@@ -1,0 +1,19 @@
+# Nicht in den Build-Kontext aufnehmen
+node_modules
+.next
+out
+.git
+.gitignore
+.env
+.env.*
+!.env.production.example
+*.tsbuildinfo
+next-env.d.ts
+prisma/*.db
+prisma/*.db-journal
+data
+.DS_Store
+npm-debug.log*
+Dockerfile
+docker-compose*.yml
+.dockerignore

@@ -1,0 +1,300 @@
+@import "tailwindcss";
+
+/* Dunkelmodus: `dark:`-Klassen greifen, wenn <html data-theme="dark"> gesetzt ist (siehe ThemeScript/ThemeSwitch). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+ * Farbpalette (helles Design)
+ * ---------------------------------------------------------------------------
+ * Die Klassennamen im Code (zinc-*, emerald-*, indigo-* ...) sind historisch
+ * gewachsen. Statt hunderte Stellen anzufassen, wird die Palette hier für den
+ * Hellmodus NEU BELEGT – die Skalen sind also bewusst invertiert bzw. umgedeutet:
+ *
+ *   zinc-950  Seitenhintergrund        zinc-400  Fließtext
+ *   zinc-900  Flächen / Karten         zinc-200  starker Text
+ *   zinc-800  Rahmen                   zinc-100  Überschrift
+ *   white     stärkster Text (dunkel!) emerald-*  Markenblau (Akzent)
+ *
+ * Weiße Flächen (Header, Karten, Eingabefelder) werden NICHT mit bg-white
+ * gebaut (das wäre hier dunkel), sondern mit bg-surface.
+ * Grün für Statusanzeigen kommt aus der unveränderten green-Skala.
+ */
+@theme {
+  --font-sans: "Poppins", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --color-brand: #1e73be;
+  --color-ink: #101010; /* Footer & primäre Buttons (vylaris.ch) */
+  --color-link: #1a1aff; /* aktiver Menüpunkt / Textlinks (vylaris.ch) */
+  --color-ondark-link: #5aa9e6; /* Links auf dunklem Footer */
+  --color-brand-2: #4256e0;
+  --color-surface: #ffffff;
+  --color-navy: #0f1f4d;
+
+  --color-white: #010109;
+
+  --color-zinc-50: #010109;
+  --color-zinc-100: #101010;
+  --color-zinc-200: #1f2937;
+  --color-zinc-300: #313131;
+  --color-zinc-400: #444444;
+  --color-zinc-500: #5f6b7d;
+  --color-zinc-600: #8a94a6;
+  --color-zinc-700: #b8c0cf;
+  --color-zinc-800: #d3d9e4;
+  --color-zinc-900: #e9edf5;
+  --color-zinc-950: #f5f9fe;
+
+  --color-emerald-50: #0f2a6b;
+  --color-emerald-100: #12327f;
+  --color-emerald-200: #124a77;
+  --color-emerald-300: #165a96;
+  --color-emerald-400: #1e73be;
+  --color-emerald-500: #1a66a8;
+  --color-emerald-600: #3b82f6;
+  --color-emerald-700: #93b4f2;
+  --color-emerald-800: #bcd1f8;
+  --color-emerald-900: #d6e3fb;
+  --color-emerald-950: #e6eefd;
+
+  --color-indigo-50: #1e1b6b;
+  --color-indigo-100: #27238a;
+  --color-indigo-200: #312e81;
+  --color-indigo-300: #3730a3;
+  --color-indigo-400: #4256e0;
+  --color-indigo-500: #4f46e5;
+  --color-indigo-600: #6366f1;
+  --color-indigo-700: #a5b4fc;
+  --color-indigo-800: #c7d2fe;
+  --color-indigo-900: #dfe4fd;
+  --color-indigo-950: #ebeefe;
+
+  --color-amber-100: #78350f;
+  --color-amber-200: #78350f;
+  --color-amber-300: #9a4408;
+  --color-amber-400: #b45309;
+
+  --color-rose-100: #881337;
+  --color-rose-200: #9f1239;
+  --color-rose-300: #be123c;
+  --color-rose-400: #be123c;
+
+  --color-sky-200: #0c4a6e;
+  --color-sky-300: #0369a1;
+  --color-sky-400: #0369a1;
+
+  --animate-fade-up: fade-up 0.6s ease-out both;
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+:root { color-scheme: light; }
+
+html { scroll-behavior: smooth; }
+body {
+  background: #f5f9fe; /* zinc-950 (hell) */
+  color: #444444; /* Fließtext wie vylaris.ch */
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+::selection { background: rgba(42, 102, 217, 0.22); color: #0b1220; }
+
+/* Sanfter Verlauf wie im Hero von vylaris.ch: oben fast weiß, unten kühles Grau. */
+.bg-hero {
+  background-color: #eef2fa;
+  background-image:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 45%),
+    linear-gradient(180deg, #f7f9fd 0%, #e9edf5 55%, #cdd3df 100%);
+}
+/* Hellgraue Karte mit leichtem Verlauf (Wert-Karten) */
+.bg-card-soft {
+  background-image: linear-gradient(150deg, #dfe3ea 0%, #cfd4dd 100%);
+}
+
+/* Dezentes Raster + Verlauf als Hintergrund-Utilities (heller Grund) */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(15, 31, 77, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 31, 77, 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 40%, transparent 100%);
+}
+.bg-glow {
+  background:
+    radial-gradient(700px circle at 15% 0%, rgba(42, 102, 217, 0.10), transparent 60%),
+    radial-gradient(700px circle at 85% 5%, rgba(66, 86, 224, 0.08), transparent 60%),
+    linear-gradient(180deg, #f9fbff 0%, #eef2fa 100%);
+}
+.text-gradient {
+  background-image: linear-gradient(90deg, #2a66d9, #4256e0);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/*
+ * Dunkelmodus
+ * ---------------------------------------------------------------------------
+ * Die Klassen im Code (zinc-*, emerald-* …) wurden ursprünglich für ein dunkles Design geschrieben und oben für das
+ * helle Design umgedeutet. Im Dunkelmodus gelten deshalb wieder die gewohnten Skalen (hell = 50, dunkel = 950), die
+ * Markenfarbe (emerald-*) ist ein Blau. Es werden nur die Farbvariablen ersetzt – die Komponenten bleiben gleich.
+ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-brand: #5aa9e6;
+  --color-ink: #05070b; /* Footer und dunkle Flächen; primäre Buttons siehe unten */
+  --color-link: #8ab4ff;
+  --color-ondark-link: #7dbaee;
+  --color-brand-2: #818cf8;
+  --color-surface: #11141a;
+  --color-navy: #0f1f4d;
+
+  --color-white: #ffffff;
+
+  --color-zinc-50: #fafafa;
+  --color-zinc-100: #f4f4f5;
+  --color-zinc-200: #e4e4e7;
+  --color-zinc-300: #d4d4d8;
+  --color-zinc-400: #a1a1aa;
+  --color-zinc-500: #8b8b94; /* Kontrast ≥ 5:1 auf #11141a/#0b0d11 */
+  --color-zinc-600: #52525b;
+  --color-zinc-700: #3f3f46;
+  --color-zinc-800: #27272a;
+  --color-zinc-900: #18181b;
+  --color-zinc-950: #0b0d11;
+
+  --color-emerald-50: #eaf4fd;
+  --color-emerald-100: #d3e8fa;
+  --color-emerald-200: #a9d2f5;
+  --color-emerald-300: #7dbaee;
+  --color-emerald-400: #5aa9e6;
+  --color-emerald-500: #3d93d9;
+  --color-emerald-600: #1e73be;
+  --color-emerald-700: #195f9c;
+  --color-emerald-800: #164f80;
+  --color-emerald-900: #123f66;
+  --color-emerald-950: #0b2740;
+
+  --color-indigo-50: #eef2ff;
+  --color-indigo-100: #e0e7ff;
+  --color-indigo-200: #c7d2fe;
+  --color-indigo-300: #a5b4fc;
+  --color-indigo-400: #818cf8;
+  --color-indigo-500: #6366f1;
+  --color-indigo-600: #4f46e5;
+  --color-indigo-700: #4338ca;
+  --color-indigo-800: #3730a3;
+  --color-indigo-900: #312e81;
+  --color-indigo-950: #1e1b4b;
+
+  --color-amber-100: #fef3c7;
+  --color-amber-200: #fde68a;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-amber-600: #d97706;
+  --color-amber-700: #fbbf24;
+  --color-amber-800: #fcd34d;
+
+  --color-rose-100: #ffe4e6;
+  --color-rose-200: #fecdd3;
+  --color-rose-300: #fda4af;
+  --color-rose-400: #fb7185;
+  --color-rose-600: #fb7185;
+  --color-rose-700: #fda4af;
+  --color-rose-950: #4c0519;
+
+  --color-sky-200: #bae6fd;
+  --color-sky-300: #7dd3fc;
+  --color-sky-400: #38bdf8;
+
+  --color-green-600: #22c55e;
+  --color-green-700: #4ade80;
+  --color-green-800: #86efac;
+
+  --color-slate-900: #f1f5f9;
+}
+
+:root[data-theme="dark"] body { background: #0b0d11; color: #a1a1aa; }
+:root[data-theme="dark"] ::selection { background: rgba(90, 169, 230, 0.35); color: #ffffff; }
+:root[data-theme="dark"] .bg-hero {
+  background-color: #0d1118;
+  background-image:
+    linear-gradient(115deg, rgba(90, 169, 230, 0.08) 0%, rgba(90, 169, 230, 0) 45%),
+    linear-gradient(180deg, #10151d 0%, #0d1118 55%, #0a0d12 100%);
+}
+:root[data-theme="dark"] .bg-card-soft { background-image: linear-gradient(150deg, #1c222d 0%, #151a23 100%); }
+:root[data-theme="dark"] .bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+}
+:root[data-theme="dark"] .bg-glow {
+  background:
+    radial-gradient(700px circle at 15% 0%, rgba(90, 169, 230, 0.12), transparent 60%),
+    radial-gradient(700px circle at 85% 5%, rgba(129, 140, 248, 0.1), transparent 60%),
+    linear-gradient(180deg, #0f131a 0%, #0b0d11 100%);
+}
+:root[data-theme="dark"] .text-gradient { background-image: linear-gradient(90deg, #7dbaee, #a5b4fc); }
+:root[data-theme="dark"] .prose-vge { color: #c4c9d4; }
+:root[data-theme="dark"] .prose-vge h1,
+:root[data-theme="dark"] .prose-vge h2,
+:root[data-theme="dark"] .prose-vge h3,
+:root[data-theme="dark"] .prose-vge h4,
+:root[data-theme="dark"] .prose-vge strong,
+:root[data-theme="dark"] .prose-vge th { color: #f4f4f5; }
+:root[data-theme="dark"] .prose-vge a { color: #8ab4ff; }
+:root[data-theme="dark"] .prose-vge a:hover { color: #b6cfff; }
+:root[data-theme="dark"] .prose-vge blockquote { border-left-color: #5aa9e6; color: #a1a1aa; }
+:root[data-theme="dark"] .prose-vge code,
+:root[data-theme="dark"] .prose-vge pre,
+:root[data-theme="dark"] .prose-vge th { background: #18181b; border-color: #27272a; }
+:root[data-theme="dark"] .prose-vge hr,
+:root[data-theme="dark"] .prose-vge th,
+:root[data-theme="dark"] .prose-vge td { border-color: #27272a; }
+:root[data-theme="dark"] :focus-visible { outline-color: #7dbaee; }
+/* Primäre Buttons (bg-ink + text-surface) sind im Dunkelmodus hell, dunkle Flächen (Footer) bleiben dunkel. */
+:root[data-theme="dark"] .bg-ink.text-surface { background-color: var(--color-zinc-100); }
+:root[data-theme="dark"] .bg-ink.text-surface:hover { background-color: var(--color-zinc-300); }
+:root[data-theme="dark"] .ring-ink { --tw-ring-color: var(--color-zinc-100); }
+
+/* Lesbarer Fließtext für Blog/Legal (ohne @tailwindcss/typography) */
+.prose-vge { color: #374151; line-height: 1.75; font-size: 1.0625rem; }
+.prose-vge > * + * { margin-top: 1.1em; }
+.prose-vge h1, .prose-vge h2, .prose-vge h3, .prose-vge h4 { color: #0b1220; font-weight: 650; letter-spacing: -0.01em; line-height: 1.25; }
+.prose-vge h1, .prose-vge h2, .prose-vge h3, .prose-vge h4 { overflow-wrap: break-word; hyphens: auto; }
+.prose-vge h2 { font-size: 1.6rem; margin-top: 2em; }
+.prose-vge h3 { font-size: 1.25rem; margin-top: 1.6em; }
+.prose-vge a { color: #1e40af; text-decoration: underline; text-underline-offset: 3px; }
+.prose-vge a:hover { color: #2a66d9; }
+.prose-vge ul { list-style: disc; padding-left: 1.4em; }
+.prose-vge ol { list-style: decimal; padding-left: 1.4em; }
+.prose-vge li + li { margin-top: 0.4em; }
+.prose-vge strong { color: #0b1220; }
+.prose-vge blockquote { border-left: 3px solid #2a66d9; padding-left: 1em; color: #4b5563; font-style: italic; }
+.prose-vge code { font-family: var(--font-mono); font-size: 0.9em; background: #e9edf5; border: 1px solid #d3d9e4; padding: 0.1em 0.35em; border-radius: 0.375rem; }
+.prose-vge pre { background: #e9edf5; border: 1px solid #d3d9e4; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; }
+.prose-vge pre code { background: none; border: 0; padding: 0; }
+.prose-vge hr { border-color: #d3d9e4; margin: 2em 0; }
+.prose-vge table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.prose-vge th, .prose-vge td { border: 1px solid #d3d9e4; padding: 0.5rem 0.75rem; text-align: left; }
+.prose-vge th { background: #e9edf5; color: #0b1220; }
+
+:focus-visible { outline: 2px solid #2a66d9; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+/* Hero-Grafik (Schild mit V-Zeichen): ruhige Bewegung; prefers-reduced-motion stoppt sie (Regel weiter oben). */
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+@keyframes float-y { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+@keyframes node-pulse { 0%, 100% { transform: scale(1); opacity: 0.14; } 50% { transform: scale(1.5); opacity: 0.3; } }
+@keyframes glow-pulse { 0%, 100% { opacity: 0.65; } 50% { opacity: 1; } }
+.animate-spin-slow { animation: spin-slow 90s linear infinite; transform-box: fill-box; transform-origin: center; }
+.animate-spin-slow-rev { animation: spin-slow 140s linear infinite reverse; transform-box: fill-box; transform-origin: center; }
+.animate-node-pulse { animation: node-pulse 3.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.animate-glow-pulse { animation: glow-pulse 5s ease-in-out infinite; }
+.animate-float-y { animation: float-y 6s ease-in-out infinite; }

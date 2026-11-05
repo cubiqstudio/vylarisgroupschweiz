@@ -1,0 +1,335 @@
+// VylarisGroupEurope – Datenbankschema
+//
+// Entwicklung: SQLite. Produktion: PostgreSQL.
+// Das Schema ist bewusst provider-neutral gehalten (keine Enums, keine nativen Typen),
+// damit nur die `provider`-Zeile getauscht werden muss: `npm run db:use-postgres`
+// (das Dockerfile erledigt das automatisch).
+// Zulässige Werte der String-Felder stehen in src/lib/constants.ts und werden per Zod validiert.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AdminUser {
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  passwordHash       String
+  name               String
+  role               String    @default("ADMIN") // OWNER | ADMIN | EDITOR
+  mustChangePassword Boolean   @default(false)
+  sessionVersion     Int       @default(0) // wird bei Passwortänderung erhöht und entwertet bestehende Sitzungen
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model SaasService {
+  id            String     @id @default(cuid())
+  name          String
+  slug          String     @unique
+  tagline       String     @default("")
+  description   String
+  // Englische Fassung für vylaris.net (leer = deutscher Text wird angezeigt)
+  nameEn        String?
+  taglineEn     String?
+  descriptionEn String?
+  category      String
+  url           String
+  repoUrl       String?
+  status        String     @default("OPERATIONAL") // OPERATIONAL | MAINTENANCE | OUTAGE
+  uptime        Float      @default(100)
+  featured      Boolean    @default(false)
+  comingSoon    Boolean    @default(false) // angekündigt: noch ohne Links, kein Status/Uptime auf der Statusseite
+  sortOrder     Int        @default(0)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  incidents     Incident[]
+
+  @@index([category])
+  @@index([featured, sortOrder])
+}
+
+model BlogPost {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  excerpt     String
+  content     String // Markdown
+  // Englische Fassung für vylaris.net (leer = Beitrag erscheint dort nicht)
+  titleEn     String?
+  excerptEn   String?
+  contentEn   String?
+  published   Boolean   @default(false)
+  author      String
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([published, publishedAt])
+}
+
+model ContactTicket {
+  id           String        @id @default(cuid())
+  ticketNumber String        @unique
+  name         String
+  email        String
+  subject      String
+  category     String // GENERAL | B2B_HOSTING | SECURITY_REPORT
+  message      String
+  status       String        @default("OPEN") // OPEN | IN_PROGRESS | CLOSED
+  internalNote String        @default("")
+  // Von welcher Domain/Sprache kam die Anfrage (Antwort-Mails folgen dieser Sprache)
+  siteKey      String        @default("eu")
+  locale       String        @default("de")
+  assignedToId String? // zuständiges Teammitglied (Website-Konto)
+  assignedTo   User?         @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  replies      TicketReply[]
+
+  @@index([status, createdAt])
+}
+
+// Infrastruktur-Komponenten für die öffentliche Status-Seite (Server, Netzwerk, Datenbanken …)
+model SystemMetric {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  kind       String // SERVER | NETWORK | DATABASE | STORAGE | OTHER
+  location   String   @default("")
+  status     String   @default("OPERATIONAL") // OPERATIONAL | MAINTENANCE | OUTAGE
+  uptime     Float    @default(100)
+  responseMs Int?
+  sortOrder  Int      @default(0)
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+}
+
+// Störungs- und Wartungsmeldungen
+model Incident {
+  id         String       @id @default(cuid())
+  title      String
+  body       String
+  titleEn    String?
+  bodyEn     String?
+  severity   String       @default("MINOR") // MINOR | MAJOR | MAINTENANCE
+  status     String       @default("INVESTIGATING") // SCHEDULED | INVESTIGATING | IDENTIFIED | MONITORING | RESOLVED
+  serviceId  String?
+  service    SaasService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  startedAt  DateTime     @default(now())
+  resolvedAt DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([status, startedAt])
+}
+
+// Website-Konten (Registrierung/Login auf der öffentlichen Seite). Admins liegen separat in AdminUser.
+model User {
+  id               String            @id @default(cuid())
+  email            String            @unique
+  passwordHash     String
+  name             String
+  emailVerifiedAt  DateTime?
+  disabled         Boolean           @default(false)
+  lastLoginAt      DateTime?
+  // Team: vom Admin vergeben. Teammitglieder haben einen Team-Bereich und dürfen ein Profilbild hochladen.
+  // Bei welcher Domain/Sprache registriert (für Mails außerhalb einer Anfrage)
+  siteKey          String            @default("eu")
+  locale           String            @default("de")
+  // Firmenkunde: Nutzer beantragt den Status (PENDING), Admin gibt frei (APPROVED) oder lehnt ab (REJECTED)
+  sessionVersion   Int               @default(0) // wird bei Passwortänderung/-reset erhöht und entwertet bestehende Sitzungen
+  businessStatus   String            @default("NONE") // NONE | PENDING | APPROVED | REJECTED
+  companyName      String?
+  isTeam           Boolean           @default(false)
+  teamTitle        String?
+  avatar           Bytes?
+  avatarType       String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  tokens           AuthToken[]
+  licenseKeys      LicenseKey[]
+  ticketsAssigned  ContactTicket[]   @relation("TicketAssignee")
+  ticketReplies    TicketReply[]     @relation("TicketReplyAuthor")
+  webspaceRequests WebspaceRequest[]
+}
+
+// Einmal-Tokens für E-Mail-Bestätigung und Passwort-Reset (nur der SHA-256-Hash wird gespeichert).
+model AuthToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // EMAIL_VERIFY | PASSWORD_RESET
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, type])
+}
+
+// Im Admin-Dashboard editierbare Einstellungen (Impressum-Daten, SMTP, Registrierung …).
+// Geheimnisse (z. B. mail.password) werden verschlüsselt abgelegt, siehe src/lib/crypto.ts.
+model SiteSetting {
+  key       String   @id
+  value     String   @default("")
+  updatedAt DateTime @updatedAt
+}
+
+// Newsletter: Double-Opt-In, Abmeldung per Token-Link, Versand als Kampagne (Zustellung pro Empfänger nachverfolgt).
+model NewsletterSubscriber {
+  id               String               @id @default(cuid())
+  email            String               @unique
+  name             String               @default("")
+  status           String               @default("PENDING") // PENDING | ACTIVE | UNSUBSCRIBED
+  siteKey          String               @default("eu") // Domain der Anmeldung (Links in Mails)
+  locale           String               @default("de")
+  confirmTokenHash String?              @unique // SHA-256 des Bestätigungs-Tokens (nur bis zur Bestätigung)
+  confirmExpiresAt DateTime?
+  unsubscribeToken String               @unique // zufällig; steckt im Abmelde-Link jeder Mail
+  consentAt        DateTime? // Zeitpunkt der Einwilligung (Anmeldung)
+  confirmedAt      DateTime?
+  unsubscribedAt   DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  deliveries       NewsletterDelivery[]
+
+  @@index([status])
+}
+
+model NewsletterCampaign {
+  id             String               @id @default(cuid())
+  subject        String
+  preheader      String               @default("")
+  content        String // Markdown
+  // Englische Fassung: englischsprachige Abonnenten erhalten nur Kampagnen mit contentEn
+  subjectEn      String?
+  preheaderEn    String?
+  contentEn      String?
+  status         String               @default("DRAFT") // DRAFT | SENDING | SENT | FAILED
+  recipientCount Int                  @default(0)
+  sentCount      Int                  @default(0)
+  failedCount    Int                  @default(0)
+  startedAt      DateTime?
+  sentAt         DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  deliveries     NewsletterDelivery[]
+
+  @@index([status, createdAt])
+}
+
+model NewsletterDelivery {
+  id           String               @id @default(cuid())
+  campaignId   String
+  campaign     NewsletterCampaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  subscriberId String
+  subscriber   NewsletterSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  status       String               @default("PENDING") // PENDING | SENT | FAILED
+  error        String               @default("")
+  sentAt       DateTime?
+
+  @@unique([campaignId, subscriberId])
+  @@index([campaignId, status])
+}
+
+// Antworten auf Tickets (aus dem Dashboard per E-Mail versendet)
+model TicketReply {
+  id           String        @id @default(cuid())
+  ticketId     String
+  ticket       ContactTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message      String
+  author       String // Name der antwortenden Person
+  authorUserId String? // Teammitglied (Website-Konto), falls die Antwort aus dem Team-Bereich kam – für das Profilbild
+  authorUser   User?         @relation("TicketReplyAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  mailSent     Boolean       @default(false)
+  mailError    String        @default("")
+  createdAt    DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+// ---- Lizenzen (Nutzer-Dashboard) ----
+// Produkte, für die Lizenzschlüssel ausgestellt werden (z. B. VylarisGroup Webspace, Autoinstaller).
+// Je Nutzer und Produkt gibt es genau einen Schlüssel.
+model Product {
+  id                  String            @id @default(cuid())
+  slug                String            @unique
+  code                String            @unique // 3–4 Großbuchstaben, Präfix der Schlüssel (z. B. WEB)
+  name                String
+  nameEn              String?
+  description         String            @default("")
+  descriptionEn       String?
+  businessOnly        Boolean           @default(false) // Schlüssel nur für freigegebene Firmenkunden
+  allowAccountRequest Boolean           @default(false) // alle anderen können stattdessen ein Konto beantragen (z. B. Webspace über VylarisGroup)
+  approvalMode        String            @default("AUTO") // AUTO = Schlüssel sofort, MANUAL = erst nach Freigabe durch das Team
+  comingSoon          Boolean           @default(false) // Dienst ist angekündigt, Schlüssel sind aber schon beantragbar
+  active              Boolean           @default(true)
+  sortOrder           Int               @default(0)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  keys                LicenseKey[]
+  webspaceRequests    WebspaceRequest[]
+}
+
+// Der Schlüssel liegt nie im Klartext in der Datenbank: keyHash (HMAC, für die Prüfung per API) und keyEnc (verschlüsselt,
+// damit der Besitzer ihn im Dashboard wiedersieht). Beides ist ohne AUTH_SECRET wertlos.
+model LicenseKey {
+  id             String    @id @default(cuid())
+  keyHash        String    @unique
+  keyEnc         String
+  keyHint        String // letzte 4 Zeichen, nur zur Anzeige
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  status         String    @default("ACTIVE") // PENDING (wartet auf Freigabe) | ACTIVE | REVOKED | REJECTED
+  message        String    @default("") // Wunsch/Verwendungszweck des Nutzers
+  adminNote      String    @default("") // Hinweis des Teams (für den Nutzer sichtbar)
+  boundInstance  String? // Installation/Domain, an die der Schlüssel beim ersten Prüfen gebunden wurde
+  boundAt        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  decidedAt      DateTime?
+  lastVerifiedAt DateTime?
+  verifyCount    Int       @default(0)
+
+  @@unique([userId, productId])
+  @@index([productId, status])
+}
+
+// Anfrage eines (Nicht-Firmenkunden-)Nutzers nach einem Konto für den Webspace, der über VylarisGroup läuft.
+model WebspaceRequest {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  status    String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  message   String    @default("") // Wunsch/Verwendungszweck des Nutzers
+  adminNote String    @default("") // Antwort/Hinweis des Teams (für den Nutzer sichtbar)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  decidedAt DateTime?
+
+  @@unique([userId, productId])
+  @@index([status, createdAt])
+}
+
+// Zugang für Programme (Autoinstaller, Webspace-Backend), die Schlüssel per API prüfen. Das Token steht nur als Hash in der DB.
+model ApiClient {
+  id           String    @id @default(cuid())
+  name         String
+  tokenHash    String    @unique
+  tokenHint    String // Anfang des Tokens zur Wiedererkennung
+  productSlugs String    @default("*") // "*" = alle Produkte, sonst kommagetrennte Slugs
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+  revokedAt    DateTime?
+}

@@ -1,0 +1,113 @@
+# =============================================================================
+# VylarisGroupEurope – Docker Compose (App + PostgreSQL)
+#
+# Schnellstart:
+#   cp .env.production.example .env
+#   # Pflichtwerte in .env setzen (AUTH_SECRET, POSTGRES_PASSWORD, ADMIN_PASSWORD)
+#   docker compose up -d --build
+#
+# Die App lauscht standardmäßig nur auf 127.0.0.1:${APP_PORT} und gehört hinter
+# einen Reverse Proxy mit HTTPS (z. B. Caddy, nginx, Traefik). Die Datenbank wird
+# NICHT nach außen veröffentlicht und ist nur im internen Compose-Netz erreichbar.
+# =============================================================================
+
+name: vylaris-europe
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: vylaris-europe-app:latest
+    container_name: vylaris-europe-app
+    restart: unless-stopped
+    # Optional: zusätzliche Variablen aus einer Datei laden. Compose liest .env
+    # ohnehin automatisch zur Variablen-Ersetzung; env_file ist hier nur ein Zusatz.
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      # APP_BIND=0.0.0.0 nur setzen, wenn kein Reverse Proxy auf dem Host davor sitzt.
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      # --- Pflicht ---
+      # Mindestens 32 Zeichen, erzeugen mit: openssl rand -base64 48
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET setzen (mind. 32 Zeichen, z. B. openssl rand -base64 48)}
+      # Passwort ggf. URL-kodieren; am einfachsten ein Passwort ohne Sonderzeichen wählen
+      # (z. B. openssl rand -hex 24).
+      DATABASE_URL: postgresql://${POSTGRES_USER:-vylaris}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD setzen}@db:5432/${POSTGRES_DB:-vylaris}?schema=public
+      # --- Admin-Konto (wird vom Seed angelegt; beim ersten Login Passwort ändern) ---
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-lucas.wilms@vylaris.example}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD setzen (Start-Passwort des Admin-Kontos)}
+      # --- Seed ---
+      # true = beim Start Admin-Konto und Basisinhalte anlegen. Die Basisinhalte (Beispieldienste,
+      # Texte usw.) entstehen nur beim ersten Start; Änderungen im Admin werden nie überschrieben.
+      SEED_ON_START: ${SEED_ON_START:-true}
+      SEED_BASE_DOMAIN: ${SEED_BASE_DOMAIN:-vylaris.example}
+      # --- Website ---
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      # Login-Cookie nur über HTTPS ausliefern (Default true). Für reine HTTP-Tests
+      # ohne Reverse Proxy auf "false" setzen – niemals in Produktion.
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      CONTACT_EMAIL: ${CONTACT_EMAIL:-}
+      # Woher die App die Client-IP nimmt (Rate-Limits): leer/caddy = X-Forwarded-For (Caddy oder
+      # Reverse Proxy, der den Header selbst setzt), cloudflare = CF-Connecting-IP (Tunnel-Betrieb).
+      # Die Overlay-Dateien setzen den passenden Wert.
+      TRUST_PROXY: ${TRUST_PROXY:-}
+      # Der Tunnel-Token gehört nur zu cloudflared. Die App liest die .env per env_file mit und
+      # darf ihn nicht bekommen (auch nicht nach einem Wechsel von Cloudflare auf Caddy).
+      CLOUDFLARE_TUNNEL_TOKEN: ""
+      # Kontakt-Adresse in der Legal Notice von vylaris.net (leer = Vorgabe aus src/lib/sites.ts)
+      NET_CONTACT_EMAIL: ${NET_CONTACT_EMAIL:-}
+      # --- Rechtliche Angaben (Impressum/Datenschutz): nur Anfangswerte, Admin → Einstellungen →
+      #     Rechtliches hat Vorrang. Vor Go-Live ausfüllen (install.sh fragt sie ab). ---
+      LEGAL_STREET: ${LEGAL_STREET:-}
+      LEGAL_ZIP_CITY: ${LEGAL_ZIP_CITY:-}
+      LEGAL_COUNTRY: ${LEGAL_COUNTRY:-Deutschland}
+      LEGAL_PHONE: ${LEGAL_PHONE:-}
+      LEGAL_REGISTER: ${LEGAL_REGISTER:-}
+      LEGAL_VAT_ID: ${LEGAL_VAT_ID:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # read_only wird bewusst nicht gesetzt: Next.js, Prisma-CLI und tsx schreiben
+    # zur Laufzeit in Cache-/Temp-Verzeichnisse. Ohne Funktionsverlust nicht machbar.
+
+  db:
+    image: postgres:16-alpine
+    container_name: vylaris-europe-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vylaris}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD setzen}
+      POSTGRES_DB: ${POSTGRES_DB:-vylaris}
+    volumes:
+      - vylaris_pgdata:/var/lib/postgresql/data
+    # Kein "ports:" – die Datenbank ist ausschließlich im Compose-Netz "internal" erreichbar.
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  vylaris_pgdata:
+    name: vylaris_pgdata
