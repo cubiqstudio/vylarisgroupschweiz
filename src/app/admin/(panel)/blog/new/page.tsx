@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { ContentHeader } from "@/components/admin/content/page-header";
 import { BlogEditor } from "@/components/admin/content/blog-editor";
 
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Neuer Beitrag" };
 
 export default async function NewBlogPostPage() {
-  const admin = await requireAdminPage();
+  const admin = await requireModulePage("website");
 
   return (
     <div>

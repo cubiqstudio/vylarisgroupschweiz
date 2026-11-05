@@ -5,12 +5,18 @@ import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { db } from "@/lib/db";
 import { SESSION_COOKIE, verifySession, type SessionKind } from "@/lib/session";
+import { effectiveRoles, type AdminRoleValue } from "@/lib/verein/permissions";
 
 export type CurrentAdmin = {
   id: string;
   email: string;
   name: string;
+  /** Hauptrolle (AdminUser.role) */
   role: string;
+  /** Alle wirksamen Rollen (Hauptrolle + zusätzliche), Grundlage der Rechteprüfung (src/lib/verein/permissions.ts) */
+  roles: AdminRoleValue[];
+  /** Verknüpftes Vereinsmitglied, falls vorhanden */
+  memberId: string | null;
   mustChangePassword: boolean;
 };
 
@@ -35,11 +41,19 @@ export const getCurrentAdmin = cache(async (): Promise<CurrentAdmin | null> => {
   if (!session || session.kind !== "admin") return null;
   const row = await db.adminUser.findUnique({
     where: { id: session.sub },
-    select: { id: true, email: true, name: true, role: true, mustChangePassword: true, sessionVersion: true },
+    select: { id: true, email: true, name: true, role: true, extraRoles: true, memberId: true, mustChangePassword: true, sessionVersion: true },
   });
   // Nach Passwortänderung ist die Sitzungsversion höher: ältere Sitzungen (z. B. gestohlene Cookies) sind ungültig.
   if (!row || row.sessionVersion !== (session.sv ?? 0)) return null;
-  return { id: row.id, email: row.email, name: row.name, role: row.role, mustChangePassword: row.mustChangePassword };
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    role: row.role,
+    roles: effectiveRoles(row.role, row.extraRoles),
+    memberId: row.memberId,
+    mustChangePassword: row.mustChangePassword,
+  };
 });
 
 /** Liefert das eingeloggte Website-Konto (verifiziert, nicht gesperrt) oder null. */

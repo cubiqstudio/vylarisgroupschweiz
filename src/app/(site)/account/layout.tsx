@@ -5,6 +5,7 @@ import { Container } from "@/components/ui/section";
 import { getMessages } from "@/i18n/server";
 import { account } from "@/i18n/account";
 import { licenses } from "@/i18n/licenses";
+import { verein } from "@/i18n/verein";
 import { getViewer } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -15,9 +16,11 @@ export default async function AccountLayout({ children }: { children: React.Reac
 
   const m = await getMessages(account);
   const lic = await getMessages(licenses);
+  const vm = await getMessages(verein);
   const tabs: AccountTab[] = [{ href: "/account", label: m.area.tabOverview }];
   if (viewer.kind === "user") tabs.push({ href: "/account/settings", label: m.area.tabSettings });
   if (viewer.kind === "user") tabs.push({ href: "/account/licenses", label: lic.tab });
+  tabs.push({ href: "/account/verein", label: vm.portal.tabLabel, prefix: true });
   if (viewer.isTeam) tabs.push({ href: "/account/team", label: m.area.tabTeam });
   // Ticket-Bearbeitung nur für Website-Konten im Team (Admins nutzen den Admin-Bereich).
   if (viewer.kind === "user" && viewer.isTeam) tabs.push({ href: "/account/team/tickets", label: "Tickets" });

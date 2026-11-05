@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { FileText, Plus } from "lucide-react";
 import { db } from "@/lib/db";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { formatDate } from "@/lib/utils";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Blog verwalten" };
 
 export default async function AdminBlogPage() {
-  await requireAdminPage();
+  await requireModulePage("website");
 
   const posts = await db.blogPost.findMany({
     select: { id: true, title: true, slug: true, published: true, author: true, publishedAt: true, createdAt: true, updatedAt: true },

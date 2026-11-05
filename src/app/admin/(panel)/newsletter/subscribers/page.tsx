@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { ChevronLeft, ChevronRight, Download, Search, Users } from "lucide-react";
 import { db } from "@/lib/db";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { containsCI } from "@/lib/search";
 import { cn, formatDateTime } from "@/lib/utils";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -32,7 +32,7 @@ function href(f: { status: string; q: string; page: number }) {
 }
 
 export default async function AdminSubscribersPage({ searchParams }: Props) {
-  await requireAdminPage();
+  await requireModulePage("newsletter");
   const sp = await searchParams;
   const rawStatus = first(sp.status);
   const status = (SUBSCRIBER_STATUSES as readonly string[]).includes(rawStatus) ? rawStatus : "";

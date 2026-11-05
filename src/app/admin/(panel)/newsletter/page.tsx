@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertTriangle, CheckCheck, FileEdit, Mail, Send, type LucideIcon } from "lucide-react";
 import { db } from "@/lib/db";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { cn, formatDateTime } from "@/lib/utils";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -22,7 +22,7 @@ const ICON: Record<string, { icon: LucideIcon; tone: string }> = {
 };
 
 export default async function AdminNewsletterPage() {
-  await requireAdminPage();
+  await requireModulePage("newsletter");
   const campaigns = await db.newsletterCampaign.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
   const anySending = campaigns.some((c) => c.status === "SENDING");
 

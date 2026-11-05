@@ -5,6 +5,7 @@ import { z, ZodError } from "zod";
 import { Prisma } from "@prisma/client";
 import { getCurrentAdmin, type CurrentAdmin } from "@/lib/auth";
 import { swissFields, swissText } from "@/i18n/server-messages";
+import { canAccess, levelForMethod, moduleForPath, type AccessLevel, type VereinModule } from "@/lib/verein/permissions";
 
 export class ApiError extends Error {
   constructor(
@@ -71,12 +72,24 @@ export function assertSameOrigin(req: Request) {
   if (originHost !== host) throw new ApiError(403, "FORBIDDEN", "Cross-Origin-Anfrage abgelehnt.");
 }
 
-/** Pflicht für alle /api/admin/*-Handler (Defense in Depth zusätzlich zur Middleware). */
+/**
+ * Pflicht für alle /api/admin/*-Handler (Defense in Depth zusätzlich zur Middleware).
+ * Prüft Sitzung, Origin UND die Rolle: Das Modul ergibt sich aus dem Pfad (moduleForPath), die Stufe aus der Methode
+ * (GET = lesen, sonst ändern). Strengere Prüfungen innerhalb eines Moduls: requireAdminModule (src/lib/verein/guard.ts).
+ */
 export async function requireAdmin(req: Request): Promise<CurrentAdmin> {
   assertSameOrigin(req);
   const admin = await getCurrentAdmin();
   if (!admin) throw new ApiError(401, "UNAUTHORIZED", "Nicht angemeldet.");
+  assertRole(admin, moduleForPath(new URL(req.url).pathname), levelForMethod(req.method));
   return admin;
+}
+
+/** Wirft 403, wenn die Rollen des Admins das Modul nicht auf der verlangten Stufe erlauben. */
+export function assertRole(admin: CurrentAdmin, module: VereinModule, level: AccessLevel = "read"): void {
+  if (!canAccess(admin.roles, module, level)) {
+    throw new ApiError(403, "FORBIDDEN", "Dafür fehlt dir die Berechtigung.");
+  }
 }
 
 /** Lehnt NUL-Zeichen (\u0000) in beliebiger Tiefe ab: PostgreSQL kann sie nicht speichern (sonst Fehler 500), SQLite schon. */

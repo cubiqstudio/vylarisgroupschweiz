@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Activity, ArrowRight, BookOpen, Inbox, KeyRound, LifeBuoy, LockKeyhole, Mail, Server, Settings, ShieldCheck, Users } from "lucide-react";
+import { Activity, ArrowRight, BookOpen, Building2, Inbox, KeyRound, LifeBuoy, LockKeyhole, Mail, Server, Settings, ShieldCheck, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ThemeSwitch } from "@/components/theme/theme-switch";
 import { themeMsgs } from "@/i18n/theme";
@@ -12,6 +12,8 @@ import { licenses } from "@/i18n/licenses";
 import { getCurrentAdmin, getViewer } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 import { db } from "@/lib/db";
+import { canAccess, moduleForPath } from "@/lib/verein/permissions";
+import { verein } from "@/i18n/verein";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
@@ -68,6 +70,7 @@ export default async function AccountOverviewPage() {
   const site = await getSite();
   const m = await getMessages(account);
   const lic = await getMessages(licenses);
+  const vm = await getMessages(verein);
   const viewer = await getViewer();
   if (!viewer) redirect("/login?next=/account");
   const isAdmin = viewer.kind === "admin";
@@ -75,8 +78,11 @@ export default async function AccountOverviewPage() {
   let memberSince: Date | null = null;
   let verified = true;
   let adminRole = "";
+  let adminRoles: readonly string[] = [];
   if (isAdmin) {
-    adminRole = (await getCurrentAdmin())?.role ?? "";
+    const current = await getCurrentAdmin();
+    adminRole = current?.role ?? "";
+    adminRoles = current?.roles ?? [];
   } else {
     const u = await db.user.findUnique({
       where: { id: viewer.id },
@@ -96,6 +102,12 @@ export default async function AccountOverviewPage() {
             text: "Dashboard mit Kennzahlen, Diensten, Status und Vorfällen.",
             icon: ShieldCheck,
             highlight: true,
+          },
+          {
+            href: "/admin/members",
+            title: "Mitglieder",
+            text: "Mitgliederverwaltung, Beiträge, Kassa und Versammlungen des Vereins.",
+            icon: Building2,
           },
           {
             href: "/admin/tickets",
@@ -129,6 +141,8 @@ export default async function AccountOverviewPage() {
           },
         ]
       : [];
+  // Kacheln nur für Bereiche, die die Rolle öffnen darf (sonst führt der Link auf «Keine Berechtigung»).
+  const adminAllowed = admin.filter((t) => canAccess(adminRoles, moduleForPath(t.href), "read"));
 
   const team: Tile[] = viewer.isTeam
     ? [
@@ -142,7 +156,15 @@ export default async function AccountOverviewPage() {
       ]
     : [];
 
+  const vereinTile: Tile = {
+    href: "/account/verein",
+    title: vm.portal.tile.title,
+    text: vm.portal.tile.text,
+    icon: Building2,
+  };
+
   const own: Tile[] = [
+    vereinTile,
     ...(isAdmin
       ? [
           {
@@ -228,7 +250,7 @@ export default async function AccountOverviewPage() {
         </dl>
       </Card>
 
-      <Group title="Verwaltung" tiles={admin} open={m.overview.open} />
+      <Group title="Verwaltung" tiles={adminAllowed} open={m.overview.open} />
       <Group title={m.overview.groupTeam} tiles={team} open={m.overview.open} />
       <Group title={m.overview.groupOwn} tiles={own} open={m.overview.open} />
     </Container>

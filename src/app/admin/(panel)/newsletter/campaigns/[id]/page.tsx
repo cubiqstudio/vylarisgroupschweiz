@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { getNewsletterAvailability, serializeCampaign } from "@/lib/newsletter";
 import { formatDateTime } from "@/lib/utils";
 import { BrandMark } from "@/components/contact/brand-mark";
@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "Newsletter-Kampagne" };
 type Props = { params: Promise<{ id: string }> };
 
 export default async function EditCampaignPage({ params }: Props) {
-  const admin = await requireAdminPage();
+  const admin = await requireModulePage("newsletter");
   const { id } = await params;
 
   const campaign = await db.newsletterCampaign.findUnique({ where: { id } });

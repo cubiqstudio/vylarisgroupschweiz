@@ -81,8 +81,9 @@ export const TICKET_STATUS_LABEL: Record<TicketStatus, string> = {
   CLOSED: "Geschlossen",
 };
 
-export const ADMIN_ROLES = ["OWNER", "ADMIN", "EDITOR"] as const;
-export type AdminRole = (typeof ADMIN_ROLES)[number];
+// Rollen und Rechte: src/lib/verein/permissions.ts
+export { ADMIN_ROLE_VALUES as ADMIN_ROLES } from "@/lib/verein/permissions";
+export type { AdminRoleValue as AdminRole } from "@/lib/verein/permissions";
 
 /** Label-Lookup mit Fallback auf den Rohwert (DB-Werte sind Strings). */
 export function label<T extends string>(map: Record<T, string>, value: string): string {

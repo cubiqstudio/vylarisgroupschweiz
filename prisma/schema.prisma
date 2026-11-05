@@ -16,16 +16,24 @@ datasource db {
 }
 
 model AdminUser {
-  id                 String    @id @default(cuid())
-  email              String    @unique
+  id                 String      @id @default(cuid())
+  email              String      @unique
   passwordHash       String
   name               String
-  role               String    @default("ADMIN") // OWNER | ADMIN | EDITOR
-  mustChangePassword Boolean   @default(false)
-  sessionVersion     Int       @default(0) // wird bei Passwortänderung erhöht und entwertet bestehende Sitzungen
+  // Hauptrolle. Bisher: OWNER | ADMIN | EDITOR. Neu (Verein): PRAESIDENT | VIZEPRAESIDENT | KASSIER | AKTUAR | REVISOR.
+  // Welche Rolle was darf, steht zentral in src/lib/verein/permissions.ts.
+  role               String      @default("ADMIN")
+  // Zusätzliche Rollen (kommagetrennt), wenn eine Person mehrere Ämter hat (z. B. "KASSIER,ADMIN"). Wirksam ist die Vereinigung aller Rollen.
+  extraRoles         String      @default("")
+  mustChangePassword Boolean     @default(false)
+  sessionVersion     Int         @default(0) // wird bei Passwortänderung erhöht und entwertet bestehende Sitzungen
   lastLoginAt        DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  // Optionale Verknüpfung zum Mitglied (z. B. Vorstandsmitglied): Aufgaben, Mitgliederportal und Anzeige im Protokoll
+  memberId           String?     @unique
+  member             Member?     @relation("MemberAdminAccount", fields: [memberId], references: [id], onDelete: SetNull)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  tasks              BoardTask[] @relation("TaskAssigneeAdmin")
 }
 
 model SaasService {
@@ -145,6 +153,8 @@ model User {
   ticketsAssigned  ContactTicket[]   @relation("TicketAssignee")
   ticketReplies    TicketReply[]     @relation("TicketReplyAuthor")
   webspaceRequests WebspaceRequest[]
+  // Verknüpftes Vereinsmitglied (Mitgliederportal); ein Konto gehört zu höchstens einem Mitglied
+  member           Member?           @relation("MemberUserAccount")
 }
 
 // Einmal-Tokens für E-Mail-Bestätigung und Passwort-Reset (nur der SHA-256-Hash wird gespeichert).
@@ -195,6 +205,11 @@ model NewsletterCampaign {
   preheader      String               @default("")
   content        String // Markdown
   status         String               @default("DRAFT") // DRAFT | SENDING | SENT | FAILED
+  // Empfängerkreis: ALL = alle bestätigten Abonnenten, MEMBERS = Abonnenten, die aktive Mitglieder sind (Abgleich über die E-Mail-Adresse),
+  // MEMBERSHIP_TYPE = wie MEMBERS, aber nur Mitglieder der Mitgliedschaftsart segmentTypeId
+  segment        String               @default("ALL")
+  segmentTypeId  String?
+  segmentType    MembershipType?      @relation("CampaignSegmentType", fields: [segmentTypeId], references: [id], onDelete: SetNull)
   recipientCount Int                  @default(0)
   sentCount      Int                  @default(0)
   failedCount    Int                  @default(0)
@@ -313,4 +328,536 @@ model ApiClient {
   createdAt    DateTime  @default(now())
   lastUsedAt   DateTime?
   revokedAt    DateTime?
+}
+
+// =====================================================================================================================
+// VEREIN (ZGB Art. 60 ff.)
+// Konventionen:
+//  - Beträge sind Integer in Rappen (CHF 12.50 = 1250). Formatierung/Parsing: src/lib/verein/money.ts.
+//  - Reine Datumsfelder (Eintritt, Fälligkeit, Geschäftsjahr …) werden als «Mittag UTC» des Kalendertags gespeichert
+//    (src/lib/verein/dates.ts: dateOnly), Zeitpunkte (Sitzungsbeginn, Zeitstempel) als echte Instants.
+//  - Werte der String-Felder: src/lib/verein/constants.ts (per Zod validiert, keine Enums).
+//  - Fortlaufende Nummern (Mitglied, Rechnung je Jahr, Beleg je Jahr) vergibt ausschliesslich src/lib/verein/ids.ts (Tabelle Counter).
+//  - Bytes-Spalten (Dateien) nie in Listen mitladen: immer mit `select` ohne `data`.
+// =====================================================================================================================
+
+// Fortlaufende Nummernkreise. Schlüssel: "member", "invoice:2026", "voucher:2026". Atomar erhöht (ids.ts) innerhalb der Transaktion,
+// die den Datensatz anlegt: Bei einem Rollback entsteht keine Lücke.
+model Counter {
+  key       String   @id
+  value     Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+// ---- 1. Mitglieder -----------------------------------------------------------------------------------------------
+
+// Mitgliedschaftsart (z. B. Aktiv-, Passivmitglied). Beiträge legt der Verein fest; Voreinstellung ist 0 Rappen.
+model MembershipType {
+  id               String               @id @default(cuid())
+  name             String               @unique
+  description      String               @default("")
+  annualFeeRappen  Int                  @default(0) // Jahresbeitrag in Rappen; Standard für neue Beitragsjahre (siehe FeePeriodRate)
+  votingRight      Boolean              @default(true) // Stimmrecht in der Mitgliederversammlung (ZGB Art. 67: gleiches Stimmrecht, sofern Statuten nichts anderes bestimmen)
+  eligibleForBoard Boolean              @default(true) // wählbar in den Vorstand
+  selectable       Boolean              @default(true) // im öffentlichen Beitrittsformular wählbar
+  active           Boolean              @default(true)
+  sortOrder        Int                  @default(0)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  members          Member[]
+  rates            FeePeriodRate[]
+  campaigns        NewsletterCampaign[] @relation("CampaignSegmentType")
+
+  @@index([active, sortOrder])
+}
+
+model Member {
+  id                String              @id @default(cuid())
+  memberNumber      Int                 @unique // fortlaufend (ids.ts), wird nie neu vergeben
+  salutation        String              @default("") // "" (keine Angabe) | FRAU | HERR
+  firstName         String
+  lastName          String
+  birthDate         DateTime? // Datum (Mittag UTC); nur erheben, wenn der Verein es braucht
+  street            String              @default("")
+  houseNumber       String              @default("")
+  zip               String              @default("")
+  city              String              @default("")
+  country           String              @default("CH") // ISO-2
+  email             String              @default("") // nicht eindeutig (z. B. Familienadresse); Konto-Verknüpfung über userId
+  phone             String              @default("")
+  membershipTypeId  String?
+  membershipType    MembershipType?     @relation(fields: [membershipTypeId], references: [id], onDelete: Restrict)
+  status            String              @default("ANTRAG") // ANTRAG | ABGELEHNT | AKTIV | AUSGETRETEN | AUSGESCHLOSSEN | VERSTORBEN
+  applicationAt     DateTime            @default(now()) // Eingang des Beitrittsantrags
+  joinedAt          DateTime? // Eintrittsdatum (Aufnahme durch den Vorstand bzw. die Versammlung, gemäss Statuten)
+  exitNoticeAt      DateTime? // Eingang der Austrittserklärung
+  leftAt            DateTime? // Austrittsdatum (wirksam)
+  exitReason        String              @default("")
+  consentAt         DateTime? // Zeitpunkt, an dem Statuten und Datenschutzhinweis im Antrag bestätigt wurden
+  communicationPref String              @default("EMAIL") // EMAIL | POST
+  boardNotes        String              @default("") // Notizen, nur für den Vorstand sichtbar (hasBoardRole)
+  anonymizedAt      DateTime? // Personendaten nach Ablauf der Aufbewahrung entfernt (Mitgliedernummer und Buchungen bleiben)
+  userId            String?             @unique
+  user              User?               @relation("MemberUserAccount", fields: [userId], references: [id], onDelete: SetNull)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  adminAccount      AdminUser?          @relation("MemberAdminAccount")
+  offices           Office[]
+  invoices          Invoice[]
+  payments          Payment[]
+  attendances       Attendance[]
+  registrations     EventRegistration[]
+  tasks             BoardTask[]         @relation("TaskAssigneeMember")
+  meetingsLed       Meeting[]           @relation("MeetingLeader")
+  meetingsRecorded  Meeting[]           @relation("MeetingRecorder")
+
+  @@index([status])
+  @@index([lastName, firstName])
+  @@index([email])
+  @@index([membershipTypeId])
+}
+
+// Amt im Verein (Vorstand, Revisionsstelle …) mit Amtszeit. Offen = validUntil ist leer.
+model Office {
+  id         String    @id @default(cuid())
+  kind       String // PRAESIDENT | VIZEPRAESIDENT | KASSIER | AKTUAR | REVISOR | BEISITZ | SONSTIGES
+  title      String    @default("") // Anzeigename; bei SONSTIGES Pflicht, sonst leer = Standardbezeichnung
+  memberId   String
+  member     Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  validFrom  DateTime // Datum (Mittag UTC)
+  validUntil DateTime?
+  note       String    @default("")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([memberId])
+  @@index([kind, validUntil])
+}
+
+// Protokoll sensibler Änderungen (revDSG: Nachvollziehbarkeit). Bewusst ohne Fremdschlüssel auf Akteur und Objekt:
+// Einträge bleiben bestehen, auch wenn Konto oder Datensatz gelöscht werden. vorher/nachher sind JSON-Text ohne Geheimnisse (audit.ts).
+model AuditLog {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  actorType  String   @default("ADMIN") // ADMIN | MEMBER | SYSTEM
+  actorId    String?
+  actorName  String   @default("") // Name zum Zeitpunkt der Änderung
+  action     String // z. B. member.update, invoice.cancel, settings.update
+  objectType String // z. B. Member, Invoice, Transaction
+  objectId   String?
+  summary    String   @default("") // kurzer Klartext, z. B. «Mitglied 12 ausgetreten»
+  before     String? // JSON-Text
+  after      String? // JSON-Text
+
+  @@index([objectType, objectId])
+  @@index([createdAt])
+  @@index([actorId])
+}
+
+// ---- 2. Beiträge und Rechnungen ----------------------------------------------------------------------------------
+
+// Beitragsjahr (Rechnungslauf). `year` ist das Jahr, in dem das Geschäftsjahr beginnt.
+model FeePeriod {
+  id         String          @id @default(cuid())
+  year       Int             @unique
+  label      String          @default("") // z. B. «Mitgliederbeitrag 2026»
+  startsOn   DateTime // Datum (Mittag UTC)
+  endsOn     DateTime // Datum (Mittag UTC)
+  invoicedAt DateTime? // Zeitpunkt des Rechnungslaufs (leer = noch nicht erstellt)
+  note       String          @default("")
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  rates      FeePeriodRate[]
+  invoices   Invoice[]
+}
+
+// Beitrag je Mitgliedschaftsart und Beitragsjahr (hält die Historie, auch wenn sich der Standardbeitrag ändert).
+model FeePeriodRate {
+  id               String         @id @default(cuid())
+  periodId         String
+  period           FeePeriod      @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  membershipTypeId String
+  membershipType   MembershipType @relation(fields: [membershipTypeId], references: [id], onDelete: Restrict)
+  amountRappen     Int
+
+  @@unique([periodId, membershipTypeId])
+}
+
+model Invoice {
+  id               String        @id @default(cuid())
+  number           String        @unique // «2026-0001», fortlaufend je Jahr (ids.ts)
+  year             Int // Jahr des Nummernkreises (= Jahr des Rechnungsdatums)
+  seq              Int // laufende Nummer im Jahr
+  memberId         String
+  member           Member        @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  periodId         String?
+  period           FeePeriod?    @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  recipientName    String // Empfänger zum Zeitpunkt der Rechnungsstellung (Rechnung bleibt unverändert, auch wenn sich das Mitglied ändert)
+  recipientAddress String        @default("") // mehrzeilig
+  subject          String        @default("")
+  status           String        @default("ENTWURF") // ENTWURF | OFFEN | BEZAHLT | STORNIERT
+  issueDate        DateTime // Datum (Mittag UTC)
+  dueDate          DateTime // Fälligkeit (Mittag UTC)
+  totalRappen      Int           @default(0) // Summe der Positionen
+  paidRappen       Int           @default(0) // Summe der zugeordneten Zahlungen (vom Modul Beiträge nachgeführt)
+  paymentReference String        @default("") // QR-Referenz bzw. Zahlungsreferenz
+  reminderLevel    Int           @default(0) // 0 = nicht gemahnt, 1..3 = Mahnstufe
+  lastReminderAt   DateTime?
+  sentAt           DateTime? // Rechnung per E-Mail versendet bzw. übergeben
+  paidAt           DateTime?
+  cancelledAt      DateTime?
+  cancelReason     String        @default("")
+  notes            String        @default("") // interne Notiz
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  items            InvoiceItem[]
+  payments         Payment[]
+  reminders        Reminder[]
+
+  @@unique([year, seq])
+  @@index([status, dueDate])
+  @@index([memberId])
+  @@index([periodId])
+}
+
+model InvoiceItem {
+  id          String           @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice          @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  position    Int              @default(0)
+  description String
+  quantity    Int              @default(1)
+  unitRappen  Int
+  totalRappen Int // quantity * unitRappen
+  categoryId  String? // Ertragskonto für die Buchung der Zahlung
+  category    AccountCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId, position])
+}
+
+// Zahlungseingang (Bank, Bar, TWINT …). Kann einer Rechnung zugeordnet sein oder allgemein (z. B. Spende) bleiben.
+model Payment {
+  id            String       @id @default(cuid())
+  invoiceId     String?
+  invoice       Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  memberId      String?
+  member        Member?      @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  receivedAt    DateTime // Valuta (Mittag UTC)
+  amountRappen  Int
+  method        String       @default("UEBERWEISUNG") // UEBERWEISUNG | BAR | TWINT | ANDERE
+  reference     String       @default("") // Zahlungsreferenz / Buchungstext der Bank
+  note          String       @default("")
+  createdById   String? // AdminUser (ohne Fremdschlüssel: Protokoll bleibt, wenn das Konto gelöscht wird)
+  createdByName String       @default("")
+  createdAt     DateTime     @default(now())
+  transaction   Transaction?
+
+  @@index([invoiceId])
+  @@index([memberId])
+  @@index([receivedAt])
+}
+
+// Mahnung zu einer Rechnung. Eine Zeile pro Mahnstufe.
+model Reminder {
+  id        String    @id @default(cuid())
+  invoiceId String
+  invoice   Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  level     Int // 1..3
+  dueDate   DateTime // neue Zahlungsfrist (Mittag UTC)
+  feeRappen Int       @default(0) // Mahngebühr (nur wenn der Verein sie in den Einstellungen festlegt)
+  sentAt    DateTime? // leer = erstellt, aber nicht versendet
+  mailSent  Boolean   @default(false)
+  mailError String    @default("")
+  createdAt DateTime  @default(now())
+
+  @@unique([invoiceId, level])
+  @@index([sentAt])
+}
+
+// ---- 3. Kassa ----------------------------------------------------------------------------------------------------
+
+// Konto bzw. Kategorie: Einnahmen- und Ausgabenkonten (Erfolgsrechnung) sowie Vermögenskonten (Kasse, Bank, Post).
+model AccountCategory {
+  id                   String        @id @default(cuid())
+  kind                 String // EINNAHMEN | AUSGABEN | VERMOEGEN
+  number               String        @unique // frei wählbar, z. B. «3000» (Kontenplan legt der Verein fest)
+  name                 String
+  openingBalanceRappen Int           @default(0) // nur Vermögenskonten: Anfangsbestand zu Beginn der Buchführung in dieser Software
+  active               Boolean       @default(true)
+  sortOrder            Int           @default(0)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  transactions         Transaction[] @relation("TransactionCategory")
+  counterTransactions  Transaction[] @relation("TransactionCounterAccount")
+  budgets              Budget[]
+  invoiceItems         InvoiceItem[]
+
+  @@index([kind, sortOrder])
+}
+
+// Buchung (einfache Buchhaltung). Betrag immer positiv; die Richtung ergibt sich aus `direction`:
+//  EINNAHME: Kategorie = Einnahmenkonto, Gegenkonto = Vermögenskonto (Eingang)
+//  AUSGABE:  Kategorie = Ausgabenkonto, Gegenkonto = Vermögenskonto (Abgang)
+//  UMBUCHUNG: Kategorie = Vermögenskonto (Quelle), Gegenkonto = Vermögenskonto (Ziel)
+// Nach dem Abschluss (FiscalYear.lockedAt) wird nicht mehr geändert oder gelöscht, sondern mit einer Gegenbuchung (reversalOfId) korrigiert.
+model Transaction {
+  id               String           @id @default(cuid())
+  bookingDate      DateTime // Buchungsdatum (Mittag UTC)
+  fiscalYear       Int // Geschäftsjahr (Jahr des Beginns), abgeleitet aus bookingDate; Index für Auswertungen
+  voucherNo        String           @default("") // Belegnummer «B-2026-0001» (ids.ts), leer bei Sammelbuchungen
+  direction        String // EINNAHME | AUSGABE | UMBUCHUNG
+  amountRappen     Int
+  categoryId       String
+  category         AccountCategory  @relation("TransactionCategory", fields: [categoryId], references: [id], onDelete: Restrict)
+  counterAccountId String?
+  counterAccount   AccountCategory? @relation("TransactionCounterAccount", fields: [counterAccountId], references: [id], onDelete: Restrict)
+  text             String
+  voucherRef       String           @default("") // Beleg-Referenz (z. B. Rechnungsnummer des Lieferanten)
+  source           String           @default("MANUELL") // MANUELL | ZAHLUNG | STORNO
+  paymentId        String?          @unique
+  payment          Payment?         @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  reversalOfId     String?          @unique // Gegenbuchung zu dieser Buchung
+  reversalOf       Transaction?     @relation("TransactionReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversedBy       Transaction?     @relation("TransactionReversal")
+  createdById      String?
+  createdByName    String           @default("")
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  receipts         Receipt[]
+
+  @@index([fiscalYear, bookingDate])
+  @@index([categoryId])
+  @@index([counterAccountId])
+}
+
+// Budget je Geschäftsjahr und Konto (Einnahmen- oder Ausgabenkonto).
+model Budget {
+  id           String          @id @default(cuid())
+  year         Int
+  categoryId   String
+  category     AccountCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  amountRappen Int
+  note         String          @default("")
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([year, categoryId])
+}
+
+// Beleg zu einer Buchung (Scan/Foto/PDF) in der Datenbank. Grösse und Typ prüft src/lib/verein/files.ts (RECEIPT_MAX_BYTES).
+model Receipt {
+  id             String      @id @default(cuid())
+  transactionId  String
+  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  fileName       String
+  mimeType       String
+  sizeBytes      Int
+  sha256         String
+  data           Bytes
+  uploadedById   String?
+  uploadedByName String      @default("")
+  createdAt      DateTime    @default(now())
+
+  @@index([transactionId])
+}
+
+// Geschäftsjahr und Abschluss. Gesperrt = keine Buchung mit diesem Geschäftsjahr darf mehr geändert werden.
+model FiscalYear {
+  id           String    @id @default(cuid())
+  year         Int       @unique // Jahr des Beginns
+  startsOn     DateTime // Mittag UTC
+  endsOn       DateTime // Mittag UTC
+  lockedAt     DateTime?
+  lockedByName String    @default("")
+  approvedAt   DateTime? // von der Mitgliederversammlung genehmigt (Jahresrechnung, Entlastung)
+  note         String    @default("")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+// ---- 4. Versammlungen --------------------------------------------------------------------------------------------
+
+model Meeting {
+  id                  String       @id @default(cuid())
+  kind                String // MITGLIEDERVERSAMMLUNG | VORSTANDSSITZUNG | AUSSERORDENTLICH
+  title               String
+  startsAt            DateTime
+  endsAt              DateTime?
+  location            String       @default("")
+  status              String       @default("GEPLANT") // GEPLANT | EINGELADEN | DURCHGEFUEHRT | ABGESAGT
+  invitationText      String       @default("") // Markdown, Begleittext der Einladung
+  invitationSentAt    DateTime? // Zeitpunkt des Einladungsversands (Frist-Prüfung gegen die Einstellung)
+  invitationCount     Int          @default(0)
+  minutes             String       @default("") // Protokoll, Markdown
+  minutesApprovedAt   DateTime?
+  minutesApprovedNote String       @default("") // z. B. «genehmigt an der Sitzung vom …»
+  leaderId            String? // Leitung
+  leader              Member?      @relation("MeetingLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+  recorderId          String? // Protokoll
+  recorder            Member?      @relation("MeetingRecorder", fields: [recorderId], references: [id], onDelete: SetNull)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  agenda              AgendaItem[]
+  attendances         Attendance[]
+  resolutions         Resolution[]
+  tasks               BoardTask[]
+  documents           Document[]
+
+  @@index([kind, startsAt])
+  @@index([status, startsAt])
+}
+
+// Traktandum
+model AgendaItem {
+  id          String       @id @default(cuid())
+  meetingId   String
+  meeting     Meeting      @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  position    Int          @default(0)
+  title       String
+  description String       @default("") // Markdown
+  motion      String       @default("") // Antrag
+  createdAt   DateTime     @default(now())
+  resolutions Resolution[]
+
+  @@index([meetingId, position])
+}
+
+model Attendance {
+  id        String  @id @default(cuid())
+  meetingId String
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  memberId  String
+  member    Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  status    String  @default("ANWESEND") // ANWESEND | ENTSCHULDIGT | ABWESEND
+  canVote   Boolean @default(true) // Stimmrecht zum Zeitpunkt der Versammlung (aus der Mitgliedschaftsart übernommen)
+  note      String  @default("")
+
+  @@unique([meetingId, memberId])
+  @@index([memberId])
+}
+
+// Beschluss. Zahlen leer = nicht gezählt (z. B. einstimmig ohne Auszählung).
+model Resolution {
+  id           String      @id @default(cuid())
+  meetingId    String
+  meeting      Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  agendaItemId String?
+  agendaItem   AgendaItem? @relation(fields: [agendaItemId], references: [id], onDelete: SetNull)
+  number       Int         @default(0) // laufende Nummer im Protokoll
+  text         String
+  votesYes     Int?
+  votesNo      Int?
+  abstentions  Int?
+  result       String      @default("ANGENOMMEN") // ANGENOMMEN | ABGELEHNT | VERSCHOBEN
+  createdAt    DateTime    @default(now())
+  tasks        BoardTask[]
+
+  @@index([meetingId, number])
+}
+
+// ---- 5. Anlässe --------------------------------------------------------------------------------------------------
+
+model Event {
+  id                   String              @id @default(cuid())
+  title                String
+  description          String              @default("") // Markdown
+  location             String              @default("")
+  startsAt             DateTime
+  endsAt               DateTime?
+  capacity             Int? // leer = unbegrenzt (Personen inkl. Begleitung)
+  registrationDeadline DateTime?
+  status               String              @default("ENTWURF") // ENTWURF | VEROEFFENTLICHT | ABGESAGT
+  isPublic             Boolean             @default(false) // auf der öffentlichen Website sichtbar (nur wenn VEROEFFENTLICHT)
+  membersOnly          Boolean             @default(true) // Anmeldung nur für Mitglieder; false = auch Gäste
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  registrations        EventRegistration[]
+
+  @@index([status, startsAt])
+  @@index([isPublic, startsAt])
+}
+
+model EventRegistration {
+  id              String    @id @default(cuid())
+  eventId         String
+  event           Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  memberId        String? // Mitglied oder
+  member          Member?   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  guestName       String    @default("") // Gast (ohne Mitglied)
+  guestEmail      String    @default("")
+  seats           Int       @default(1) // Personen inkl. Begleitung
+  status          String    @default("ANGEMELDET") // ANGEMELDET | WARTELISTE | ABGESAGT
+  note            String    @default("")
+  cancelTokenHash String    @unique // SHA-256 des Abmelde-Tokens; das Token steht nur in der Bestätigungsmail
+  consentAt       DateTime? // Gäste: Einwilligung zur Datenbearbeitung
+  promotedAt      DateTime? // von der Warteliste nachgerückt
+  cancelledAt     DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@unique([eventId, memberId])
+  @@index([eventId, status, createdAt])
+  @@index([guestEmail])
+}
+
+// ---- 6. Dokumente und Aufgaben -----------------------------------------------------------------------------------
+
+// Dokument (Metadaten). Die Datei liegt in DocumentVersion, damit Listen keine Bytes laden und frühere Fassungen erhalten bleiben.
+model Document {
+  id             String            @id @default(cuid())
+  title          String
+  description    String            @default("")
+  category       String // STATUTEN | REGLEMENT | PROTOKOLL | FINANZEN | SONSTIGES
+  visibility     String            @default("VORSTAND") // OEFFENTLICH | MITGLIEDER | VORSTAND
+  currentVersion Int               @default(1)
+  meetingId      String? // z. B. Protokoll zu einer Versammlung
+  meeting        Meeting?          @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  archivedAt     DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  versions       DocumentVersion[]
+
+  @@index([category, visibility])
+  @@index([visibility, archivedAt])
+}
+
+model DocumentVersion {
+  id             String   @id @default(cuid())
+  documentId     String
+  document       Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  version        Int
+  fileName       String
+  mimeType       String
+  sizeBytes      Int
+  sha256         String
+  data           Bytes // nur über src/lib/verein/files.ts schreiben (Grösse/Typ geprüft), in Listen nie mitladen
+  changeNote     String   @default("")
+  uploadedById   String?
+  uploadedByName String   @default("")
+  createdAt      DateTime @default(now())
+
+  @@unique([documentId, version])
+}
+
+model BoardTask {
+  id               String      @id @default(cuid())
+  title            String
+  description      String      @default("")
+  assigneeMemberId String?
+  assigneeMember   Member?     @relation("TaskAssigneeMember", fields: [assigneeMemberId], references: [id], onDelete: SetNull)
+  assigneeAdminId  String?
+  assigneeAdmin    AdminUser?  @relation("TaskAssigneeAdmin", fields: [assigneeAdminId], references: [id], onDelete: SetNull)
+  dueDate          DateTime? // Mittag UTC
+  status           String      @default("OFFEN") // OFFEN | IN_ARBEIT | ERLEDIGT
+  priority         String      @default("NORMAL") // NIEDRIG | NORMAL | HOCH
+  meetingId        String?
+  meeting          Meeting?    @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  resolutionId     String?
+  resolution       Resolution? @relation(fields: [resolutionId], references: [id], onDelete: SetNull)
+  doneAt           DateTime?
+  createdByName    String      @default("")
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([status, dueDate])
+  @@index([assigneeMemberId])
+  @@index([assigneeAdminId])
 }

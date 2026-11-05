@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { getLegal } from "@/lib/legal";
 import { isMailConfigured } from "@/lib/mailer";
 import { getLegalSettings, getMailSettingsPublic, getRegistrationEnabled } from "@/lib/settings";
@@ -28,7 +28,7 @@ function Section({ id, title, description, children }: { id: string; title: stri
 }
 
 export default async function AdminSettingsPage() {
-  const admin = await requireAdminPage();
+  const admin = await requireModulePage("system");
   const [legal, legalState, mail, registrationEnabled, mailConfigured] = await Promise.all([
     getLegalSettings(),
     getLegal(),

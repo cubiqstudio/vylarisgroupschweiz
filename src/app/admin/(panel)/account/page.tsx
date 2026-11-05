@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { Card } from "@/components/ui/card";
 import { PageTitle } from "@/components/admin/core/page-title";
 import { PasswordForm } from "@/components/admin/core/password-form";
@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Konto" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminAccountPage() {
-  const admin = await requireAdminPage();
+  const admin = await requireModulePage("self");
 
   return (
     <>

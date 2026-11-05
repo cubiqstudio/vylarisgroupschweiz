@@ -9,7 +9,8 @@ import { useMessages } from "@/i18n/client";
 import { shell } from "@/i18n/shell";
 import { isActivePath, type NavItem } from "@/components/site/nav-links";
 
-export type NavAction = NavItem & { primary?: boolean };
+/** `desktop: false` = nur im mobilen Menü (in der Kopfzeile fehlt der Platz für alle Schaltflächen). */
+export type NavAction = NavItem & { primary?: boolean; desktop?: boolean };
 
 export function MobileNav({ items, actions, signedIn = false }: { items: NavItem[]; actions: NavAction[]; signedIn?: boolean }) {
   const [open, setOpen] = useState(false);

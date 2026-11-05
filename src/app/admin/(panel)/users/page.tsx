@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Search, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { containsCI } from "@/lib/search";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { cn, formatDateTime } from "@/lib/utils";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -32,7 +32,7 @@ function href(q: string, page: number) {
 }
 
 export default async function AdminUsersPage({ searchParams }: Props) {
-  await requireAdminPage();
+  await requireModulePage("website");
   const sp = await searchParams;
   const q = first(sp.q).trim().slice(0, 100);
   const requestedPage = Math.max(1, Number.parseInt(first(sp.page), 10) || 1);

@@ -11,6 +11,7 @@ export const shell = defineMessages({
     blog: "Blog",
     about: "Über uns",
     alliance: "Allianz",
+    events: "Anlässe",
   },
   header: {
     mainNav: "Hauptnavigation",
@@ -19,6 +20,7 @@ export const shell = defineMessages({
     menuClose: "Menü schliessen",
     signIn: "Anmelden",
     register: "Registrieren",
+    join: "Mitglied werden",
     signOutHint: "Abmelden findest du oben im Profil-Menü.",
   },
   profile: {
@@ -54,6 +56,9 @@ export const shell = defineMessages({
     aboutUs: "Über uns",
     blog: "Blog",
     alliance: "Allianz",
+    events: "Anlässe",
+    join: "Mitglied werden",
+    statutes: "Statuten",
     accountNav: "Konto und Rechtliches",
     accountTitle: "Konto & Recht.",
     contact: "Kontakt & Tickets",

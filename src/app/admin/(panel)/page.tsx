@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Activity, ArrowRight, FileText, Inbox, KeySquare, Plus, Server, Siren } from "lucide-react";
 import { site } from "@/lib/site";
 import { db } from "@/lib/db";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { getOverallStatus, OVERALL_HEADLINE } from "@/lib/status";
 import {
   INCIDENT_SEVERITY_LABEL,
@@ -39,7 +39,7 @@ export default async function AdminOverviewPage() {
     pendingKeys,
     pendingWebspace,
   ] = await Promise.all([
-    requireAdminPage(),
+    requireModulePage("dashboard"),
     db.contactTicket.count({ where: { status: "OPEN" } }),
     db.contactTicket.count({ where: { status: "IN_PROGRESS" } }),
     db.saasService.findMany({ where: { comingSoon: false }, select: { status: true } }),

@@ -88,6 +88,22 @@ Freundliche Grüsse
 Dein Team der VylarisGroup`,
 };
 
+// Mitgliedschaftsarten: nur die Struktur (Aktiv-/Passivmitglied). Die Beiträge legt der Verein selbst fest, bis dahin 0 Rappen.
+// Stimmrecht und Vorstandsfähigkeit folgen der gesetzlichen Grundregel (ZGB Art. 67: gleiches Stimmrecht für alle Mitglieder) –
+// bitte gemäss Statuten anpassen.
+const membershipTypes = [
+  {
+    name: "Aktivmitglied",
+    description: "Beitrag, Stimmrecht und weitere Rechte legt der Verein gemäss Statuten fest (Vorlage, bitte anpassen).",
+    sortOrder: 10,
+  },
+  {
+    name: "Passivmitglied",
+    description: "Beitrag, Stimmrecht und weitere Rechte legt der Verein gemäss Statuten fest (Vorlage, bitte anpassen).",
+    sortOrder: 20,
+  },
+];
+
 // ---------------------------------------------------------------------------
 // Ablauf
 // ---------------------------------------------------------------------------
@@ -167,6 +183,21 @@ async function main(): Promise<void> {
     if (!exists) await db.newsletterCampaign.create({ data: { ...newsletterDraft, status: "DRAFT" } });
     console.log("Newsletter-Entwurf: geprüft/angelegt");
     await mark("seed.newsletter.v1");
+  }
+
+  if (todo("seed.verein.v1")) {
+    // Nur fehlende Arten anlegen (nach Name); bestehende Änderungen aus dem Admin bleiben unangetastet.
+    for (const t of membershipTypes) {
+      await db.membershipType.upsert({
+        where: { name: t.name },
+        update: {},
+        create: { ...t, annualFeeRappen: 0, votingRight: true, eligibleForBoard: true, selectable: true, active: true },
+      });
+    }
+    console.log(`Mitgliedschaftsarten: ${membershipTypes.length} geprüft/angelegt (Beitrag 0 CHF, vom Verein festzulegen)`);
+    await mark("seed.verein.v1");
+  } else {
+    console.log("Mitgliedschaftsarten: bereits angelegt (übersprungen)");
   }
 
   console.log("Seed abgeschlossen.");

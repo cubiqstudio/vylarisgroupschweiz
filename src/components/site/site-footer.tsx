@@ -67,6 +67,9 @@ export async function SiteFooter() {
             <li><Link className={link} href="/about">{m.aboutUs}</Link></li>
             <li><Link className={link} href="/blog">{m.blog}</Link></li>
             <li><Link className={link} href="/allianz">{m.alliance}</Link></li>
+            <li><Link className={link} href="/anlaesse">{m.events}</Link></li>
+            <li><Link className={link} href="/mitglied-werden">{m.join}</Link></li>
+            <li><Link className={link} href="/verein/statuten">{m.statutes}</Link></li>
           </ul>
         </nav>
         <nav aria-label={m.accountNav}>

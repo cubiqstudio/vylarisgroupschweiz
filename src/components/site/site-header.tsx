@@ -22,6 +22,7 @@ function navItems(n: NavLabels): NavItem[] {
     { href: "/status", label: n.status },
     { href: "/contact", label: n.contact },
     { href: "/blog", label: n.blog },
+    { href: "/anlaesse", label: n.events },
     { href: "/about", label: n.about },
     { href: "/allianz", label: n.alliance },
   ];
@@ -57,8 +58,9 @@ export async function SiteHeader() {
   const actions: NavAction[] = profile
     ? profileLinks(profile).map((l, i) => ({ href: l.href, label: m.profile[l.icon], primary: i === 0 }))
     : [
-        { href: "/login", label: m.header.signIn, primary: !registration },
-        ...(registration ? [{ href: "/register", label: m.header.register, primary: true }] : []),
+        { href: "/login", label: m.header.signIn, primary: false },
+        ...(registration ? [{ href: "/register", label: m.header.register, primary: false, desktop: false }] : []),
+        { href: "/mitglied-werden", label: m.header.join, primary: true },
       ];
 
   return (
@@ -69,7 +71,7 @@ export async function SiteHeader() {
         <div className="flex items-center gap-2 sm:gap-3">
           {profile && <ProfileMenu profile={profile} />}
           <div className={profile ? "hidden" : "hidden items-center gap-2 sm:flex"}>
-            {actions.map((a) => (
+            {actions.filter((a) => a.desktop !== false).map((a) => (
               <Link
                 key={a.href}
                 href={a.href}

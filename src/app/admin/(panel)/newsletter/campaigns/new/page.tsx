@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { getNewsletterAvailability } from "@/lib/newsletter";
 import { BrandMark } from "@/components/contact/brand-mark";
 import { ContentHeader } from "@/components/admin/content/page-header";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Neue Newsletter-Kampagne" };
 
 export default async function NewCampaignPage() {
-  const admin = await requireAdminPage();
+  const admin = await requireModulePage("newsletter");
   const [availability, activeCount] = await Promise.all([getNewsletterAvailability(), db.newsletterSubscriber.count({ where: { status: "ACTIVE" } })]);
 
   return (

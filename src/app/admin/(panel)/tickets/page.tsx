@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2, ChevronLeft, ChevronRight, CircleDot, Hourglass, Inbox, MailCheck, MessageSquare, Search, ShieldAlert, type LucideIcon } from "lucide-react";
 import { db } from "@/lib/db";
-import { requireAdminPage } from "@/lib/auth";
+import { requireModulePage } from "@/lib/verein/guard";
 import { getTicketMailSettings } from "@/lib/settings";
 import { isMailConfigured } from "@/lib/mailer";
 import { TICKET_CATEGORIES, TICKET_CATEGORY_LABEL, TICKET_STATUSES, TICKET_STATUS_LABEL } from "@/lib/constants";
@@ -66,7 +66,7 @@ function Kpi({
 }
 
 export default async function AdminTicketsPage({ searchParams }: Props) {
-  await requireAdminPage();
+  await requireModulePage("website");
   const filters = parseTicketFilters(await searchParams);
 
   const [grouped, total, overall, securityOpen, mailSettings, mailConfigured] = await Promise.all([
