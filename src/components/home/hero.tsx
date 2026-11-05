@@ -24,13 +24,13 @@ function findTeamImage(): string | null {
 }
 
 /**
- * Schild-/Netzwerk-Motiv mit dem V-G-Zeichen der Marke in Blau (public/images/logo-mark-blue.png, siehe src/lib/brand.ts).
- * `tone` ist der UNTERGRUND: "onLight" (Standard) = weißes Schild, "onDark" = dunkles Glas-Schild; das blaue Zeichen
- * passt auf beide. Fehlt die blaue Datei, werden die Hell-/Dunkel-Zeichen bzw. ein gezeichnetes V verwendet.
+ * Schild-/Netzwerk-Motiv mit dem V-G-Zeichen der Marke (public/images/logo-mark-on-light/-on-dark, siehe src/lib/brand.ts).
+ * `tone` ist der UNTERGRUND: "onLight" (Standard) = weißes Schild mit dem Zeichen für helle Flächen, "onDark" = dunkles
+ * Glas-Schild mit dem Zeichen für dunkle Flächen. Fehlt die Datei, wird ein gezeichnetes V verwendet.
  */
 export function ShieldVisual({ tone = "onLight", idp = "vge" }: { tone?: "onLight" | "onDark"; idp?: string }) {
   const darkShield = tone === "onDark";
-  const mark = findBrandAsset("logo-mark-blue") ?? findBrandAsset(darkShield ? "logo-mark-on-dark" : "logo-mark-on-light");
+  const mark = findBrandAsset(darkShield ? "logo-mark-on-dark" : "logo-mark-on-light");
   const nodes: [number, number][] = [
     [70, 150], [130, 70], [250, 40], [370, 70], [430, 150], [90, 215], [410, 215],
   ];
