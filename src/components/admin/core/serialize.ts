@@ -17,9 +17,6 @@ export function toServiceDTO(s: SaasService): ServiceDTO {
     featured: s.featured,
     comingSoon: s.comingSoon,
     sortOrder: s.sortOrder,
-    nameEn: s.nameEn,
-    taglineEn: s.taglineEn,
-    descriptionEn: s.descriptionEn,
     updatedAt: s.updatedAt.toISOString(),
   };
 }
@@ -50,8 +47,6 @@ export function toIncidentDTO(i: Incident & { service?: { id: string; name: stri
     service: i.service ?? null,
     startedAt: i.startedAt.toISOString(),
     resolvedAt: i.resolvedAt ? i.resolvedAt.toISOString() : null,
-    titleEn: i.titleEn,
-    bodyEn: i.bodyEn,
     updatedAt: i.updatedAt.toISOString(),
   };
 }

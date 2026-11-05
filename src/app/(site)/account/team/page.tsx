@@ -6,6 +6,7 @@ import { Avatar } from "@/components/account/avatar";
 import { AvatarUpload } from "@/components/account/avatar-upload";
 import { Card } from "@/components/ui/card";
 import { Container } from "@/components/ui/section";
+import { intlTag } from "@/i18n";
 import { getMessages } from "@/i18n/server";
 import { account } from "@/i18n/account";
 import { getViewer } from "@/lib/auth";
@@ -77,14 +78,14 @@ export default async function TeamAreaPage() {
                 className="rounded-xl border border-zinc-800 p-4 transition-colors hover:border-zinc-700 hover:bg-zinc-950"
               >
                 <dt className="text-sm text-zinc-400">Offene Tickets</dt>
-                <dd className="mt-1 text-3xl font-semibold tabular-nums text-white">{ticketCounts.open.toLocaleString("de-DE")}</dd>
+                <dd className="mt-1 text-3xl font-semibold tabular-nums text-white">{ticketCounts.open.toLocaleString(intlTag())}</dd>
               </Link>
               <Link
                 href={teamTicketsHref({ mine: true })}
                 className="rounded-xl border border-zinc-800 p-4 transition-colors hover:border-zinc-700 hover:bg-zinc-950"
               >
                 <dt className="text-sm text-zinc-400">Mir zugewiesen</dt>
-                <dd className="mt-1 text-3xl font-semibold tabular-nums text-white">{ticketCounts.mineOpen.toLocaleString("de-DE")}</dd>
+                <dd className="mt-1 text-3xl font-semibold tabular-nums text-white">{ticketCounts.mineOpen.toLocaleString(intlTag())}</dd>
               </Link>
             </dl>
           </Card>

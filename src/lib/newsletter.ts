@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { ApiError } from "@/lib/api";
 import { runInBackground } from "@/lib/account";
 import { isMailConfigured, sendMail, type SendResult } from "@/lib/mailer";
-import { mailCtxFor } from "@/lib/mail-ctx";
+import { mailCtx } from "@/lib/mail-ctx";
 import { newsletterCampaignMail } from "@/lib/mail-templates";
 import { unsubscribeApiUrl, unsubscribeUrl } from "@/lib/newsletter-links";
 import { getMailConfig, getNewsletterEnabled } from "@/lib/settings";
@@ -36,43 +36,16 @@ export type CampaignProgress = {
   failedCount: number;
 };
 
-/** Rückgabe von sendCampaign: Zähler plus Anzahl aktiver englischer Abonnenten, die mangels englischer Fassung übersprungen werden. */
-export type CampaignStartResult = CampaignProgress & { skippedNoTranslation: number };
-
-/** Kampagnen-DTO inkl. englischer Fassung (Felder von CampaignDto + subjectEn/preheaderEn/contentEn). */
-export type CampaignDtoWithEn = CampaignDto & { subjectEn: string | null; preheaderEn: string | null; contentEn: string | null };
-
-/** Hat die Kampagne eine englische Fassung? Nur dann erhalten englischsprachige Abonnenten sie. */
-const hasEnglishVersion = (c: { contentEn: string | null }) => Boolean(c.contentEn?.trim());
-
-/** Abonnenten, die diese Kampagne erhalten: aktive, englischsprachige nur mit englischer Fassung. */
-const recipientWhere = (c: { contentEn: string | null }) => ({
-  status: "ACTIVE",
-  ...(hasEnglishVersion(c) ? {} : { locale: { not: "en" } }),
-});
-
-/** Betreff, Vorschautext und Inhalt in der Sprache des Abonnenten (Einzelfelder fallen auf die deutsche Fassung zurück). */
-function campaignFor(c: NewsletterCampaign, locale: string): { subject: string; preheader: string; content: string } {
-  if (locale === "en" && hasEnglishVersion(c)) {
-    return {
-      subject: c.subjectEn?.trim() ? c.subjectEn : c.subject,
-      preheader: c.preheaderEn?.trim() ? c.preheaderEn : c.preheader,
-      content: c.contentEn ?? c.content,
-    };
-  }
-  return { subject: c.subject, preheader: c.preheader, content: c.content };
-}
+/** Abonnenten, die eine Kampagne erhalten: alle aktiven. Weitere Sprachen bekämen später je eine eigene Fassung. */
+const RECIPIENT_WHERE = { status: "ACTIVE" } as const;
 
 /** Datenbankzeile → JSON-taugliches Objekt (Datumswerte als ISO-Strings). */
-export function serializeCampaign(c: NewsletterCampaign): CampaignDtoWithEn {
+export function serializeCampaign(c: NewsletterCampaign): CampaignDto {
   return {
     id: c.id,
     subject: c.subject,
     preheader: c.preheader,
     content: c.content,
-    subjectEn: c.subjectEn,
-    preheaderEn: c.preheaderEn,
-    contentEn: c.contentEn,
     status: c.status,
     recipientCount: c.recipientCount,
     sentCount: c.sentCount,
@@ -108,9 +81,9 @@ async function syncCounters(campaignId: string): Promise<CampaignProgress | null
 }
 
 /** Legt für alle aktiven Abonnenten fehlende Zustellungen (PENDING) an. */
-async function createDeliveries(campaignId: string, campaign: { contentEn: string | null }): Promise<void> {
+async function createDeliveries(campaignId: string): Promise<void> {
   const [subscribers, existing] = await Promise.all([
-    db.newsletterSubscriber.findMany({ where: recipientWhere(campaign), select: { id: true } }),
+    db.newsletterSubscriber.findMany({ where: RECIPIENT_WHERE, select: { id: true } }),
     db.newsletterDelivery.findMany({ where: { campaignId }, select: { subscriberId: true } }),
   ]);
   const have = new Set(existing.map((d) => d.subscriberId));
@@ -155,17 +128,14 @@ async function deliver(campaignId: string): Promise<void> {
         where: { campaignId, status: "PENDING" },
         orderBy: { id: "asc" },
         take: 50,
-        include: { subscriber: { select: { email: true, name: true, status: true, unsubscribeToken: true, siteKey: true, locale: true } } },
+        include: { subscriber: { select: { email: true, name: true, status: true, unsubscribeToken: true, locale: true } } },
       });
       if (batch.length === 0) break;
 
       for (const delivery of batch) {
         const sub = delivery.subscriber;
         // Wer sich inzwischen abgemeldet hat, bekommt nichts mehr; die Zustellung entfällt.
-        // Sprache, Marke und Links folgen der Seite, bei der sich der Abonnent angemeldet hat.
-        const ctx = mailCtxFor(sub.siteKey, sub.locale);
-        // Englischsprachige Abonnenten erhalten nur Kampagnen mit englischer Fassung.
-        if (sub.status !== "ACTIVE" || (ctx.locale === "en" && !hasEnglishVersion(campaign))) {
+        if (sub.status !== "ACTIVE") {
           await db.newsletterDelivery.delete({ where: { id: delivery.id } });
           continue;
         }
@@ -173,12 +143,12 @@ async function deliver(campaignId: string): Promise<void> {
         const startedAt = Date.now();
         let result: SendResult;
         try {
-          const content = campaignFor(campaign, ctx.locale);
+          const ctx = mailCtx(sub.locale);
           const mail = newsletterCampaignMail(
             {
-              subject: content.subject,
-              preheader: content.preheader,
-              markdown: content.content,
+              subject: campaign.subject,
+              preheader: campaign.preheader,
+              markdown: campaign.content,
               name: sub.name,
               unsubscribeUrl: unsubscribeUrl(sub.unsubscribeToken, ctx.baseUrl),
             },
@@ -236,10 +206,10 @@ async function deliver(campaignId: string): Promise<void> {
 
 /**
  * Startet den Versand einer Kampagne: prüft Voraussetzungen, übernimmt die Kampagne atomar (kein Doppelversand),
- * legt die Zustellungen an und versendet anschließend im Hintergrund. Liefert sofort die Zähler.
+ * legt die Zustellungen an und versendet anschliessend im Hintergrund. Liefert sofort die Zähler.
  * Fortsetzbar aus ENTWURF, FEHLGESCHLAGEN (wiederholt fehlgeschlagene Zustellungen) und einem abgebrochenen SENDING-Stand.
  */
-export async function sendCampaign(campaignId: string): Promise<CampaignStartResult> {
+export async function sendCampaign(campaignId: string): Promise<CampaignProgress> {
   const availability = await getNewsletterAvailability();
   if (!availability.mailConfigured) {
     throw new ApiError(409, "MAIL_NOT_CONFIGURED", "Es ist kein Mailserver eingerichtet. Richte ihn unter Einstellungen ein.");
@@ -248,25 +218,18 @@ export async function sendCampaign(campaignId: string): Promise<CampaignStartRes
     throw new ApiError(409, "NEWSLETTER_DISABLED", "Der Newsletter ist ausgeschaltet. Schalte ihn zuerst ein.");
   }
 
-  const current = await db.newsletterCampaign.findUnique({ where: { id: campaignId }, select: { status: true, contentEn: true } });
+  const current = await db.newsletterCampaign.findUnique({ where: { id: campaignId }, select: { status: true } });
   if (!current) throw new ApiError(404, "NOT_FOUND", "Kampagne nicht gefunden.");
   if (current.status === "SENT") throw new ApiError(409, "ALREADY_SENT", "Diese Kampagne wurde bereits versendet.");
   if (running.has(campaignId)) throw new ApiError(409, "ALREADY_SENDING", "Diese Kampagne wird gerade versendet.");
 
   if (current.status === "DRAFT" || current.status === "FAILED") {
     const [active, open] = await Promise.all([
-      db.newsletterSubscriber.count({ where: recipientWhere(current) }),
+      db.newsletterSubscriber.count({ where: RECIPIENT_WHERE }),
       db.newsletterDelivery.count({ where: { campaignId, status: { in: ["PENDING", "FAILED"] } } }),
     ]);
     if (active === 0 && open === 0) {
-      const onlyEnglish = !hasEnglishVersion(current) && (await db.newsletterSubscriber.count({ where: { status: "ACTIVE", locale: "en" } })) > 0;
-      throw new ApiError(
-        409,
-        "NO_RECIPIENTS",
-        onlyEnglish
-          ? "Es gibt nur englischsprachige Abonnenten, und die Kampagne hat keine englische Fassung. Die Kampagne wurde nicht versendet."
-          : "Es gibt keine aktiven Abonnenten. Die Kampagne wurde nicht versendet.",
-      );
+      throw new ApiError(409, "NO_RECIPIENTS", "Es gibt keine aktiven Abonnenten. Die Kampagne wurde nicht versendet.");
     }
   }
 
@@ -293,7 +256,7 @@ export async function sendCampaign(campaignId: string): Promise<CampaignStartRes
     if (previousFailed) {
       await db.newsletterDelivery.updateMany({ where: { campaignId, status: "FAILED" }, data: { status: "PENDING", error: "" } });
     }
-    await createDeliveries(campaignId, current);
+    await createDeliveries(campaignId);
     progress = await syncCounters(campaignId);
   } catch (e) {
     running.delete(campaignId);
@@ -305,14 +268,8 @@ export async function sendCampaign(campaignId: string): Promise<CampaignStartRes
     throw new ApiError(404, "NOT_FOUND", "Kampagne nicht gefunden.");
   }
 
-  // Aktive englischsprachige Abonnenten ohne englische Fassung der Kampagne werden übersprungen (keine Zustellung).
-  const skippedNoTranslation = hasEnglishVersion(current) ? 0 : await db.newsletterSubscriber.count({ where: { status: "ACTIVE", locale: "en" } });
-  if (skippedNoTranslation > 0) {
-    console.info(`[newsletter] ${skippedNoTranslation} englischsprachige Abonnenten ohne englische Fassung übersprungen.`);
-  }
-
   runInBackground(() => deliver(campaignId));
-  return { ...progress, skippedNoTranslation };
+  return progress;
 }
 
 /** CSV-Zelle: Anführungszeichen verdoppeln und Formel-Injektion (= + - @ Tab CR) mit ' entschärfen. */

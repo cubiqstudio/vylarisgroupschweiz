@@ -11,8 +11,7 @@ import {
   type PostListItem,
 } from "@/components/blog/post-utils";
 import { blog } from "@/i18n/blog";
-import { getLocale, getMessages, getSite } from "@/i18n/server";
-import type { Locale } from "@/i18n";
+import { getMessages, getSite } from "@/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -26,15 +25,16 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-async function loadPosts(
-  locale: Locale,
-): Promise<{ posts: PostListItem[]; failed: boolean }> {
+async function loadPosts(): Promise<{
+  posts: PostListItem[];
+  failed: boolean;
+}> {
   try {
     const rows = await db.blogPost.findMany({
       where: { published: true },
       select: POST_LIST_SELECT,
     });
-    return { posts: toListItems(rows, locale), failed: false };
+    return { posts: toListItems(rows), failed: false };
   } catch (err) {
     console.error(
       "[blog] Beiträge konnten nicht geladen werden:",
@@ -45,10 +45,9 @@ async function loadPosts(
 }
 
 export default async function BlogPage() {
-  const locale = await getLocale();
   const site = await getSite();
   const m = await getMessages(blog);
-  const { posts, failed } = await loadPosts(locale);
+  const { posts, failed } = await loadPosts();
   const [latest, ...rest] = posts;
 
   return (

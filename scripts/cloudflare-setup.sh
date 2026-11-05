@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # =============================================================================
-# VylarisGroup – Cloudflare-Tunnel einrichten
+# VylarisGroup Schweiz – Cloudflare-Tunnel einrichten
 #
 # Legt (idempotent) per Cloudflare-API an:
-#   1. einen Tunnel ("vylaris-group") mit Ingress-Regeln: je Domain und www.<Domain> → http://app:3000
-#   2. je Domain (Apex) und www einen proxied CNAME-Eintrag auf <tunnel-id>.cfargotunnel.com
+#   1. einen Tunnel ("vylaris-schweiz") mit Ingress-Regeln: <Domain> und www.<Domain> → http://app:3000
+#   2. für die Domain (Apex) und www je einen proxied CNAME-Eintrag auf <tunnel-id>.cfargotunnel.com
 # und trägt den Tunnel-Token als CLOUDFLARE_TUNNEL_TOKEN in die .env ein (Rechte 600).
 #
 # Der API-Token wird aus CLOUDFLARE_API_TOKEN gelesen oder verdeckt abgefragt. Er wird nie ausgegeben,
@@ -17,7 +17,7 @@
 #   Zone    → Zone: Lesen
 #
 # Aufruf:
-#   scripts/cloudflare-setup.sh [--dry-run] [--domains "a.eu b.de c.net"] [--tunnel-name NAME]
+#   scripts/cloudflare-setup.sh [--dry-run] [--domain vylaris.ch] [--tunnel-name NAME]
 #                               [--replace] [--env-file PFAD]
 #
 # Exit-Codes: 0 = ok · 1 = Fehler · 2 = falscher Aufruf · 3 = Konflikt mit vorhandenen DNS-Einträgen
@@ -29,10 +29,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 API_BASE="${CLOUDFLARE_API_BASE:-https://api.cloudflare.com/client/v4}"
 API_BASE="${API_BASE%/}"
 ORIGIN_SERVICE="${CLOUDFLARE_ORIGIN_SERVICE:-http://app:3000}"
-DEFAULT_DOMAINS="vylaris.eu vylaris.de vylaris.net"
-TUNNEL_NAME="vylaris-group"
+DEFAULT_DOMAIN="vylaris.ch"
+TUNNEL_NAME="vylaris-schweiz"
 ENV_FILE="${ENV_FILE:-$SCRIPT_DIR/../.env}"
-DOMAINS="${CLOUDFLARE_DOMAINS:-}"
+DOMAIN="${CLOUDFLARE_DOMAIN:-}"
 DRY_RUN=0
 REPLACE=0
 EXIT_CONFLICT=3
@@ -52,14 +52,14 @@ plan() { printf '%s[Probelauf]%s %s\n' "$C_YEL" "$C_OFF" "$*"; }
 
 usage() {
   cat <<'EOF'
-Cloudflare-Tunnel für die Vylaris-Domains einrichten.
+Cloudflare-Tunnel für vylaris.ch und www.vylaris.ch einrichten.
 
 Verwendung: cloudflare-setup.sh [Optionen]
 
 Optionen:
   --dry-run              Nur lesen und anzeigen, was geändert würde (nichts wird angelegt/geschrieben)
-  --domains "a b c"      Domains (Standard: vylaris.eu vylaris.de vylaris.net bzw. CLOUDFLARE_DOMAINS aus der .env)
-  --tunnel-name NAME     Name des Tunnels (Standard: vylaris-group)
+  --domain NAME          Domain ohne www (Standard: DOMAIN aus der .env, sonst vylaris.ch)
+  --tunnel-name NAME     Name des Tunnels (Standard: vylaris-schweiz)
   --replace              Vorhandene A/AAAA/CNAME-Einträge gleichen Namens ersetzen (sonst Abbruch bei Konflikt)
   --env-file PFAD        .env, in die CLOUDFLARE_TUNNEL_TOKEN geschrieben wird (Standard: <Projekt>/.env)
   -h, --help             Diese Hilfe
@@ -75,7 +75,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run)     DRY_RUN=1 ;;
     --replace)     REPLACE=1 ;;
-    --domains)     [ $# -ge 2 ] || { warn "--domains braucht einen Wert"; exit 2; }; DOMAINS="$2"; shift ;;
+    --domain)      [ $# -ge 2 ] || { warn "--domain braucht einen Wert"; exit 2; }; DOMAIN="$2"; shift ;;
     --tunnel-name) [ $# -ge 2 ] || { warn "--tunnel-name braucht einen Wert"; exit 2; }; TUNNEL_NAME="$2"; shift ;;
     --env-file)    [ $# -ge 2 ] || { warn "--env-file braucht einen Wert"; exit 2; }; ENV_FILE="$2"; shift ;;
     -h|--help)     usage; exit 0 ;;
@@ -113,16 +113,11 @@ case "$API_BASE" in
   *) die "CLOUDFLARE_API_BASE muss mit https:// beginnen (http:// nur für localhost)." ;;
 esac
 
-if [ -z "${DOMAINS// /}" ] && [ -f "$ENV_FILE" ]; then DOMAINS=$(env_get CLOUDFLARE_DOMAINS); fi
-[ -n "${DOMAINS// /}" ] || DOMAINS="$DEFAULT_DOMAINS"
-DOMAIN_LIST=()
-for d in ${DOMAINS//,/ }; do
-  d="${d,,}"; d="${d#https://}"; d="${d#http://}"; d="${d%%/*}"; d="${d#www.}"; d="${d%.}"
-  valid_domain "$d" || die "'$d' ist keine gültige Domain."
-  dup=0; for e in "${DOMAIN_LIST[@]+"${DOMAIN_LIST[@]}"}"; do [ "$e" = "$d" ] && dup=1; done
-  [ "$dup" -eq 1 ] || DOMAIN_LIST+=("$d")
-done
-[ "${#DOMAIN_LIST[@]}" -gt 0 ] || die "Keine Domain angegeben."
+if [ -z "${DOMAIN// /}" ] && [ -f "$ENV_FILE" ]; then DOMAIN=$(env_get DOMAIN); fi
+[ -n "${DOMAIN// /}" ] || DOMAIN="$DEFAULT_DOMAIN"
+DOMAIN="${DOMAIN//[[:space:]]/}"
+DOMAIN="${DOMAIN,,}"; DOMAIN="${DOMAIN#https://}"; DOMAIN="${DOMAIN#http://}"; DOMAIN="${DOMAIN%%/*}"; DOMAIN="${DOMAIN#www.}"; DOMAIN="${DOMAIN%.}"
+valid_domain "$DOMAIN" || die "'$DOMAIN' ist keine gültige Domain."
 
 # --- Token einlesen ----------------------------------------------------------------
 CF_TOKEN="${CLOUDFLARE_API_TOKEN:-}"
@@ -186,7 +181,7 @@ api_fail() {
     die "Dem API-Token fehlt eine Berechtigung für: $ctx${errs:+ ($errs)}.
    Benötigt wird: $need
    Alle Rechte des Tokens: $RIGHTS
-   (Zonen-Rechte müssen die betroffene Domain einschließen, Account-Rechte den richtigen Account.)"
+   (Zonen-Rechte müssen die betroffene Domain einschliessen, Account-Rechte den richtigen Account.)"
   elif ! jq -e . <<<"$CF_BODY" >/dev/null 2>&1; then
     die "Unerwartete Antwort der Cloudflare-API bei '$ctx' (HTTP $CF_CODE, kein JSON)."
   fi
@@ -221,25 +216,16 @@ if [ "$DRY_RUN" -eq 0 ]; then
   fi
 fi
 
-# --- 2. Zonen ermitteln -------------------------------------------------------------------
-declare -A ZONE_ID
-ACCOUNT_ID=""
-log "Ermittle die Zonen (${DOMAIN_LIST[*]}) …"
-for d in "${DOMAIN_LIST[@]}"; do
-  api GET "/zones?name=$d&per_page=5" "" "Zone $d lesen" "Zone → Zone: Lesen (für $d)"
-  zid=$(jq -r --arg d "$d" '[.result[]? | select(.name == $d)][0].id // empty' <<<"$CF_BODY")
-  acc=$(jq -r --arg d "$d" '[.result[]? | select(.name == $d)][0].account.id // empty' <<<"$CF_BODY")
-  zstatus=$(jq -r --arg d "$d" '[.result[]? | select(.name == $d)][0].status // empty' <<<"$CF_BODY")
-  [ -n "$zid" ] || die "Die Zone $d wurde nicht gefunden. Die Domain muss bei Cloudflare angelegt sein (Nameserver bei der Registrierung auf Cloudflare gestellt) und der Token muss sie lesen dürfen (Zone → Zone: Lesen, Zonen-Auswahl prüfen)."
-  [ -n "$acc" ] || die "Zu $d wurde keine Account-ID geliefert."
-  if [ -n "$ACCOUNT_ID" ] && [ "$ACCOUNT_ID" != "$acc" ]; then
-    die "Die Domains liegen in verschiedenen Cloudflare-Accounts ($d). Ein Tunnel kann nur Domains desselben Accounts bedienen."
-  fi
-  ACCOUNT_ID="$acc"
-  ZONE_ID[$d]="$zid"
-  [ -z "$zstatus" ] || [ "$zstatus" = "active" ] || warn "Die Zone $d hat den Status '$zstatus' (Nameserver noch nicht auf Cloudflare umgestellt?) – sie ist erst erreichbar, wenn sie 'active' ist."
-done
-ok "Alle Zonen gefunden (Account ${ACCOUNT_ID:0:6}…)"
+# --- 2. Zone ermitteln -------------------------------------------------------------------
+log "Ermittle die Zone ($DOMAIN) …"
+api GET "/zones?name=$DOMAIN&per_page=5" "" "Zone $DOMAIN lesen" "Zone → Zone: Lesen (für $DOMAIN)"
+ZONE_ID=$(jq -r --arg d "$DOMAIN" '[.result[]? | select(.name == $d)][0].id // empty' <<<"$CF_BODY")
+ACCOUNT_ID=$(jq -r --arg d "$DOMAIN" '[.result[]? | select(.name == $d)][0].account.id // empty' <<<"$CF_BODY")
+zstatus=$(jq -r --arg d "$DOMAIN" '[.result[]? | select(.name == $d)][0].status // empty' <<<"$CF_BODY")
+[ -n "$ZONE_ID" ] || die "Die Zone $DOMAIN wurde nicht gefunden. Die Domain muss bei Cloudflare angelegt sein (Nameserver bei der Registrierung auf Cloudflare gestellt) und der Token muss sie lesen dürfen (Zone → Zone: Lesen, Zonen-Auswahl prüfen)."
+[ -n "$ACCOUNT_ID" ] || die "Zu $DOMAIN wurde keine Account-ID geliefert."
+[ -z "$zstatus" ] || [ "$zstatus" = "active" ] || warn "Die Zone $DOMAIN hat den Status '$zstatus' (Nameserver noch nicht auf Cloudflare umgestellt?) – sie ist erst erreichbar, wenn sie 'active' ist."
+ok "Zone gefunden (Account ${ACCOUNT_ID:0:6}…)"
 
 # --- 3. Tunnel suchen --------------------------------------------------------------------
 TUNNEL_ID=""
@@ -256,43 +242,39 @@ fi
 # --- 4. DNS planen (vor jeder Änderung, damit ein Konflikt nichts halb erledigt hinterlässt) -------
 if [ -n "$TUNNEL_ID" ]; then TARGET="$TUNNEL_ID.cfargotunnel.com"; else TARGET="<neue-tunnel-id>.cfargotunnel.com"; fi
 
-HOSTS=()
-declare -A H_ZONE H_ACTION H_RECORD H_DELETE H_DESC
+HOSTS=("$DOMAIN" "www.$DOMAIN")
+declare -A H_ACTION H_RECORD H_DELETE H_DESC
 CONFLICTS=()
 log "Prüfe vorhandene DNS-Einträge …"
-for d in "${DOMAIN_LIST[@]}"; do
-  for host in "$d" "www.$d"; do
-    HOSTS+=("$host")
-    H_ZONE[$host]="${ZONE_ID[$d]}"
-    api GET "/zones/${ZONE_ID[$d]}/dns_records?name=$host&per_page=100" "" "DNS-Einträge von $host lesen" "Zone → DNS: Bearbeiten (für $d)"
-    existing=$(jq -c --arg h "$host" '[.result[]? | select(.name == $h and (.type == "A" or .type == "AAAA" or .type == "CNAME"))]' <<<"$CF_BODY")
-    count=$(jq 'length' <<<"$existing")
-    H_RECORD[$host]=""; H_DELETE[$host]=""; H_DESC[$host]=""
-    if [ "$count" -eq 0 ]; then
-      H_ACTION[$host]="create"
-      continue
-    fi
-    H_DESC[$host]=$(jq -r '[.[] | "\(.type) \(.content)\(if .proxied then " (proxied)" else "" end)"] | join(", ")' <<<"$existing")
-    if [ "$count" -eq 1 ] && jq -e --arg t "$TARGET" '.[0].type == "CNAME" and .[0].content == $t' <<<"$existing" >/dev/null; then
-      if jq -e '.[0].proxied == true' <<<"$existing" >/dev/null; then
-        H_ACTION[$host]="keep"
-      else
-        H_ACTION[$host]="update"; H_RECORD[$host]=$(jq -r '.[0].id' <<<"$existing")
-      fi
-      continue
-    fi
-    # Konflikt: A/AAAA/CNAME mit anderem Inhalt
-    if [ "$REPLACE" -eq 1 ]; then
-      if [ "$count" -eq 1 ] && jq -e '.[0].type == "CNAME"' <<<"$existing" >/dev/null; then
-        H_ACTION[$host]="update"; H_RECORD[$host]=$(jq -r '.[0].id' <<<"$existing")
-      else
-        H_ACTION[$host]="replace"; H_DELETE[$host]=$(jq -r '[.[].id] | join(" ")' <<<"$existing")
-      fi
+for host in "${HOSTS[@]}"; do
+  api GET "/zones/$ZONE_ID/dns_records?name=$host&per_page=100" "" "DNS-Einträge von $host lesen" "Zone → DNS: Bearbeiten (für $DOMAIN)"
+  existing=$(jq -c --arg h "$host" '[.result[]? | select(.name == $h and (.type == "A" or .type == "AAAA" or .type == "CNAME"))]' <<<"$CF_BODY")
+  count=$(jq 'length' <<<"$existing")
+  H_RECORD[$host]=""; H_DELETE[$host]=""; H_DESC[$host]=""
+  if [ "$count" -eq 0 ]; then
+    H_ACTION[$host]="create"
+    continue
+  fi
+  H_DESC[$host]=$(jq -r '[.[] | "\(.type) \(.content)\(if .proxied then " (proxied)" else "" end)"] | join(", ")' <<<"$existing")
+  if [ "$count" -eq 1 ] && jq -e --arg t "$TARGET" '.[0].type == "CNAME" and .[0].content == $t' <<<"$existing" >/dev/null; then
+    if jq -e '.[0].proxied == true' <<<"$existing" >/dev/null; then
+      H_ACTION[$host]="keep"
     else
-      H_ACTION[$host]="conflict"
-      CONFLICTS+=("$host: ${H_DESC[$host]}")
+      H_ACTION[$host]="update"; H_RECORD[$host]=$(jq -r '.[0].id' <<<"$existing")
     fi
-  done
+    continue
+  fi
+  # Konflikt: A/AAAA/CNAME mit anderem Inhalt
+  if [ "$REPLACE" -eq 1 ]; then
+    if [ "$count" -eq 1 ] && jq -e '.[0].type == "CNAME"' <<<"$existing" >/dev/null; then
+      H_ACTION[$host]="update"; H_RECORD[$host]=$(jq -r '.[0].id' <<<"$existing")
+    else
+      H_ACTION[$host]="replace"; H_DELETE[$host]=$(jq -r '[.[].id] | join(" ")' <<<"$existing")
+    fi
+  else
+    H_ACTION[$host]="conflict"
+    CONFLICTS+=("$host: ${H_DESC[$host]}")
+  fi
 done
 
 if [ "${#CONFLICTS[@]}" -gt 0 ]; then
@@ -330,9 +312,7 @@ if [ "$DRY_RUN" -eq 0 ]; then
 fi
 
 # --- 6. Ingress (Veröffentlichte Anwendungen) -----------------------------------------------------
-INGRESS_HOSTS=()
-for d in "${DOMAIN_LIST[@]}"; do INGRESS_HOSTS+=("$d" "www.$d"); done
-DESIRED_INGRESS=$(printf '%s\n' "${INGRESS_HOSTS[@]}" | jq -R . | jq -sc --arg s "$ORIGIN_SERVICE" \
+DESIRED_INGRESS=$(printf '%s\n' "${HOSTS[@]}" | jq -R . | jq -sc --arg s "$ORIGIN_SERVICE" \
   '[.[] | {hostname: ., service: $s}] + [{hostname: null, service: "http_status:404"}]')
 
 ingress_unchanged=0
@@ -348,19 +328,19 @@ fi
 if [ "$ingress_unchanged" -eq 1 ]; then
   ok "Ingress-Regeln sind bereits aktuell"
 elif [ "$DRY_RUN" -eq 1 ]; then
-  plan "Ingress würde gesetzt: ${INGRESS_HOSTS[*]} → $ORIGIN_SERVICE (sonst 404)."
+  plan "Ingress würde gesetzt: ${HOSTS[*]} → $ORIGIN_SERVICE (sonst 404)."
 else
-  log "Setze die Ingress-Regeln (${INGRESS_HOSTS[*]} → $ORIGIN_SERVICE) …"
+  log "Setze die Ingress-Regeln (${HOSTS[*]} → $ORIGIN_SERVICE) …"
   body=$(jq -nc --argjson i "$DESIRED_INGRESS" '{config: {ingress: ($i | map(if .hostname == null then del(.hostname) else . end))}}')
   api PUT "/accounts/$ACCOUNT_ID/cfd_tunnel/$TUNNEL_ID/configurations" "$body" "Tunnel-Konfiguration setzen" "Account → Cloudflare Tunnel: Bearbeiten"
   ok "Ingress-Regeln gesetzt"
 fi
 
 # --- 7. DNS anwenden -----------------------------------------------------------------------------------
-dns_body() { jq -nc --arg n "$1" --arg c "$TARGET" '{type: "CNAME", name: $n, content: $c, proxied: true, ttl: 1, comment: "VylarisGroup Cloudflare-Tunnel"}'; }
+dns_body() { jq -nc --arg n "$1" --arg c "$TARGET" '{type: "CNAME", name: $n, content: $c, proxied: true, ttl: 1, comment: "VylarisGroup Schweiz Cloudflare-Tunnel"}'; }
 
 for host in "${HOSTS[@]}"; do
-  zid="${H_ZONE[$host]}"
+  zid="$ZONE_ID"
   zone_hint="Zone → DNS: Bearbeiten (für $host)"
   case "${H_ACTION[$host]}" in
     keep)
@@ -395,11 +375,10 @@ fi
 [ -f "$ENV_FILE" ] || (umask 077; : >"$ENV_FILE")
 chmod 600 "$ENV_FILE"
 env_set CLOUDFLARE_TUNNEL_TOKEN "$TUNNEL_TOKEN"
-env_set CLOUDFLARE_DOMAINS "${DOMAIN_LIST[*]}"
 chmod 600 "$ENV_FILE"
 ok "CLOUDFLARE_TUNNEL_TOKEN in $ENV_FILE eingetragen (Rechte 600)"
 
-printf '\n%sFertig.%s Erreichbar über den Tunnel: %s\n' "$C_BLD" "$C_OFF" "${DOMAIN_LIST[*]}"
+printf '\n%sFertig.%s Erreichbar über den Tunnel: %s und www.%s\n' "$C_BLD" "$C_OFF" "$DOMAIN" "$DOMAIN"
 printf 'Der API-Token wurde weder gespeichert noch in eine Datei geschrieben. Er wird nicht mehr gebraucht und\n'
 printf 'kann bei Cloudflare gelöscht werden: https://dash.cloudflare.com/profile/api-tokens\n'
-printf '(Für spätere Änderungen, z. B. eine weitere Domain, einfach einen neuen Token erstellen.)\n'
+printf '(Für spätere Änderungen einfach einen neuen Token erstellen.)\n'

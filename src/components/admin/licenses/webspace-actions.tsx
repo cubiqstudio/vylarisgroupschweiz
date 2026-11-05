@@ -63,7 +63,7 @@ export function WebspaceActions({ id, label }: { id: string; label: string }) {
         confirmLabel="Ablehnen"
         danger
         busy={busy === "reject"}
-        noteHint="Empfohlen: kurz begründen, damit der Nutzer weiß, wie es weitergeht."
+        noteHint="Empfohlen: kurz begründen, damit der Nutzer weiss, wie es weitergeht."
         onSubmit={(note) => run("reject", note)}
         onCancel={() => setDialog(null)}
       />

@@ -20,9 +20,6 @@ export const POST = handle(async (req: Request) => {
       subject: input.subject,
       preheader: input.preheader,
       content: input.content,
-      subjectEn: input.subjectEn,
-      preheaderEn: input.preheaderEn,
-      contentEn: input.contentEn,
       status: "DRAFT",
     },
   });

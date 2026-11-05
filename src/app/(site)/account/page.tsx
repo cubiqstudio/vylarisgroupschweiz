@@ -86,7 +86,7 @@ export default async function AccountOverviewPage() {
     verified = !!u?.emailVerifiedAt;
   }
 
-  // Der Verwaltungsbereich (bleibt deutsch) ist auf allen Domains erreichbar.
+  // Der Verwaltungsbereich ist nur für Admin-Sitzungen sichtbar.
   const admin: Tile[] =
     isAdmin
       ? [

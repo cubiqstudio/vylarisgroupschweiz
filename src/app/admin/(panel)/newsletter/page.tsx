@@ -71,9 +71,9 @@ export default async function AdminNewsletterPage() {
                     <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-zinc-500">
                       <span className="inline-flex items-center gap-1.5">
                         <Mail className="size-3.5" aria-hidden />
-                        {c.status === "DRAFT" ? "Noch nicht versendet" : `${c.sentCount.toLocaleString("de-DE")} von ${c.recipientCount.toLocaleString("de-DE")} zugestellt`}
+                        {c.status === "DRAFT" ? "Noch nicht versendet" : `${c.sentCount.toLocaleString("de-CH")} von ${c.recipientCount.toLocaleString("de-CH")} zugestellt`}
                       </span>
-                      {c.failedCount > 0 && <span className="font-medium text-rose-400">{c.failedCount.toLocaleString("de-DE")} fehlgeschlagen</span>}
+                      {c.failedCount > 0 && <span className="font-medium text-rose-400">{c.failedCount.toLocaleString("de-CH")} fehlgeschlagen</span>}
                       <time dateTime={(c.status === "SENT" && c.sentAt ? c.sentAt : c.createdAt).toISOString()} className="sm:ml-auto">
                         {date}
                       </time>

@@ -18,7 +18,7 @@ export const POST = handle(async (req: Request) => {
   await requireAdmin(req);
   const input = productSchema.parse(await readJson(req));
   const product = await db.product.create({
-    data: { ...input, nameEn: input.nameEn || null, descriptionEn: input.descriptionEn || null },
+    data: input,
   });
   return adminOk(product, 201);
 });

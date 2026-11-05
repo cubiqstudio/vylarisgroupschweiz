@@ -49,7 +49,7 @@ export default async function AdminSettingsPage() {
         <Section
           id="rechtliches"
           title="Rechtliches / Impressum"
-          description="Anbieterkennzeichnung nach § 5 DDG bzw. § 18 MStV. Vorbelegt mit den Angaben aus der Installation."
+          description="Anbieterangaben (Impressum) nach UWG sowie Angaben des Vereins. Vorbelegt mit den Angaben aus der Installation."
         >
           <LegalForm initial={legal} isComplete={legalState.isComplete} />
         </Section>

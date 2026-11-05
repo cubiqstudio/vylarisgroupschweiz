@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 /**
- * "Enthält"-Filter, der in beiden Datenbanken Groß-/Kleinschreibung ignoriert:
+ * "Enthält"-Filter, der in beiden Datenbanken Gross-/Kleinschreibung ignoriert:
  * SQLite (LIKE) tut das für ASCII ohnehin, PostgreSQL braucht `mode: "insensitive"`,
  * das SQLite nicht kennt – deshalb nur bei einer postgres(ql)://-DATABASE_URL setzen.
  */

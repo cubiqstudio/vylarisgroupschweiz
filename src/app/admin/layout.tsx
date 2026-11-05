@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { SITE } from "@/lib/sites";
 
 export const metadata: Metadata = {
-  title: { default: "Admin", template: "%s | Admin" },
+  title: { default: `${SITE.name} – Verwaltung`, template: `%s | ${SITE.name} – Verwaltung` },
   robots: { index: false, follow: false, nocache: true, googleBot: { index: false, follow: false } },
 };
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 # =============================================================================
-# VylarisGroupEurope – Container-Entrypoint
+# VylarisGroup Schweiz – Container-Entrypoint
 #
 # Ablauf:
 #   1. Wartet, bis die Datenbank erreichbar ist (Retry ueber "prisma db push").

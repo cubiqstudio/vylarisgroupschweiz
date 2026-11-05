@@ -2,25 +2,21 @@ import { Building2, ExternalLink, Users } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Container, SectionHeading } from "@/components/ui/section";
-import { about } from "@/i18n/about";
-import { getMessages, getSite } from "@/i18n/server";
-import { site as group } from "@/lib/site";
-import { SITES } from "@/lib/sites";
+import { allianz } from "@/i18n/allianz";
+import { getMessages } from "@/i18n/server";
+import { europe as eu } from "@/lib/alliance";
+import { site } from "@/lib/site";
 
 export async function AllianceRoles() {
-  const all = await getMessages(about);
-  const m = all.roles;
-  const current = await getSite();
-  // Gruppeninhalt: Verein und VylarisGroupEurope werden auf allen Domains gleich beschrieben.
-  const eu = SITES.eu;
-  const partnerName = all.partnerName;
+  const m = (await getMessages(allianz)).roles;
+  const partnerName = site.name;
   const rows = m.rows({
-    members: group.partner.members,
-    board: group.partner.board,
+    members: site.members,
+    board: site.board.length,
     leader: eu.leader.name,
-    company: eu.leader.company ?? "",
-    domain: group.partner.domain,
-    online: current.key === "eu" ? m.thisWebsite : eu.domain,
+    company: eu.leader.company,
+    domain: site.domain,
+    euDomain: eu.domain,
   });
   return (
     <section
@@ -164,8 +160,8 @@ export async function AllianceRoles() {
         </p>
 
         <div className="mt-8 flex justify-center">
-          <ButtonLink href={group.partner.url} external variant="secondary">
-            {m.visit(group.partner.domain)}
+          <ButtonLink href={eu.url} external variant="secondary">
+            {m.visit(eu.domain)}
             <ExternalLink className="h-4 w-4" aria-hidden />
             <span className="sr-only">{m.newTab}</span>
           </ButtonLink>

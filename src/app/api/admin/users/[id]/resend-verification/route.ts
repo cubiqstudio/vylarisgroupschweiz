@@ -16,14 +16,14 @@ export const POST = handle(async (req: Request, { params }: IdContext) => {
     throw new ApiError(429, "RATE_LIMITED", `Zu viele Anfragen. Bitte versuche es in ${Math.ceil(rl.retryAfter / 60)} Minuten erneut.`);
   }
 
-  const user = await db.user.findUnique({ where: { id }, select: { id: true, email: true, name: true, emailVerifiedAt: true, siteKey: true, locale: true } });
+  const user = await db.user.findUnique({ where: { id }, select: { id: true, email: true, name: true, emailVerifiedAt: true, locale: true } });
   if (!user) notFound("Nutzer");
   if (user.emailVerifiedAt) throw new ApiError(409, "ALREADY_VERIFIED", "Die E-Mail-Adresse ist bereits bestätigt.");
   if (!(await isMailConfigured())) {
     throw new ApiError(409, "MAIL_NOT_CONFIGURED", "Zuerst E-Mail einrichten (Einstellungen → E-Mail).");
   }
 
-  const result = await sendVerificationMail({ id: user.id, email: user.email, name: user.name, siteKey: user.siteKey, locale: user.locale });
+  const result = await sendVerificationMail({ id: user.id, email: user.email, name: user.name, locale: user.locale });
   if (!result.ok) throw new ApiError(502, "MAIL_SEND_FAILED", result.error);
   return adminOk({ sent: true });
 });

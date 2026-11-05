@@ -2,7 +2,7 @@ import { ApiError, handle, parseJson, requireAdmin } from "@/lib/api";
 import { rateLimit } from "@/lib/rate-limit";
 import { getMailConfig } from "@/lib/settings";
 import { sendMail } from "@/lib/mailer";
-import { adminMailCtx } from "@/lib/mail-ctx";
+import { mailCtx } from "@/lib/mail-ctx";
 import { mailTestSchema } from "@/lib/validation";
 import { adminOk } from "../../../../_lib/http";
 
@@ -22,8 +22,7 @@ export const POST = handle(async (req: Request) => {
     throw new ApiError(409, "MAIL_NOT_CONFIGURED", "Es ist noch kein Mailserver gespeichert. Bitte zuerst die SMTP-Einstellungen speichern.");
   }
 
-  // Team-Test: immer deutsch, Marke der Hauptseite.
-  const { site } = adminMailCtx();
+  const { site } = mailCtx();
   const result = await sendMail({
     to,
     config,

@@ -45,7 +45,7 @@ export function BlogRowActions({ id, slug, title, published }: { id: string; slu
   return (
     <div className="flex flex-col items-start gap-2 lg:items-end">
       <div className="flex flex-wrap items-center gap-1.5">
-        <Link href={`/admin/blog/${id}`} className={buttonClass("secondary", "sm")} aria-label={`„${title}“ bearbeiten`}>
+        <Link href={`/admin/blog/${id}`} className={buttonClass("secondary", "sm")} aria-label={`«${title}» bearbeiten`}>
           <Pencil className="h-3.5 w-3.5" aria-hidden />
           Bearbeiten
         </Link>
@@ -55,7 +55,7 @@ export function BlogRowActions({ id, slug, title, published }: { id: string; slu
             target="_blank"
             rel="noopener noreferrer"
             className={buttonClass("ghost", "sm")}
-            aria-label={`„${title}“ ansehen (neuer Tab)`}
+            aria-label={`«${title}» ansehen (neuer Tab)`}
           >
             <ExternalLink className="h-3.5 w-3.5" aria-hidden />
             Ansehen
@@ -67,7 +67,7 @@ export function BlogRowActions({ id, slug, title, published }: { id: string; slu
           size="sm"
           onClick={togglePublished}
           disabled={busy !== null}
-          aria-label={`„${title}“ ${published ? "zurückziehen" : "veröffentlichen"}`}
+          aria-label={`«${title}» ${published ? "zurückziehen" : "veröffentlichen"}`}
         >
           {published ? <EyeOff className="h-3.5 w-3.5" aria-hidden /> : <Send className="h-3.5 w-3.5" aria-hidden />}
           {busy === "toggle" ? "Wird gespeichert …" : published ? "Zurückziehen" : "Veröffentlichen"}
@@ -82,7 +82,7 @@ export function BlogRowActions({ id, slug, title, published }: { id: string; slu
             setConfirmOpen(true);
           }}
           disabled={busy !== null}
-          aria-label={`„${title}“ löschen`}
+          aria-label={`«${title}» löschen`}
         >
           <Trash2 className="h-3.5 w-3.5" aria-hidden />
           Löschen
@@ -94,7 +94,7 @@ export function BlogRowActions({ id, slug, title, published }: { id: string; slu
         title="Beitrag löschen?"
         description={
           <>
-            Der Beitrag <strong className="font-medium text-zinc-200">„{title}“</strong> wird endgültig gelöscht. Das lässt sich nicht
+            Der Beitrag <strong className="font-medium text-zinc-200">«{title}»</strong> wird endgültig gelöscht. Das lässt sich nicht
             rückgängig machen.
           </>
         }

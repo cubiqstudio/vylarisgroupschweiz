@@ -16,7 +16,6 @@ import {
 } from "@/lib/constants";
 import { cn, formatDateTime } from "@/lib/utils";
 import { ConfirmDialog } from "./confirm-dialog";
-import { EnglishSection } from "./english-section";
 import { Modal } from "./modal";
 import { Notice } from "./notice";
 import { INCIDENT_SEVERITY_STYLE, INCIDENT_STATUS_STYLE, PILL } from "./styles";
@@ -78,7 +77,7 @@ export function IncidentManager({
     try {
       const saved = await api<IncidentDTO>(`/api/admin/incidents/${incident.id}`, { method: "PATCH", body: { status } });
       setIncidents((list) => sortIncidents(list.map((i) => (i.id === incident.id ? saved : i))));
-      toast.success(successMessage ?? `„${incident.title}“: ${label(INCIDENT_STATUS_LABEL, status)}.`);
+      toast.success(successMessage ?? `«${incident.title}»: ${label(INCIDENT_STATUS_LABEL, status)}.`);
       router.refresh();
     } catch (err) {
       setIncidents((list) => sortIncidents(list.map((i) => (i.id === incident.id ? previous : i))));
@@ -180,7 +179,7 @@ export function IncidentManager({
                             type="button"
                             size="sm"
                             disabled={busy}
-                            onClick={() => changeStatus(i, "RESOLVED", `„${i.title}“ wurde als behoben markiert.`)}
+                            onClick={() => changeStatus(i, "RESOLVED", `«${i.title}» wurde als behoben markiert.`)}
                           >
                             <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" /> Als behoben markieren
                           </Button>
@@ -227,7 +226,7 @@ export function IncidentManager({
         danger
         busy={deleting}
         title="Statusmeldung löschen?"
-        description={toDelete ? `„${toDelete.title}“ wird dauerhaft entfernt, auch aus dem öffentlichen Verlauf.` : ""}
+        description={toDelete ? `«${toDelete.title}» wird dauerhaft entfernt, auch aus dem öffentlichen Verlauf.` : ""}
         confirmLabel="Endgültig löschen"
         onConfirm={confirmDelete}
         onCancel={() => setToDelete(null)}
@@ -253,8 +252,6 @@ function IncidentForm({
   const [status, setStatus] = useState(incident?.status ?? "INVESTIGATING");
   const [serviceId, setServiceId] = useState(incident?.serviceId ?? "");
   const [startedAt, setStartedAt] = useState(() => toLocalInput(incident?.startedAt ?? new Date()));
-  const [titleEn, setTitleEn] = useState(incident?.titleEn ?? "");
-  const [bodyEn, setBodyEn] = useState(incident?.bodyEn ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -272,8 +269,7 @@ function IncidentForm({
     }
     setFields({});
 
-    // Leere englische Felder werden serverseitig als null gespeichert.
-    const payload = { title, body, severity, status, serviceId: serviceId || null, startedAt: started.toISOString(), titleEn, bodyEn };
+    const payload = { title, body, severity, status, serviceId: serviceId || null, startedAt: started.toISOString() };
     setBusy(true);
     try {
       const saved = incident
@@ -342,18 +338,6 @@ function IncidentForm({
           />
         </Field>
       </div>
-      <EnglishSection
-        filled={Boolean(incident?.titleEn || incident?.bodyEn)}
-        hasError={Boolean(fields.titleEn || fields.bodyEn)}
-        hint="Wird auf vylaris.net angezeigt. Felder, die du leer lässt, erscheinen dort in der deutschen Fassung."
-      >
-        <Field label="Titel (Englisch)" htmlFor="i-title-en" error={fields.titleEn}>
-          <Input id="i-title-en" value={titleEn} maxLength={160} lang="en" aria-invalid={invalid("titleEn")} onChange={(e) => setTitleEn(e.target.value)} />
-        </Field>
-        <Field label="Beschreibung (Englisch)" htmlFor="i-body-en" error={fields.bodyEn}>
-          <Textarea id="i-body-en" rows={5} value={bodyEn} maxLength={5000} lang="en" aria-invalid={invalid("bodyEn")} onChange={(e) => setBodyEn(e.target.value)} />
-        </Field>
-      </EnglishSection>
       <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
           Abbrechen

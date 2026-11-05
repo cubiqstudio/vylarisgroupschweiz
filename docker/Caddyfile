@@ -1,11 +1,12 @@
-# VylarisGroupEurope – Caddy (automatisches HTTPS via Let's Encrypt)
+# VylarisGroup Schweiz – Caddy (automatisches HTTPS via Let's Encrypt)
 # Variablen kommen aus docker-compose.https.yml (DOMAIN, ACME_EMAIL, ACME_CA).
 {
 	email {$ACME_EMAIL}
 	acme_ca {$ACME_CA}
 }
 
-{$DOMAIN} {
+# www.<Domain> wird von der App auf die Hauptadresse umgeleitet (308).
+{$DOMAIN}, www.{$DOMAIN} {
 	encode zstd gzip
 
 	reverse_proxy app:3000 {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Activity, ArrowRight, FileText, Inbox, KeySquare, Plus, Server, Siren } from "lucide-react";
+import { site } from "@/lib/site";
 import { db } from "@/lib/db";
 import { requireAdminPage } from "@/lib/auth";
 import { getOverallStatus, OVERALL_HEADLINE } from "@/lib/status";
@@ -63,7 +64,7 @@ export default async function AdminOverviewPage() {
     <>
       <PageTitle
         title={firstName ? `Hallo, ${firstName}` : "Übersicht"}
-        description="Der aktuelle Stand von Anfragen, Services, Systemstatus und Inhalten auf einen Blick."
+        description={`Der aktuelle Stand von Anfragen, Services, Systemstatus und Inhalten der ${site.name} auf einen Blick.`}
       />
 
       <section aria-label="Kennzahlen" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -172,6 +173,21 @@ export default async function AdminOverviewPage() {
                 ))}
               </ul>
             )}
+          </Card>
+
+          <Card className="p-5">
+            <h2 className="text-sm font-semibold text-white">Verein</h2>
+            <p className="mt-1 text-xs text-zinc-500">
+              {site.legalName} · {site.members} Mitglieder, davon {site.board.length} im Vorstand
+            </p>
+            <ul className="mt-4 space-y-2.5">
+              {site.board.map((m) => (
+                <li key={m.name} className="text-sm">
+                  <p className="font-medium text-zinc-100">{m.name}</p>
+                  <p className="text-xs text-zinc-500">{m.role}</p>
+                </li>
+              ))}
+            </ul>
           </Card>
 
           <Card className="p-5">

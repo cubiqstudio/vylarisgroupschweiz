@@ -40,19 +40,6 @@ const optionalUrl = z
   .nullish()
   .transform((v) => (v ? v : null));
 
-/**
- * Optionale englische Fassung: leer/null -> null, nicht gesendet -> undefined (bleibt beim PATCH unangetastet).
- * Die Mindestlänge gilt nur, wenn tatsächlich Text eingegeben wurde.
- */
-const optionalEn = (min: number, max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max, `Maximal ${max} Zeichen.`)
-    .nullish()
-    .transform((v) => (v === undefined ? undefined : v ? v : null))
-    .refine((v) => v == null || v.length >= min, `Mindestens ${min} Zeichen.`);
-
 const percent = z.coerce.number().min(0, "Mindestens 0.").max(100, "Maximal 100.");
 
 // ---- Services ----
@@ -69,15 +56,11 @@ const serviceBase = z.object({
   uptime: percent.default(100),
   featured: z.boolean().default(false),
   sortOrder: z.coerce.number().int().min(0).max(9999).default(0),
-  // Englische Fassung (vylaris.net), optional
-  nameEn: optionalEn(2, 80),
-  taglineEn: optionalEn(0, 140),
-  descriptionEn: optionalEn(10, 2000),
 });
 /** Ohne "Bald verfügbar" ist die Service-URL Pflicht; bei angekündigten Diensten darf sie fehlen. */
 export const serviceCreateSchema = serviceBase.refine((v) => v.comingSoon || v.url !== "", {
   path: ["url"],
-  message: "Bitte gib die Service-URL an (oder markiere den Dienst als „Bald verfügbar“).",
+  message: "Bitte gib die Service-URL an (oder markiere den Dienst als «Bald verfügbar»).",
 });
 export const serviceUpdateSchema = serviceBase.partial();
 
@@ -89,10 +72,6 @@ export const blogCreateSchema = z.object({
   content: trimmed(10, 100_000),
   published: z.boolean().default(false),
   author: trimmed(2, 80),
-  // Englische Fassung (vylaris.net), optional
-  titleEn: optionalEn(3, 160),
-  excerptEn: optionalEn(10, 400),
-  contentEn: optionalEn(10, 100_000),
 });
 export const blogUpdateSchema = blogCreateSchema.partial();
 
@@ -134,9 +113,6 @@ export const incidentCreateSchema = z.object({
   status: z.enum(INCIDENT_STATUSES).default("INVESTIGATING"),
   serviceId: z.string().trim().min(1).nullish().transform((v) => v || null),
   startedAt: z.coerce.date().optional(),
-  // Englische Fassung (vylaris.net), optional
-  titleEn: optionalEn(3, 160),
-  bodyEn: optionalEn(3, 5000),
 });
 export const incidentUpdateSchema = incidentCreateSchema.partial();
 
@@ -151,7 +127,7 @@ export const passwordChangeSchema = z.object({
     .string()
     .min(12, "Mindestens 12 Zeichen.")
     .max(200)
-    .refine((v) => /[a-z]/.test(v) && /[A-Z]/.test(v) && /\d/.test(v), "Groß-/Kleinbuchstaben und Ziffern verwenden."),
+    .refine((v) => /[a-z]/.test(v) && /[A-Z]/.test(v) && /\d/.test(v), "Gross-/Kleinbuchstaben und Ziffern verwenden."),
 });
 
 // ---- Website-Konten ----
@@ -159,7 +135,7 @@ const passwordRule = z
   .string()
   .min(12, "Mindestens 12 Zeichen.")
   .max(200)
-  .refine((v) => /[a-z]/.test(v) && /[A-Z]/.test(v) && /\d/.test(v), "Groß-/Kleinbuchstaben und Ziffern verwenden.");
+  .refine((v) => /[a-z]/.test(v) && /[A-Z]/.test(v) && /\d/.test(v), "Gross-/Kleinbuchstaben und Ziffern verwenden.");
 
 export const registerSchema = z.object({
   name: trimmed(2, 80),
@@ -227,10 +203,6 @@ export const campaignSchema = z.object({
   subject: trimmed(3, 150),
   preheader: z.string().trim().max(200).default(""),
   content: trimmed(10, 100_000),
-  // Englische Fassung (für englischsprachige Abonnenten), optional
-  subjectEn: optionalEn(3, 150),
-  preheaderEn: optionalEn(0, 200),
-  contentEn: optionalEn(10, 100_000),
 });
 export const newsletterSettingsSchema = z.object({ enabled: z.boolean() });
 export const newsletterTestSchema = z.object({

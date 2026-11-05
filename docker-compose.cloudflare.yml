@@ -1,14 +1,13 @@
 # =============================================================================
-# VylarisGroup – Cloudflare-Tunnel-Erweiterung (statt Caddy/Let's Encrypt)
+# VylarisGroup Schweiz – Cloudflare-Tunnel-Erweiterung (statt Caddy/Let's Encrypt)
 #
 # Wird zusammen mit docker-compose.yml verwendet (install.sh trägt das in .env als
 # COMPOSE_FILE ein). Manuell:
 #   docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml up -d --build
 #
 # cloudflared baut eine ausgehende Verbindung zu Cloudflare auf; es müssen keine Ports
-# (80/443) geöffnet werden und es gibt keine Zertifikate auf dem Server. Alle Domains
-# (vylaris.eu/.de/.net) laufen über denselben Tunnel zur selben App-Instanz (app:3000);
-# cloudflared reicht den Original-Host durch, die App unterscheidet danach die Seiten.
+# (80/443) geöffnet werden und es gibt keine Zertifikate auf dem Server. vylaris.ch und
+# www.vylaris.ch laufen über den Tunnel zur App (app:3000); www leitet die App auf vylaris.ch um.
 #
 # Einrichten (Tunnel, Ingress, DNS, Token in .env):  scripts/cloudflare-setup.sh
 # Kein Caddy in diesem Modus – nicht zusammen mit docker-compose.https.yml verwenden.
@@ -17,7 +16,7 @@
 services:
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: vylaris-europe-cloudflared
+    container_name: vylaris-schweiz-cloudflared
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:
@@ -33,7 +32,7 @@ services:
   # wird ausschließlich über den Tunnel veröffentlicht.
   app:
     environment:
-      SITE_URL: ${SITE_URL:-https://vylaris.eu}
+      SITE_URL: ${SITE_URL:-https://vylaris.ch}
       COOKIE_SECURE: "true"
       # Client-IP für Rate-Limits aus CF-Connecting-IP (setzt Cloudflare) statt aus X-Forwarded-For.
       # Nur sinnvoll, wenn die App ausschließlich über den Tunnel erreichbar ist (APP_BIND=127.0.0.1).

@@ -1,7 +1,7 @@
 // Edge-kompatible Session-Helfer (nur jose, kein Prisma/bcrypt) – wird auch von der Middleware genutzt.
 import { SignJWT, jwtVerify } from "jose";
 
-export const SESSION_COOKIE = "vge_session";
+export const SESSION_COOKIE = "vgs_session";
 export const SESSION_MAX_AGE = 60 * 60 * 8; // Admin: 8 Stunden
 export const USER_SESSION_MAX_AGE = 60 * 60 * 24 * 14; // Website-Nutzer: 14 Tage
 
@@ -31,8 +31,8 @@ export async function signSession(payload: SessionPayload): Promise<string> {
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(payload.sub)
     .setIssuedAt()
-    .setIssuer("vylaris-europe")
-    .setAudience("vylaris-admin")
+    .setIssuer("vylaris-schweiz")
+    .setAudience("vgs-session")
     .setExpirationTime(`${sessionMaxAge(payload.kind)}s`)
     .sign(getSecret());
 }
@@ -42,8 +42,8 @@ export async function verifySession(token: string | undefined | null): Promise<S
   try {
     const { payload } = await jwtVerify(token, getSecret(), {
       algorithms: ["HS256"],
-      issuer: "vylaris-europe",
-      audience: "vylaris-admin",
+      issuer: "vylaris-schweiz",
+      audience: "vgs-session",
     });
     if (!payload.sub || typeof payload.email !== "string") return null;
     return {

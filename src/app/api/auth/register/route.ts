@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { ApiError, assertSameOrigin, handle } from "@/lib/api";
 import { registerSchema } from "@/lib/validation";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
-import { getRequestMailCtx } from "@/lib/mail-ctx";
+import { mailCtx } from "@/lib/mail-ctx";
 import {
   hashPassword,
   isRegistrationAvailable,
@@ -53,13 +53,13 @@ export const POST = handle(async (req: Request) => {
   // Der bcrypt-Hash wird immer berechnet (auch wenn das Konto schon existiert), damit die Antwortzeit nichts verrät.
   const passwordHash = await hashPassword(input.password);
 
-  // Domain und Sprache der Registrierung: Bestätigungslink und Mails führen auf diese Seite.
-  const mailCtx = await getRequestMailCtx();
+  // Sprache der Registrierung: wird am Konto gespeichert und bestimmt die Sprache späterer Mails.
+  const ctx = mailCtx();
 
   const [existing, admin] = await Promise.all([
     db.user.findUnique({
       where: { email: input.email },
-      select: { id: true, email: true, name: true, emailVerifiedAt: true, disabled: true, siteKey: true, locale: true },
+      select: { id: true, email: true, name: true, emailVerifiedAt: true, disabled: true, locale: true },
     }),
     db.adminUser.findUnique({ where: { email: input.email }, select: { id: true } }),
   ]);
@@ -73,7 +73,7 @@ export const POST = handle(async (req: Request) => {
 
   if (admin) {
     // Bestehendes Konto: nichts verändern, identisch antworten.
-    const sent = await sendAccountExistsMail({ email: input.email }, mailCtx);
+    const sent = await sendAccountExistsMail({ email: input.email }, ctx);
     if (!sent.ok) throw mailFailed();
     return checkMail();
   }
@@ -81,8 +81,8 @@ export const POST = handle(async (req: Request) => {
   if (existing) {
     if (existing.disabled) return checkMail();
     const sent = existing.emailVerifiedAt
-      ? await sendAccountExistsMail({ email: existing.email, name: existing.name }, mailCtx)
-      : await sendVerificationMail(existing, mailCtx);
+      ? await sendAccountExistsMail({ email: existing.email, name: existing.name }, ctx)
+      : await sendVerificationMail(existing, mailCtx(existing.locale));
     if (!sent.ok) throw mailFailed();
     return checkMail();
   }
@@ -90,7 +90,7 @@ export const POST = handle(async (req: Request) => {
   let created: { id: string; email: string; name: string };
   try {
     created = await db.user.create({
-      data: { email: input.email, name: input.name, passwordHash, siteKey: mailCtx.site.key, locale: mailCtx.locale },
+      data: { email: input.email, name: input.name, passwordHash, locale: ctx.locale },
       select: { id: true, email: true, name: true },
     });
   } catch (e) {
@@ -99,7 +99,7 @@ export const POST = handle(async (req: Request) => {
     throw e;
   }
 
-  const sent = await sendVerificationMail(created, mailCtx);
+  const sent = await sendVerificationMail(created, ctx);
   if (!sent.ok) throw mailFailed();
   return checkMail();
 });

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Inbox, MessageSquare, Search } from "lucide-react";
+import { intlTag } from "@/i18n";
 import { db } from "@/lib/db";
 import { requireTeamPage, teamTicketCounts } from "@/lib/team";
 import { TICKET_CATEGORY_LABEL, TICKET_STATUSES, TICKET_STATUS_LABEL } from "@/lib/constants";
@@ -80,8 +81,8 @@ export default async function TeamTicketsPage({ searchParams }: Props) {
         <div className="min-w-0">
           <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Tickets</h2>
           <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-zinc-400">
-            Anfragen aus dem Kontaktformular. {openAll.toLocaleString("de-DE")} offen, {mineOpen.toLocaleString("de-DE")} davon dir zugewiesen und noch nicht
-            geschlossen. Security-Reports bearbeiten ausschließlich Administratoren.
+            Anfragen aus dem Kontaktformular. {openAll.toLocaleString(intlTag())} offen, {mineOpen.toLocaleString(intlTag())} davon dir zugewiesen und noch nicht
+            geschlossen. Security-Reports bearbeiten ausschliesslich Administratoren.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">

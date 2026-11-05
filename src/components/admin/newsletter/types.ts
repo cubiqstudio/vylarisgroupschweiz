@@ -7,10 +7,6 @@ export type CampaignDto = {
   subject: string;
   preheader: string;
   content: string;
-  /** Englische Fassung (null = nicht vorhanden) */
-  subjectEn: string | null;
-  preheaderEn: string | null;
-  contentEn: string | null;
   status: string;
   recipientCount: number;
   sentCount: number;

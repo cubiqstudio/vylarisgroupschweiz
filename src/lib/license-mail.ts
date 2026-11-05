@@ -1,18 +1,17 @@
 // E-Mails rund um Lizenzen, Webspace-Konten und Firmenkunden.
-//  - An die Person: Entscheidung (freigegeben/abgelehnt/gesperrt) in Sprache und Marke der Domain, bei der sich das Konto angelegt hat.
+//  - An die Person: Entscheidung (freigegeben/abgelehnt/gesperrt) in der Sprache des Kontos.
 //    Der Lizenzschlüssel selbst steht nie in der Mail, nur der Link ins Konto.
-//  - An das Team: Hinweis auf neue Anträge (immer deutsch, Link auf vylaris.eu) an die Adresse der Ticket-Einstellungen.
+//  - An das Team: Hinweis auf neue Anträge (immer deutsch) an die Adresse der Ticket-Einstellungen.
 // Alle Funktionen sind "best effort": Sie werfen nie, ohne Mailserver passiert still nichts. Aufgerufen werden sie über
 // runInBackground, damit weder die Entscheidung noch die Antwort an den Browser von der Mail abhängt.
 import "server-only";
 import { runInBackground, siteLink } from "@/lib/account";
 import { db } from "@/lib/db";
-import { adminMailCtx, mailCtxFor, type MailCtx } from "@/lib/mail-ctx";
+import { mailCtx, type MailCtx } from "@/lib/mail-ctx";
 import { oneLine } from "@/lib/mail-layout";
 import {
   licenseDecisionMail,
   licenseTeamMail,
-  productNameFor,
   type LicenseDecisionKind,
   type MailContent,
 } from "@/lib/mail-templates";
@@ -54,18 +53,16 @@ type Recipient = {
   email: string;
   name: string;
   disabled: boolean;
-  siteKey: string;
   locale: string;
 };
 const recipientSelect = {
   email: true,
   name: true,
   disabled: true,
-  siteKey: true,
   locale: true,
 } as const;
 
-const accountCtx = (u: Recipient): MailCtx => mailCtxFor(u.siteKey, u.locale);
+const accountCtx = (u: Recipient): MailCtx => mailCtx(u.locale);
 const accountUrl = (ctx: MailCtx) =>
   siteLink("/account/licenses", undefined, ctx.baseUrl);
 
@@ -73,7 +70,7 @@ async function sendDecision(
   user: Recipient | null | undefined,
   kind: LicenseDecisionKind,
   extra: {
-    product?: { name: string; nameEn?: string | null };
+    product?: { name: string };
     company?: string | null;
     adminNote?: string | null;
   },
@@ -85,9 +82,7 @@ async function sendDecision(
       {
         kind,
         name: user.name,
-        product: extra.product
-          ? productNameFor(extra.product, ctx.locale)
-          : undefined,
+        product: extra.product ? oneLine(extra.product.name) : undefined,
         company: extra.company,
         adminNote: extra.adminNote,
         accountUrl: accountUrl(ctx),
@@ -109,7 +104,7 @@ export function notifyKeyDecision(
       where: { id: keyId },
       select: {
         adminNote: true,
-        product: { select: { name: true, nameEn: true } },
+        product: { select: { name: true } },
         user: { select: recipientSelect },
       },
     });
@@ -136,7 +131,7 @@ export function notifyWebspaceDecision(
       where: { id: requestId },
       select: {
         adminNote: true,
-        product: { select: { name: true, nameEn: true } },
+        product: { select: { name: true } },
         user: { select: recipientSelect },
       },
     });
@@ -171,7 +166,7 @@ export function notifyBusinessDecision(
 type TeamNotice = {
   kind: "key" | "webspace" | "business";
   adminPath: string;
-  user: { name: string; email: string; siteKey: string };
+  user: { name: string; email: string };
   product?: string;
   company?: string | null;
   message?: string | null;
@@ -181,8 +176,7 @@ type TeamNotice = {
 async function sendTeamNotice(n: TeamNotice): Promise<void> {
   const { notifyEmail } = await getTicketMailSettings();
   if (!notifyEmail) return;
-  const ctx = adminMailCtx();
-  const origin = mailCtxFor(n.user.siteKey).site.domain;
+  const ctx = mailCtx();
   await deliver(notifyEmail, () =>
     licenseTeamMail(
       {
@@ -192,7 +186,6 @@ async function sendTeamNotice(n: TeamNotice): Promise<void> {
         product: n.product,
         company: n.company,
         message: n.message,
-        origin,
         adminUrl: siteLink(n.adminPath, undefined, ctx.baseUrl),
       },
       ctx,
@@ -209,7 +202,7 @@ export function notifyTeamNewKeyRequest(keyId: string): void {
         status: true,
         message: true,
         product: { select: { name: true } },
-        user: { select: { name: true, email: true, siteKey: true } },
+        user: { select: { name: true, email: true } },
       },
     });
     if (!row || row.status !== "PENDING") return;
@@ -231,7 +224,7 @@ export function notifyTeamNewWebspaceRequest(requestId: string): void {
         status: true,
         message: true,
         product: { select: { name: true } },
-        user: { select: { name: true, email: true, siteKey: true } },
+        user: { select: { name: true, email: true } },
       },
     });
     if (!row || row.status !== "PENDING") return;
@@ -252,7 +245,6 @@ export function notifyTeamNewBusinessRequest(userId: string): void {
       select: {
         name: true,
         email: true,
-        siteKey: true,
         companyName: true,
         businessStatus: true,
       },

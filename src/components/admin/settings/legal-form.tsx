@@ -61,25 +61,31 @@ export function LegalForm({ initial, isComplete }: { initial: LegalValues; isCom
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-5">
       {isComplete ? (
-        <Notice variant="success">Die Pflichtangaben (Straße, PLZ/Ort und Kontakt-E-Mail) sind vollständig.</Notice>
+        <Notice variant="success">Die Pflichtangaben (Strasse, PLZ/Ort und Kontakt-E-Mail) sind vollständig.</Notice>
       ) : (
         <Notice variant="warning">
-          Die Pflichtangaben sind noch unvollständig. Für ein rechtssicheres Impressum fehlen Straße, PLZ/Ort oder die Kontakt-E-Mail.
+          Die Pflichtangaben sind noch unvollständig. Für ein vollständiges Impressum fehlen Strasse, PLZ/Ort oder die Kontakt-E-Mail.
         </Notice>
       )}
       {error && <Notice variant="error">{error}</Notice>}
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Verantwortlich i. S. d. § 18 Abs. 2 MStV" htmlFor="legal-responsible" error={fields.responsible} className="sm:col-span-2">
+        <Field
+          label="Ansprechperson"
+          htmlFor="legal-responsible"
+          error={fields.responsible}
+          hint="Wird im Impressum als Ansprechperson genannt. Leer lassen: Es erscheint der Präsident aus den Stammdaten."
+          className="sm:col-span-2"
+        >
           <Input id="legal-responsible" value={values.responsible} onChange={set("responsible")} maxLength={120} disabled={busy} aria-invalid={invalid("responsible")} autoComplete="off" />
         </Field>
-        <Field label="Straße und Hausnummer" htmlFor="legal-street" error={fields.street}>
+        <Field label="Strasse und Hausnummer" htmlFor="legal-street" error={fields.street}>
           <Input id="legal-street" value={values.street} onChange={set("street")} maxLength={160} disabled={busy} aria-invalid={invalid("street")} autoComplete="off" />
         </Field>
         <Field label="PLZ und Ort" htmlFor="legal-zip" error={fields.zipCity}>
           <Input id="legal-zip" value={values.zipCity} onChange={set("zipCity")} maxLength={120} disabled={busy} aria-invalid={invalid("zipCity")} autoComplete="off" />
         </Field>
-        <Field label="Land" htmlFor="legal-country" error={fields.country}>
+        <Field label="Land" htmlFor="legal-country" error={fields.country} hint="Leer lassen: Es erscheint «Schweiz».">
           <Input id="legal-country" value={values.country} onChange={set("country")} maxLength={80} disabled={busy} aria-invalid={invalid("country")} autoComplete="off" />
         </Field>
         <Field label="Telefon (optional)" htmlFor="legal-phone" error={fields.phone}>
@@ -89,25 +95,25 @@ export function LegalForm({ initial, isComplete }: { initial: LegalValues; isCom
           <Input id="legal-email" type="email" value={values.email} onChange={set("email")} maxLength={200} disabled={busy} aria-invalid={invalid("email")} autoComplete="off" />
         </Field>
         <Field
-          label="Umsatzsteuer-ID (optional)"
+          label="MWST-Nummer (optional)"
           htmlFor="legal-vat"
           error={fields.vatId}
-          hint={values.smallBusiness ? "Bei Kleinunternehmern wird keine USt-IdNr. im Impressum angezeigt." : undefined}
+          hint={values.smallBusiness ? "Bei nicht mehrwertsteuerpflichtigen Vereinen wird keine MWST-Nummer im Impressum angezeigt." : undefined}
         >
           <Input id="legal-vat" value={values.vatId} onChange={set("vatId")} maxLength={40} disabled={busy || values.smallBusiness || values.hideVat} aria-invalid={invalid("vatId")} autoComplete="off" />
         </Field>
         <Field
-          label="Handelsregister / Registereintrag (optional)"
+          label="Handelsregister / UID (optional)"
           htmlFor="legal-register"
           error={fields.register}
-          hint={values.noRegister ? "Ist als „nicht eingetragen“ markiert – die Angabe wird im Impressum nicht angezeigt." : undefined}
+          hint={values.noRegister ? "Ist als «nicht eingetragen» markiert – die Angabe wird im Impressum nicht angezeigt." : undefined}
         >
           <Input id="legal-register" value={values.register} onChange={set("register")} maxLength={200} disabled={busy || values.noRegister || values.hideRegister} aria-invalid={invalid("register")} autoComplete="off" />
         </Field>
       </div>
 
       <fieldset className="space-y-3 rounded-xl border border-zinc-800 bg-surface p-4">
-        <legend className="px-1 text-sm font-semibold text-white">Unternehmensform &amp; Steuer</legend>
+        <legend className="px-1 text-sm font-semibold text-white">Handelsregister &amp; Mehrwertsteuer</legend>
         <label className="flex cursor-pointer items-start gap-3">
           <input
             type="checkbox"
@@ -117,9 +123,9 @@ export function LegalForm({ initial, isComplete }: { initial: LegalValues; isCom
             className="mt-1 h-4 w-4 rounded border-zinc-700 accent-emerald-400"
           />
           <span className="text-sm">
-            <span className="font-medium text-white">Wir sind Kleinunternehmer (§ 19 UStG)</span>
+            <span className="font-medium text-white">Der Verein ist nicht mehrwertsteuerpflichtig</span>
             <span className="mt-0.5 block text-zinc-400">
-              Im Impressum steht dann, dass keine Umsatzsteuer ausgewiesen wird; eine Umsatzsteuer-Identifikationsnummer ist nicht anzugeben.
+              Im Impressum steht dann, dass keine Mehrwertsteuer ausgewiesen wird; eine MWST-Nummer wird nicht angegeben.
             </span>
           </span>
         </label>
@@ -132,8 +138,8 @@ export function LegalForm({ initial, isComplete }: { initial: LegalValues; isCom
             className="mt-1 h-4 w-4 rounded border-zinc-700 accent-emerald-400"
           />
           <span className="text-sm">
-            <span className="font-medium text-white">Kein Handelsregister- bzw. Registereintrag vorhanden</span>
-            <span className="mt-0.5 block text-zinc-400">Im Impressum steht dann, dass kein Registereintrag besteht – „Angabe ergänzen“ entfällt.</span>
+            <span className="font-medium text-white">Kein Handelsregistereintrag vorhanden</span>
+            <span className="mt-0.5 block text-zinc-400">Im Impressum steht dann, dass der Verein nicht im Handelsregister eingetragen ist – «Angabe ergänzen» entfällt.</span>
           </span>
         </label>
         <label className="flex cursor-pointer items-start gap-3">
@@ -145,8 +151,8 @@ export function LegalForm({ initial, isComplete }: { initial: LegalValues; isCom
             className="mt-1 h-4 w-4 rounded border-zinc-700 accent-emerald-400"
           />
           <span className="text-sm">
-            <span className="font-medium text-white">Registereintrag im Impressum nicht anzeigen</span>
-            <span className="mt-0.5 block text-zinc-400">Die ganze Zeile „Registereintrag“ entfällt – auch „Angabe ergänzen“ und der Hinweis „kein Registereintrag“.</span>
+            <span className="font-medium text-white">Handelsregister im Impressum nicht anzeigen</span>
+            <span className="mt-0.5 block text-zinc-400">Die ganze Zeile «Handelsregister / UID» entfällt – auch «Angabe ergänzen» und der Hinweis «nicht eingetragen».</span>
           </span>
         </label>
         <label className="flex cursor-pointer items-start gap-3">
@@ -158,12 +164,12 @@ export function LegalForm({ initial, isComplete }: { initial: LegalValues; isCom
             className="mt-1 h-4 w-4 rounded border-zinc-700 accent-emerald-400"
           />
           <span className="text-sm">
-            <span className="font-medium text-white">Umsatzsteuer-ID im Impressum nicht anzeigen</span>
-            <span className="mt-0.5 block text-zinc-400">Die Zeile „Umsatzsteuer-Identifikationsnummer“ entfällt – auch „Angabe ergänzen“ und der Kleinunternehmer-Hinweis.</span>
+            <span className="font-medium text-white">MWST-Nummer im Impressum nicht anzeigen</span>
+            <span className="mt-0.5 block text-zinc-400">Die Zeile «MWST-Nummer» entfällt – auch «Angabe ergänzen» und der Hinweis «nicht mehrwertsteuerpflichtig».</span>
           </span>
         </label>
         <p className="text-xs text-zinc-500">
-          Hinweis: Die Wahl ersetzt keine Rechtsberatung. Bitte prüfe, ob die Voraussetzungen für dich tatsächlich erfüllt sind.
+          Hinweis: Die Wahl ersetzt keine Rechtsberatung. Bitte prüfe, ob die Voraussetzungen für den Verein tatsächlich erfüllt sind.
         </p>
       </fieldset>
 

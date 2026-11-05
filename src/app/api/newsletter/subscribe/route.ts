@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { ApiError, assertSameOrigin, handle } from "@/lib/api";
 import { runInBackground, tooManyRequests } from "@/lib/account";
 import { sendMail } from "@/lib/mailer";
-import { getRequestMailCtx } from "@/lib/mail-ctx";
+import { mailCtx } from "@/lib/mail-ctx";
 import { newsletterConfirmMail } from "@/lib/mail-templates";
 import { confirmUrl, hashToken, newToken, unsubscribeUrl } from "@/lib/newsletter-links";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
@@ -43,9 +43,9 @@ export const POST = handle(async (req: Request) => {
   const emailLimit = rateLimit(`newsletter-subscribe:email:${input.email}`, 3, HOUR);
   if (!emailLimit.ok) return tooManyRequests(emailLimit.retryAfter);
 
-  // Domain und Sprache der Anmeldung: Bestätigungs- und Abmelde-Links sowie alle weiteren Mails folgen dieser Seite.
-  const mailCtx = await getRequestMailCtx();
-  const origin = { siteKey: mailCtx.site.key, locale: mailCtx.locale };
+  // Sprache der Anmeldung (wird am Abonnenten gespeichert) und feste Basis-URL für Bestätigungs- und Abmelde-Links.
+  const ctx = mailCtx();
+  const origin = { locale: ctx.locale };
 
   const now = new Date();
   const confirmToken = newToken();
@@ -65,7 +65,7 @@ export const POST = handle(async (req: Request) => {
         data: { email: input.email, name: input.name, ...pending, ...origin, unsubscribeToken, consentAt: now },
       });
     } catch (e) {
-      // Parallele Anmeldung mit derselben Adresse: die andere Anfrage hat gewonnen – nach außen ändert sich nichts.
+      // Parallele Anmeldung mit derselben Adresse: die andere Anfrage hat gewonnen – nach aussen ändert sich nichts.
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return checkMail();
       throw e;
     }
@@ -90,10 +90,10 @@ export const POST = handle(async (req: Request) => {
     const mail = newsletterConfirmMail(
       {
         name: input.name,
-        confirmUrl: confirmUrl(confirmToken, mailCtx.baseUrl),
-        unsubscribeUrl: unsubscribeUrl(unsubscribeToken, mailCtx.baseUrl),
+        confirmUrl: confirmUrl(confirmToken, ctx.baseUrl),
+        unsubscribeUrl: unsubscribeUrl(unsubscribeToken, ctx.baseUrl),
       },
-      mailCtx,
+      ctx,
     );
     runInBackground(async () => {
       const result = await sendMail({ to: input.email, ...mail, config: mailConfig });

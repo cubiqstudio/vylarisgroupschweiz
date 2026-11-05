@@ -62,7 +62,7 @@ function CreateForm({
           {formError}
         </p>
       )}
-      <Field label="Name" htmlFor={`${uid}-name`} error={fields.name} hint="Wofür der Zugang gedacht ist, z. B. „Autoinstaller Produktion“.">
+      <Field label="Name" htmlFor={`${uid}-name`} error={fields.name} hint="Wofür der Zugang gedacht ist, z. B. «Autoinstaller Produktion».">
         <Input id={`${uid}-name`} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} required data-autofocus />
       </Field>
       <fieldset className="space-y-2">
@@ -164,7 +164,7 @@ printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$SIGNING_KEY"`;
           Pflichtfelder: <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">key</code>, <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">product</code> (Slug) und <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">nonce</code> (8–64 Zeichen aus A–Z, a–z, 0–9, _ und -, pro Anfrage neu). Optional: <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">instance</code> (Domain oder Kennung der Installation).
         </li>
         <li>
-          Beim ersten erfolgreichen Prüfen mit <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">instance</code> wird der Schlüssel an diese Installation gebunden. Danach muss dieselbe Kennung mitgeschickt werden; die Bindung lässt sich unter „Schlüssel“ lösen.
+          Beim ersten erfolgreichen Prüfen mit <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">instance</code> wird der Schlüssel an diese Installation gebunden. Danach muss dieselbe Kennung mitgeschickt werden; die Bindung lässt sich unter «Schlüssel» lösen.
         </li>
         <li>
           Antwort in <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">data</code>: <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">valid</code>, <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">reason</code> (<code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">invalid</code>, <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">revoked</code>, <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">instance_mismatch</code> oder <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">instance_required</code>), <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">product</code>, <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">status</code>, <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">instance</code>, <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">nonce</code>, <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">ts</code> und <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">signature</code>.
@@ -172,7 +172,7 @@ printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$SIGNING_KEY"`;
         <li>
           Die Signatur ist ein HMAC-SHA256 (hex) über <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">valid|reason|product|status|instance|nonce|ts</code> (<code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">valid</code> als 1 oder 0, leere Werte als leerer Text). Prüfe sie mit dem Signierschlüssel, vergleiche die <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">nonce</code> mit der gesendeten und lehne alte <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">ts</code>-Werte ab.
         </li>
-        <li>Unbekannte, abgelehnte oder wartende Schlüssel liefern bewusst dasselbe „invalid“. Es gelten Rate-Limits; bei 429 wartest du die Zeit aus <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">Retry-After</code> ab.</li>
+        <li>Unbekannte, abgelehnte oder wartende Schlüssel liefern bewusst dasselbe «invalid». Es gelten Rate-Limits; bei 429 wartest du die Zeit aus <code className="font-mono text-zinc-200 [overflow-wrap:anywhere]">Retry-After</code> ab.</li>
       </ul>
       <div className="mt-4 space-y-4">
         <CopyField label="Beispiel: Anfrage mit curl" value={curl} multiline />
@@ -197,7 +197,7 @@ export function ApiClientManager({ clients, products }: { clients: ApiClientRow[
     setBusyId(toRevoke.id);
     try {
       await api(`/api/admin/api-clients/${encodeURIComponent(toRevoke.id)}`, { method: "DELETE" });
-      toast.success(`Zugang „${toRevoke.name}“ wurde widerrufen.`);
+      toast.success(`Zugang «${toRevoke.name}» wurde widerrufen.`);
       setToRevoke(null);
       router.refresh();
     } catch (err) {
@@ -212,7 +212,7 @@ export function ApiClientManager({ clients, products }: { clients: ApiClientRow[
     setBusyId(c.id);
     try {
       await api(`/api/admin/api-clients/${encodeURIComponent(c.id)}`, { method: "PATCH", body: { active: !c.active } });
-      toast.success(c.active ? `Zugang „${c.name}“ pausiert.` : `Zugang „${c.name}“ wieder aktiv.`);
+      toast.success(c.active ? `Zugang «${c.name}» pausiert.` : `Zugang «${c.name}» wieder aktiv.`);
       router.refresh();
     } catch (err) {
       toast.error(describeError(err, "Die Aktion ist fehlgeschlagen.").message);
@@ -310,7 +310,7 @@ export function ApiClientManager({ clients, products }: { clients: ApiClientRow[
         open={created !== null}
         onClose={() => undefined}
         dismissible={false}
-        title={created ? `Zugang „${created.name}“ angelegt` : "Zugang angelegt"}
+        title={created ? `Zugang «${created.name}» angelegt` : "Zugang angelegt"}
         description="Diese Werte siehst du nur jetzt."
         size="md"
       >
@@ -330,7 +330,7 @@ export function ApiClientManager({ clients, products }: { clients: ApiClientRow[
         title="Zugang widerrufen?"
         description={
           toRevoke
-            ? `Das Token von „${toRevoke.name}“ funktioniert danach nie wieder. Programme, die es verwenden, können Schlüssel nicht mehr prüfen. Das kann nicht rückgängig gemacht werden.`
+            ? `Das Token von «${toRevoke.name}» funktioniert danach nie wieder. Programme, die es verwenden, können Schlüssel nicht mehr prüfen. Das kann nicht rückgängig gemacht werden.`
             : ""
         }
         confirmLabel="Endgültig widerrufen"

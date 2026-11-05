@@ -4,8 +4,8 @@ import { contactSchema } from "@/lib/validation";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { generateTicketNumber, uniqueTicketNumber } from "@/lib/ticket";
 import { runInBackground } from "@/lib/account";
-import { getRequestMailCtx } from "@/lib/mail-ctx";
 import { notifyNewTicket, sendTicketConfirmation } from "@/lib/ticket-mail";
+import { DEFAULT_LOCALE } from "@/lib/sites";
 import { readJson } from "../_lib/http";
 
 export const dynamic = "force-dynamic";
@@ -49,8 +49,6 @@ export const POST = handle(async (req: Request) => {
     });
   }
   const ticketNumber = await uniqueTicketNumber();
-  // Domain und Sprache der Anfrage: Bestätigung, Status- und Antwort-Mails folgen dieser Seite.
-  const mailCtx = await getRequestMailCtx();
 
   // "consent" und "website" werden bewusst nicht gespeichert; der Nachrichteninhalt wird nicht geloggt.
   const ticket = await db.contactTicket.create({
@@ -61,8 +59,7 @@ export const POST = handle(async (req: Request) => {
       subject: input.subject,
       category: input.category,
       message: input.message,
-      siteKey: mailCtx.site.key,
-      locale: mailCtx.locale,
+      locale: DEFAULT_LOCALE,
     },
   });
 

@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Calendar, Clock, User, MessageSquare } from "lucide-react";
 import { db } from "@/lib/db";
 import { blog } from "@/i18n/blog";
-import { hasEnglish, localized } from "@/i18n";
 import { authorName } from "@/i18n/labels";
 import { getLocale, getMessages, getSite } from "@/i18n/server";
 import { formatDate } from "@/lib/utils";
@@ -37,22 +36,13 @@ const getPost = cache(async (slug: string) => {
   }
 });
 
-/** Auf der englischen Seite gibt es nur Beiträge mit englischem Inhalt (contentEn); alle anderen sind dort 404. */
-async function getPostFor(slug: string, locale: "de" | "en") {
-  const post = await getPost(slug);
-  if (!post) return null;
-  if (locale === "en" && !hasEnglish(post, "content")) return null;
-  return post;
-}
-
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const site = await getSite();
   const m = await getMessages(blog);
-  const post = await getPostFor(slug, site.locale);
+  const post = await getPost(slug);
   if (!post) return { title: m.meta.notFound, robots: { index: false } };
-  const title = localized(post, "title", site.locale);
-  const excerpt = localized(post, "excerpt", site.locale);
+  const { title, excerpt } = post;
   const date = post.publishedAt ?? post.createdAt;
   return {
     title,
@@ -65,7 +55,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       description: excerpt,
       url: `/blog/${post.slug}`,
       siteName: site.name,
-      locale: site.locale === "en" ? "en_US" : "de_DE",
+      locale: "de_CH",
       publishedTime: date.toISOString(),
       modifiedTime: post.updatedAt.toISOString(),
       authors: [authorName(post.author, site.locale)],
@@ -78,12 +68,10 @@ export default async function BlogPostPage({ params }: Params) {
   const locale = await getLocale();
   const m = (await getMessages(blog)).post;
   const more = (await getMessages(blog)).more;
-  const post = await getPostFor(slug, locale);
+  const post = await getPost(slug);
   if (!post) notFound();
 
-  const title = localized(post, "title", locale);
-  const excerpt = localized(post, "excerpt", locale);
-  const content = localized(post, "content", locale);
+  const { title, excerpt, content } = post;
   const date = post.publishedAt ?? post.createdAt;
   const minutes = readingMinutes(content);
 
@@ -93,7 +81,7 @@ export default async function BlogPostPage({ params }: Params) {
       where: { published: true, NOT: { id: post.id } },
       select: POST_LIST_SELECT,
     });
-    others = toListItems(rows, locale).slice(0, 2);
+    others = toListItems(rows).slice(0, 2);
   } catch {
     others = [];
   }

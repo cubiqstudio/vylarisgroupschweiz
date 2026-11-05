@@ -14,7 +14,7 @@ import { useLocale, useMessages, useSite } from "@/i18n/client";
 import { labelFor } from "@/i18n/labels";
 import { contact } from "@/i18n/contact";
 import { transportMessage } from "@/components/newsletter/client-error";
-import { TICKET_CATEGORY_ICON } from "./ticket-category";
+import { categoryIcon } from "./ticket-category";
 
 const MAX_MESSAGE = 5000;
 
@@ -159,7 +159,7 @@ export function ContactForm({ initialCategory = "GENERAL", mark }: { initialCate
 
   if (ticket) {
     const cat = submitted?.category ?? "GENERAL";
-    const CatIcon = TICKET_CATEGORY_ICON[cat];
+    const CatIcon = categoryIcon(cat);
     return (
       <Card className="relative overflow-hidden">
         <div className="relative overflow-hidden bg-ink px-6 pb-12 pt-6 sm:px-8">
@@ -335,7 +335,7 @@ export function ContactForm({ initialCategory = "GENERAL", mark }: { initialCate
           <div className="grid gap-2.5 sm:grid-cols-3">
             {TICKET_CATEGORIES.map((c, i) => {
               const checked = values.category === c;
-              const Icon = TICKET_CATEGORY_ICON[c];
+              const Icon = categoryIcon(c);
               return (
                 <label
                   key={c}

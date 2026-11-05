@@ -20,6 +20,7 @@ import {
   Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SITE } from "@/lib/sites";
 import { LogoutButton } from "./logout-button";
 import { ThemeSwitch } from "@/components/theme/theme-switch";
 import { ToastProvider } from "./toast";
@@ -71,14 +72,17 @@ export function AdminShell({
               <span className="grid h-7 w-7 place-items-center rounded-lg bg-emerald-400/10 text-emerald-400 ring-1 ring-inset ring-emerald-400/30">
                 <ShieldCheck className="h-4 w-4" aria-hidden="true" />
               </span>
-              <span>Vylaris Admin</span>
+              <span className="flex min-w-0 flex-col leading-tight">
+                <span className="truncate">{SITE.name}</span>
+                <span className="text-xs font-normal text-zinc-500">Verwaltung</span>
+              </span>
             </Link>
             <button
               type="button"
               className="rounded-lg p-2 text-zinc-300 hover:bg-zinc-900 hover:text-white lg:hidden"
               aria-expanded={open}
               aria-controls="admin-nav"
-              aria-label={open ? "Navigation schließen" : "Navigation öffnen"}
+              aria-label={open ? "Navigation schliessen" : "Navigation öffnen"}
               onClick={() => setOpen((v) => !v)}
             >
               {open ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}

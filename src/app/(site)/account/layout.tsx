@@ -19,7 +19,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
   if (viewer.kind === "user") tabs.push({ href: "/account/settings", label: m.area.tabSettings });
   if (viewer.kind === "user") tabs.push({ href: "/account/licenses", label: lic.tab });
   if (viewer.isTeam) tabs.push({ href: "/account/team", label: m.area.tabTeam });
-  // Ticket-Bearbeitung nur für Website-Konten im Team (Admins nutzen den Admin-Bereich); "Tickets" heißt in beiden Sprachen gleich.
+  // Ticket-Bearbeitung nur für Website-Konten im Team (Admins nutzen den Admin-Bereich).
   if (viewer.kind === "user" && viewer.isTeam) tabs.push({ href: "/account/team/tickets", label: "Tickets" });
   const role = viewer.kind === "admin" ? m.area.roleAdmin : viewer.isTeam ? m.area.roleTeam : m.area.roleUser;
 

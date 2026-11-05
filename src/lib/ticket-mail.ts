@@ -1,6 +1,7 @@
 import "server-only";
 import { siteLink } from "@/lib/account";
 import { getLegal } from "@/lib/legal";
+import { site } from "@/lib/site";
 import { isMailConfigured, sendMail, type SendResult } from "@/lib/mailer";
 import {
   ticketConfirmationMail,
@@ -11,7 +12,7 @@ import {
   type TicketMailData,
 } from "@/lib/mail-templates";
 import { oneLine } from "@/lib/mail-layout";
-import { adminMailCtx, getRequestMailCtx, mailCtxFor, type MailCtx } from "@/lib/mail-ctx";
+import { mailCtx, type MailCtx } from "@/lib/mail-ctx";
 import { getMailConfig, getTicketMailSettings } from "@/lib/settings";
 
 // E-Mails rund um Tickets. Alle Funktionen schlagen nie mit einer Exception fehl, sondern liefern ein SendResult;
@@ -26,8 +27,7 @@ export type TicketForMail = {
   category: string;
   message: string;
   status: string;
-  /** Domain und Sprache der Anfrage (Spalten der Tabelle); fehlen sie, gilt die laufende Anfrage */
-  siteKey?: string | null;
+  /** Sprache der Anfrage (Spalte der Tabelle); fehlt sie, gilt die Sprache der Seite */
   locale?: string | null;
 };
 
@@ -45,28 +45,28 @@ const data = (t: TicketForMail): TicketMailData => ({
   status: t.status,
 });
 
-/** Sprache, Marke und Domain der Seite, über die das Ticket eingegangen ist. */
-const ctxOf = (t: TicketForMail): Promise<MailCtx> | MailCtx => (t.siteKey ? mailCtxFor(t.siteKey, t.locale) : getRequestMailCtx());
+/** Sprache, Marke und Basis-URL für Mails zu diesem Ticket. */
+const ctxOf = (t: TicketForMail): MailCtx => mailCtx(t.locale);
 
-/** Kontakt-Adresse der Seite (Reply-To): eigene Adresse der Seite, sonst aus den Impressum-Angaben; nur wenn plausibel und einzeilig. */
-async function contactAddress(ctx: MailCtx): Promise<string | undefined> {
+/** Kontakt-Adresse des Vereins (Reply-To): CONTACT_EMAIL, sonst aus den Impressum-Angaben; nur wenn plausibel und einzeilig. */
+async function contactAddress(): Promise<string | undefined> {
   try {
-    const email = (ctx.site.contactEmail ?? (await getLegal()).email)?.trim();
+    const email = (site.contactEmail ?? (await getLegal()).email)?.trim();
     return email && EMAIL_RE.test(email) ? email : undefined;
   } catch {
     return undefined;
   }
 }
 
-/** Alle Empfänger-Adressen müssen einzeilig und plausibel sein (Header-Injection ausschließen). */
+/** Alle Empfänger-Adressen müssen einzeilig und plausibel sein (Header-Injection ausschliessen). */
 const validAddress = (a: string) => EMAIL_RE.test(a) && !/[\r\n]/.test(a);
 
-async function deliver(to: string, ctx: MailCtx, build: (canReply: boolean) => MailContent, opts: { reply?: boolean } = {}): Promise<SendResult> {
+async function deliver(to: string, build: (canReply: boolean) => MailContent, opts: { reply?: boolean } = {}): Promise<SendResult> {
   try {
     if (!validAddress(to)) return { ok: false, error: "Ungültige Empfänger-Adresse." };
     const config = await getMailConfig();
     if (!config) return NO_MAIL;
-    const replyTo = opts.reply ? await contactAddress(ctx) : undefined;
+    const replyTo = opts.reply ? await contactAddress() : undefined;
     const mail = build(Boolean(replyTo));
     return await sendMail({ to, subject: oneLine(mail.subject), text: mail.text, html: mail.html, replyTo, config });
   } catch {
@@ -80,8 +80,8 @@ export async function sendTicketConfirmation(ticket: TicketForMail): Promise<Sen
     if (!(await isMailConfigured())) return NO_MAIL;
     const settings = await getTicketMailSettings();
     if (!settings.confirmationEnabled) return { ok: false, error: "Die Eingangsbestätigung ist deaktiviert." };
-    const ctx = await ctxOf(ticket);
-    return await deliver(ticket.email, ctx, (canReply) => ticketConfirmationMail({ ...data(ticket), canReply }, ctx), { reply: true });
+    const ctx = ctxOf(ticket);
+    return await deliver(ticket.email, (canReply) => ticketConfirmationMail({ ...data(ticket), canReply }, ctx), { reply: true });
   } catch {
     return FAILED;
   }
@@ -93,11 +93,10 @@ export async function notifyNewTicket(ticket: TicketForMail): Promise<SendResult
     if (!(await isMailConfigured())) return NO_MAIL;
     const { notifyEmail } = await getTicketMailSettings();
     if (!notifyEmail) return { ok: false, error: "Es ist keine Adresse für Ticket-Hinweise hinterlegt." };
-    // Team-Hinweise sind immer deutsch und verlinken auf vylaris.eu (dort liegt der Admin-Bereich).
-    const ctx = adminMailCtx();
+    // Team-Hinweise verlinken auf den Admin-Bereich der eigenen Seite (feste Basis-URL, nie aus der Anfrage).
+    const ctx = mailCtx();
     const adminUrl = siteLink(`/admin/tickets/${encodeURIComponent(ticket.id)}`, undefined, ctx.baseUrl);
-    const origin = (await ctxOf(ticket)).site.domain;
-    return await deliver(notifyEmail, ctx, () => ticketNotifyMail({ ...data(ticket), adminUrl, origin }, ctx));
+    return await deliver(notifyEmail, () => ticketNotifyMail({ ...data(ticket), adminUrl }, ctx));
   } catch {
     return FAILED;
   }
@@ -106,8 +105,8 @@ export async function notifyNewTicket(ticket: TicketForMail): Promise<SendResult
 /** Statusänderung an den Absender melden. */
 export async function sendTicketStatusMail(ticket: TicketForMail): Promise<SendResult> {
   try {
-    const ctx = await ctxOf(ticket);
-    return await deliver(ticket.email, ctx, (canReply) => ticketStatusMail({ ...data(ticket), canReply }, ctx), { reply: true });
+    const ctx = ctxOf(ticket);
+    return await deliver(ticket.email, (canReply) => ticketStatusMail({ ...data(ticket), canReply }, ctx), { reply: true });
   } catch {
     return FAILED;
   }
@@ -116,8 +115,8 @@ export async function sendTicketStatusMail(ticket: TicketForMail): Promise<SendR
 /** Antwort aus dem Dashboard an den Absender (Reply-To: Kontakt-Adresse, falls vorhanden). */
 export async function sendTicketReply(ticket: TicketForMail, message: string, author: string): Promise<SendResult> {
   try {
-    const ctx = await ctxOf(ticket);
-    return await deliver(ticket.email, ctx, (canReply) => ticketReplyMail({ ...data(ticket), reply: message, author, canReply }, ctx), { reply: true });
+    const ctx = ctxOf(ticket);
+    return await deliver(ticket.email, (canReply) => ticketReplyMail({ ...data(ticket), reply: message, author, canReply }, ctx), { reply: true });
   } catch {
     return FAILED;
   }

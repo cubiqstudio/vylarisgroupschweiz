@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { getCurrentUser, type CurrentUser } from "@/lib/auth";
 import { ApiError, assertSameOrigin, fail } from "@/lib/api";
 import { isMailConfigured, sendMail, type SendResult } from "@/lib/mailer";
-import { getRequestMailCtx, mailCtxFor, type MailCtx } from "@/lib/mail-ctx";
+import { mailCtx, type MailCtx } from "@/lib/mail-ctx";
 import { accountExistsMail, resetPasswordMail, verifyEmailMail } from "@/lib/mail-templates";
 import { getMailConfig, getRegistrationEnabled } from "@/lib/settings";
 import { site } from "@/lib/site";
@@ -14,7 +14,7 @@ export const BCRYPT_COST = 12;
 
 export const hashPassword = (password: string) => bcrypt.hash(password, BCRYPT_COST);
 
-/** Öffentlicher Link auf der Domain der Zielseite (`baseUrl`, z. B. ctx.baseUrl); ohne Angabe die Haupt-Domain (SITE_URL). */
+/** Öffentlicher Link auf der Seite (`baseUrl`, z. B. ctx.baseUrl); ohne Angabe die konfigurierte Basis-URL (SITE_URL). */
 export function siteLink(path: string, params?: Record<string, string>, baseUrl: string = site.url): string {
   const base = baseUrl.replace(/\/+$/, "");
   const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
@@ -70,20 +70,17 @@ export function runInBackground(task: () => Promise<unknown>): void {
 
 const NO_MAIL: SendResult = { ok: false, error: "Es ist kein Mailserver eingerichtet." };
 
-/** Gespeicherte Herkunft eines Kontos (Domain + Sprache der Registrierung), soweit die Zeile sie enthält. */
-type Origin = { siteKey?: string | null; locale?: string | null };
+/** Gespeicherte Sprache eines Kontos (Registrierung), soweit die Zeile sie enthält. */
+type Origin = { locale?: string | null };
 
-/** Kontext aus der gespeicherten Herkunft der Zeile, sonst aus der laufenden Anfrage. */
-async function ctxFor(origin: Origin, ctx?: MailCtx): Promise<MailCtx> {
-  if (ctx) return ctx;
-  return origin.siteKey ? mailCtxFor(origin.siteKey, origin.locale) : getRequestMailCtx();
-}
+/** Kontext aus der gespeicherten Sprache der Zeile; ein ausdrücklich übergebener Kontext hat Vorrang. */
+const ctxFor = (origin: Origin, ctx?: MailCtx): MailCtx => ctx ?? mailCtx(origin.locale);
 
-/** Erzeugt ein neues Bestätigungs-Token (entwertet ältere) und verschickt die Bestätigungsmail in Sprache und Domain des Kontos. */
+/** Erzeugt ein neues Bestätigungs-Token (entwertet ältere) und verschickt die Bestätigungsmail in der Sprache des Kontos. */
 export async function sendVerificationMail(user: { id: string; email: string; name: string } & Origin, ctx?: MailCtx): Promise<SendResult> {
   const config = await getMailConfig();
   if (!config) return NO_MAIL;
-  const mc = await ctxFor(user, ctx);
+  const mc = ctxFor(user, ctx);
   const token = await createToken(user.id, "EMAIL_VERIFY");
   const mail = verifyEmailMail({ name: user.name, link: siteLink("/verify-email", { token }, mc.baseUrl) }, mc);
   return sendMail({ to: user.email, ...mail, config });
@@ -93,7 +90,7 @@ export async function sendVerificationMail(user: { id: string; email: string; na
 export async function sendResetMail(user: { id: string; email: string; name: string } & Origin, ctx?: MailCtx): Promise<SendResult> {
   const config = await getMailConfig();
   if (!config) return NO_MAIL;
-  const mc = await ctxFor(user, ctx);
+  const mc = ctxFor(user, ctx);
   const token = await createToken(user.id, "PASSWORD_RESET");
   const mail = resetPasswordMail({ name: user.name, link: siteLink("/reset-password", { token }, mc.baseUrl) }, mc);
   return sendMail({ to: user.email, ...mail, config });
@@ -103,7 +100,7 @@ export async function sendResetMail(user: { id: string; email: string; name: str
 export async function sendAccountExistsMail(user: { email: string; name?: string | null } & Origin, ctx?: MailCtx): Promise<SendResult> {
   const config = await getMailConfig();
   if (!config) return NO_MAIL;
-  const mc = await ctxFor(user, ctx);
+  const mc = ctxFor(user, ctx);
   const mail = accountExistsMail(
     { name: user.name, loginUrl: siteLink("/login", undefined, mc.baseUrl), forgotUrl: siteLink("/forgot-password", undefined, mc.baseUrl) },
     mc,

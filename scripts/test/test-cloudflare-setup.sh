@@ -60,13 +60,12 @@ start_mock
 printf 'FOO=bar\n' >"$ENVF"; chmod 644 "$ENVF"
 run_setup "$TOK"
 check "Exit-Code 0" test "$RC" -eq 0
-check "genau ein Tunnel 'vylaris-group'" jqs '(.tunnels | length) == 1 and ([.tunnels[].name] == ["vylaris-group"])'
-check "6 DNS-Einträge (3 Domains x apex/www), alle CNAME proxied" \
-  jqs '([.dns[][]] | length) == 6 and all(.dns[][]; .type == "CNAME" and .proxied == true and (.content | endswith(".cfargotunnel.com")))'
+check "genau ein Tunnel 'vylaris-schweiz'" jqs '(.tunnels | length) == 1 and ([.tunnels[].name] == ["vylaris-schweiz"])'
+check "2 DNS-Einträge (vylaris.ch und www), beide CNAME proxied" \
+  jqs '([.dns[][]] | length) == 2 and all(.dns[][]; .type == "CNAME" and .proxied == true and (.content | endswith(".cfargotunnel.com")))'
 # shellcheck disable=SC2016 # jq-Ausdruck, keine Shell-Variablen
-check "Ingress: 6 Hosts → http://app:3000 + 404" \
-  jqs '(.configs | to_entries[0].value.ingress) as $i | ($i | length) == 7 and ($i[0:6] | all(.service == "http://app:3000")) and ($i[6] == {"service": "http_status:404"})'
-check "keine Einträge/Ingress für vylaris.at" bash -c "! state_json=\$(curl -s --noproxy '*' '$BASE/__state') && false || ! printf '%s' \"\$state_json\" | grep -q 'vylaris.at'"
+check "Ingress: vylaris.ch und www.vylaris.ch → http://app:3000 + 404" \
+  jqs '(.configs | to_entries[0].value.ingress) as $i | ($i | length) == 3 and ([$i[0:2][].hostname] == ["vylaris.ch", "www.vylaris.ch"]) and ($i[0:2] | all(.service == "http://app:3000")) and ($i[2] == {"service": "http_status:404"})'
 check ".env enthält CLOUDFLARE_TUNNEL_TOKEN" grep -q '^CLOUDFLARE_TUNNEL_TOKEN=.\+' "$ENVF"
 check ".env behält bestehende Werte" grep -q '^FOO=bar$' "$ENVF"
 check ".env hat Rechte 600" test "$(stat -c %a "$ENVF")" = 600
@@ -79,21 +78,21 @@ W1=$(state | jq '.writes')
 run_setup "$TOK"
 check "Exit-Code 0" test "$RC" -eq 0
 check "keine Schreibzugriffe" test "$(state | jq '.writes')" = "$W1"
-check "weiterhin 1 Tunnel und 6 Einträge" jqs '(.tunnels | length) == 1 and ([.dns[][]] | length) == 6'
+check "weiterhin 1 Tunnel und 2 Einträge" jqs '(.tunnels | length) == 1 and ([.dns[][]] | length) == 2'
 check "Token nicht in der Ausgabe" out_clean
 
 echo "3. Konflikt mit vorhandenem A-Record"
 start_mock
 rm -f "$ENVF"
-seed_dns '{"zone":"vylaris.de","type":"A","name":"vylaris.de","content":"192.0.2.10","proxied":true}'
+seed_dns '{"zone":"vylaris.ch","type":"A","name":"vylaris.ch","content":"192.0.2.10","proxied":true}'
 run_setup "$TOK"
 check "Exit-Code 3" test "$RC" -eq 3
-check "Meldung nennt Eintrag und --replace" bash -c "printf '%s' \"\$1\" | grep -q 'vylaris.de: A 192.0.2.10' && printf '%s' \"\$1\" | grep -q -- '--replace'" _ "$OUT"
+check "Meldung nennt Eintrag und --replace" bash -c "printf '%s' \"\$1\" | grep -q 'vylaris.ch: A 192.0.2.10' && printf '%s' \"\$1\" | grep -q -- '--replace'" _ "$OUT"
 check "nichts geändert (kein Tunnel, keine Schreibzugriffe)" jqs '(.tunnels | length) == 0 and .writes == 0'
 check "keine .env geschrieben" test ! -e "$ENVF"
 run_setup "$TOK" --replace
 check "mit --replace: Exit-Code 0" test "$RC" -eq 0
-check "A-Record ersetzt, 6 CNAME-Einträge" jqs '([.dns[][]] | length) == 6 and all(.dns[][]; .type == "CNAME")'
+check "A-Record ersetzt, 2 CNAME-Einträge" jqs '([.dns[][]] | length) == 2 and all(.dns[][]; .type == "CNAME")'
 
 echo "4. Falscher Token"
 start_mock

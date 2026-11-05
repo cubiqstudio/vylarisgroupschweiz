@@ -105,7 +105,7 @@ export function KeyActions({ id, status, bound, label }: { id: string; status: s
         confirmLabel="Ablehnen"
         danger
         busy={busy === "reject"}
-        noteHint="Empfohlen: kurz begründen, damit der Nutzer weiß, wie es weitergeht."
+        noteHint="Empfohlen: kurz begründen, damit der Nutzer weiss, wie es weitergeht."
         onSubmit={(note) => run("reject", note)}
         onCancel={() => setDialog(null)}
       />

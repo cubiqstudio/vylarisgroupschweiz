@@ -25,14 +25,14 @@ import {
 
 /** 32 Zeichen ohne I und O (verwechselbar mit 1/0): jedes Zeichen trägt genau 5 Bit. */
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const KEY_RE = /^VG-[A-Z]{3,4}-[A-HJ-NP-Z2-9]{5}(-[A-HJ-NP-Z2-9]{5}){3}$/;
+const KEY_RE = /^VGS-[A-Z]{3,4}-[A-HJ-NP-Z2-9]{5}(-[A-HJ-NP-Z2-9]{5}){3}$/;
 
-/** Neuer Schlüssel im Format VG-<CODE>-XXXXX-XXXXX-XXXXX-XXXXX (100 Bit Zufall). */
+/** Neuer Schlüssel im Format VGS-<CODE>-XXXXX-XXXXX-XXXXX-XXXXX (100 Bit Zufall). Das Präfix VGS macht ihn als Schweizer Schlüssel erkennbar. */
 export function generateKey(code: string): string {
   const bytes = randomBytes(20);
   const chars = Array.from(bytes, (b) => ALPHABET[b & 31]!);
   const groups = [0, 5, 10, 15].map((i) => chars.slice(i, i + 5).join(""));
-  return `VG-${code.toUpperCase()}-${groups.join("-")}`;
+  return `VGS-${code.toUpperCase()}-${groups.join("-")}`;
 }
 
 /** Eingabe vereinheitlichen (Leerzeichen, Kleinbuchstaben) und Format prüfen; null = kein gültiges Format. */
@@ -42,7 +42,18 @@ export function normalizeKey(raw: unknown): string | null {
   return KEY_RE.test(k) ? k : null;
 }
 
-const hmacKey = () => createHash("sha256").update(`vge-license-v1:${authSecretString()}`).digest();
+/**
+ * Geheimnis für Schlüssel-Hashes und Antwort-Signaturen: LICENSE_SECRET, sonst AUTH_SECRET dieser Instanz.
+ * Es ist nie mit einer anderen Installation geteilt, fremde Schlüssel und Signaturen werden daher nie als gültig erkannt.
+ */
+function licenseSecret(): string {
+  const s = process.env.LICENSE_SECRET;
+  if (s && s.length >= 32) return s;
+  if (s && process.env.NODE_ENV === "production") throw new Error("LICENSE_SECRET ist kürzer als 32 Zeichen.");
+  return authSecretString();
+}
+
+const hmacKey = () => createHash("sha256").update(`vgs-license-v1:${licenseSecret()}`).digest();
 export const hashKey = (key: string) => createHmac("sha256", hmacKey()).update(key).digest("hex");
 export const keyHint = (key: string) => key.replace(/-/g, "").slice(-4);
 
@@ -53,7 +64,7 @@ export const revealKey = (row: Pick<LicenseKey, "keyEnc">): string | null => dec
 
 export type Eligibility =
   | { mode: "key"; approval: "AUTO" | "MANUAL" }
-  /** Kein Schlüssel möglich, aber ein Konto kann beantragt werden (Webspace über VylarisGroup). */
+  /** Kein Schlüssel möglich, aber ein Konto kann beantragt werden (Webspace-Konto). */
   | { mode: "account" }
   | { mode: "none"; reason: "inactive" | "business_only" };
 
@@ -211,9 +222,7 @@ export async function requestBusiness(userId: string, companyName: string): Prom
 export type ProductDto = {
   slug: string;
   name: string;
-  nameEn: string | null;
   description: string;
-  descriptionEn: string | null;
   comingSoon: boolean;
   businessOnly: boolean;
   approvalMode: string;
@@ -237,9 +246,7 @@ export async function getLicenseOverview(userId: string) {
     return {
       slug: p.slug,
       name: p.name,
-      nameEn: p.nameEn,
       description: p.description,
-      descriptionEn: p.descriptionEn,
       comingSoon: p.comingSoon,
       businessOnly: p.businessOnly,
       approvalMode: p.approvalMode,
@@ -314,12 +321,12 @@ export async function decideBusiness(userId: string, action: "approve" | "reject
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 
-/** Schlüssel zum Signieren der Prüfantworten dieses Zugangs (aus AUTH_SECRET abgeleitet, wird einmal beim Anlegen angezeigt). */
+/** Schlüssel zum Signieren der Prüfantworten dieses Zugangs (aus LICENSE_SECRET bzw. AUTH_SECRET abgeleitet, wird einmal beim Anlegen angezeigt). */
 export const signingKeyFor = (clientId: string) =>
   createHmac("sha256", hmacKey()).update(`sig:${clientId}`).digest("hex");
 
 export async function createApiClient(name: string, productSlugs: string[]) {
-  const token = `vgk_${randomBytes(32).toString("base64url")}`;
+  const token = `vgsk_${randomBytes(32).toString("base64url")}`;
   const slugs = productSlugs.length ? productSlugs.join(",") : "*";
   const client = await db.apiClient.create({
     data: { name: name.trim(), tokenHash: sha256(token), tokenHint: token.slice(0, 8), productSlugs: slugs },
@@ -329,7 +336,7 @@ export async function createApiClient(name: string, productSlugs: string[]) {
 
 /** Prüft den Authorization-Header (Bearer) und liefert den aktiven Zugang oder null. */
 export async function authenticateApiClient(header: string | null) {
-  const m = /^Bearer (vgk_[A-Za-z0-9_-]{20,80})$/.exec(header ?? "");
+  const m = /^Bearer (vgsk_[A-Za-z0-9_-]{20,80})$/.exec(header ?? "");
   if (!m) return null;
   const client = await db.apiClient.findUnique({ where: { tokenHash: sha256(m[1]!) } });
   if (!client || !client.active || client.revokedAt) return null;
@@ -374,7 +381,7 @@ export async function verifyLicense(
       user: { select: { disabled: true, businessStatus: true } },
     },
   });
-  // Unbekannt, falsches Produkt, wartend, abgelehnt, Produkt abgeschaltet: alles gleich „invalid“.
+  // Unbekannt, falsches Produkt, wartend, abgelehnt, Produkt abgeschaltet: alles gleich «invalid».
   if (!row || row.product.slug !== input.product || !row.product.active || (row.status !== "ACTIVE" && row.status !== "REVOKED")) {
     return done(false, "invalid", null);
   }

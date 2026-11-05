@@ -58,7 +58,7 @@ function Kpi({
             <Icon className="size-[18px]" />
           </span>
         </div>
-        <p className="mt-2 text-3xl font-semibold tracking-tight text-white tabular-nums">{value.toLocaleString("de-DE")}</p>
+        <p className="mt-2 text-3xl font-semibold tracking-tight text-white tabular-nums">{value.toLocaleString("de-CH")}</p>
         {detail && <p className="mt-0.5 text-xs text-zinc-500">{detail}</p>}
       </Card>
     </Link>

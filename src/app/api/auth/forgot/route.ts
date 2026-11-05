@@ -1,4 +1,4 @@
-import { getRequestMailCtx } from "@/lib/mail-ctx";
+import { mailCtx } from "@/lib/mail-ctx";
 import { db } from "@/lib/db";
 import { assertSameOrigin, handle } from "@/lib/api";
 import { forgotSchema } from "@/lib/validation";
@@ -30,10 +30,10 @@ export const POST = handle(async (req: Request) => {
   runInBackground(async () => {
     const user = await db.user.findUnique({
       where: { email },
-      select: { id: true, email: true, name: true, emailVerifiedAt: true, disabled: true, siteKey: true, locale: true },
+      select: { id: true, email: true, name: true, emailVerifiedAt: true, disabled: true, locale: true },
     });
     if (!user || !user.emailVerifiedAt || user.disabled) return;
-    await sendResetMail(user, await getRequestMailCtx());
+    await sendResetMail(user, mailCtx(user.locale));
   });
 
   return adminOk({ status: "check_mail" as const });

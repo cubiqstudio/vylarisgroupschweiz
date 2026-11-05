@@ -46,7 +46,7 @@ export function MetricManager({ initial }: { initial: MetricDTO[] }) {
     try {
       const saved = await api<MetricDTO>(`/api/admin/metrics/${metric.id}`, { method: "PATCH", body: { status } });
       setMetrics((list) => list.map((m) => (m.id === metric.id ? { ...m, updatedAt: saved?.updatedAt ?? m.updatedAt } : m)));
-      toast.success(`${metric.name}: Status auf „${STATUS_LABEL[status]}“ gesetzt.`);
+      toast.success(`${metric.name}: Status auf «${STATUS_LABEL[status]}» gesetzt.`);
       router.refresh();
     } catch (err) {
       setMetrics((list) => list.map((m) => (m.id === metric.id ? { ...m, status: previous } : m)));
@@ -59,7 +59,7 @@ export function MetricManager({ initial }: { initial: MetricDTO[] }) {
   function onSaved(saved: MetricDTO, created: boolean) {
     setMetrics((list) => sortMetrics(created ? [...list, saved] : list.map((m) => (m.id === saved.id ? saved : m))));
     setEditing(null);
-    toast.success(created ? `„${saved.name}“ wurde angelegt.` : `„${saved.name}“ wurde gespeichert.`);
+    toast.success(created ? `«${saved.name}» wurde angelegt.` : `«${saved.name}» wurde gespeichert.`);
     router.refresh();
   }
 
@@ -69,7 +69,7 @@ export function MetricManager({ initial }: { initial: MetricDTO[] }) {
     try {
       await api(`/api/admin/metrics/${toDelete.id}`, { method: "DELETE" });
       setMetrics((list) => list.filter((m) => m.id !== toDelete.id));
-      toast.success(`„${toDelete.name}“ wurde gelöscht.`);
+      toast.success(`«${toDelete.name}» wurde gelöscht.`);
       setToDelete(null);
       router.refresh();
     } catch (err) {
@@ -99,7 +99,7 @@ export function MetricManager({ initial }: { initial: MetricDTO[] }) {
         <Card className="px-6 py-12 text-center">
           <p className="text-base font-medium text-white">Noch keine Komponenten angelegt</p>
           <p className="mx-auto mt-2 max-w-md text-sm text-zinc-400">
-            Lege Komponenten wie „Hosting-Cluster“ oder „Datenbank“ an, damit Besucher ihren Betriebszustand auf der Statusseite sehen.
+            Lege Komponenten wie «Hosting-Cluster» oder «Datenbank» an, damit Besucher ihren Betriebszustand auf der Statusseite sehen.
           </p>
         </Card>
       ) : (
@@ -158,7 +158,7 @@ export function MetricManager({ initial }: { initial: MetricDTO[] }) {
         danger
         busy={deleting}
         title="Komponente löschen?"
-        description={toDelete ? `„${toDelete.name}“ wird dauerhaft von der Statusseite entfernt.` : ""}
+        description={toDelete ? `«${toDelete.name}» wird dauerhaft von der Statusseite entfernt.` : ""}
         confirmLabel="Endgültig löschen"
         onConfirm={confirmDelete}
         onCancel={() => setToDelete(null)}

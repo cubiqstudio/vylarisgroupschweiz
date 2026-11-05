@@ -49,9 +49,6 @@ export default async function EditBlogPostPage({ params, searchParams }: Props) 
           content: post.content,
           author: post.author,
           published: post.published,
-          titleEn: post.titleEn,
-          excerptEn: post.excerptEn,
-          contentEn: post.contentEn,
         }}
       />
     </div>

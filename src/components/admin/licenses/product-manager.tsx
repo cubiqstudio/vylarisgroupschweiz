@@ -9,7 +9,6 @@ import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/admin/core/confirm-dialog";
-import { EnglishSection } from "@/components/admin/core/english-section";
 import { Modal } from "@/components/admin/core/modal";
 import { PILL } from "@/components/admin/core/styles";
 import { useToast } from "@/components/admin/core/toast";
@@ -18,9 +17,7 @@ import type { ProductRow } from "./types";
 
 type FormState = {
   name: string;
-  nameEn: string;
   description: string;
-  descriptionEn: string;
   slug: string;
   code: string;
   businessOnly: boolean;
@@ -33,9 +30,7 @@ type FormState = {
 
 const EMPTY: FormState = {
   name: "",
-  nameEn: "",
   description: "",
-  descriptionEn: "",
   slug: "",
   code: "",
   businessOnly: false,
@@ -48,9 +43,7 @@ const EMPTY: FormState = {
 
 const fromRow = (p: ProductRow): FormState => ({
   name: p.name,
-  nameEn: p.nameEn,
   description: p.description,
-  descriptionEn: p.descriptionEn,
   slug: p.slug,
   code: p.code,
   businessOnly: p.businessOnly,
@@ -113,9 +106,7 @@ function ProductForm({ product, onDone, onCancel }: { product: ProductRow | null
     setFormError("");
     const body = {
       name: f.name,
-      nameEn: f.nameEn.trim() || null,
       description: f.description,
-      descriptionEn: f.descriptionEn.trim() || null,
       businessOnly: f.businessOnly,
       allowAccountRequest: f.businessOnly && f.allowAccountRequest,
       approvalMode: f.approvalMode,
@@ -165,7 +156,7 @@ function ProductForm({ product, onDone, onCancel }: { product: ProductRow | null
           label="Code"
           htmlFor={`${uid}-code`}
           error={fields.code}
-          hint={editing ? "Kann nachträglich nicht geändert werden, bestehende Schlüssel tragen ihn." : "3–4 Großbuchstaben, Präfix der Schlüssel (VG-CODE-…)."}
+          hint={editing ? "Kann nachträglich nicht geändert werden, bestehende Schlüssel tragen ihn." : "3–4 Grossbuchstaben, Präfix der Schlüssel (VG-CODE-…)."}
         >
           <Input id={`${uid}-code`} value={f.code} onChange={(e) => set("code", e.target.value.toUpperCase())} maxLength={4} disabled={editing} className="font-mono uppercase" />
         </Field>
@@ -173,18 +164,6 @@ function ProductForm({ product, onDone, onCancel }: { product: ProductRow | null
       <Field label="Beschreibung" htmlFor={`${uid}-desc`} error={fields.description} hint="Wird Nutzern im Konto angezeigt.">
         <Textarea id={`${uid}-desc`} value={f.description} onChange={(e) => set("description", e.target.value)} maxLength={500} rows={3} />
       </Field>
-      <EnglishSection
-        filled={Boolean(f.nameEn || f.descriptionEn)}
-        hasError={Boolean(fields.nameEn || fields.descriptionEn)}
-        hint="Ohne englischen Text zeigt vylaris.net die deutsche Fassung."
-      >
-        <Field label="Name (EN)" htmlFor={`${uid}-nameEn`} error={fields.nameEn}>
-          <Input id={`${uid}-nameEn`} value={f.nameEn} onChange={(e) => set("nameEn", e.target.value)} maxLength={80} />
-        </Field>
-        <Field label="Beschreibung (EN)" htmlFor={`${uid}-descEn`} error={fields.descriptionEn}>
-          <Textarea id={`${uid}-descEn`} value={f.descriptionEn} onChange={(e) => set("descriptionEn", e.target.value)} maxLength={500} rows={3} />
-        </Field>
-      </EnglishSection>
 
       <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
         <Check
@@ -197,7 +176,7 @@ function ProductForm({ product, onDone, onCancel }: { product: ProductRow | null
         <Check
           id={`${uid}-acc`}
           label="Konto-Antrag erlaubt"
-          hint="Alle anderen Nutzer können stattdessen ein Konto beantragen. Wirkt nur zusammen mit „Nur Firmenkunden“."
+          hint="Alle anderen Nutzer können stattdessen ein Konto beantragen. Wirkt nur zusammen mit «Nur Firmenkunden»."
           checked={f.allowAccountRequest}
           disabled={!f.businessOnly}
           onChange={(v) => set("allowAccountRequest", v)}
@@ -255,7 +234,7 @@ export function ProductManager({ products }: { products: ProductRow[] }) {
     setDeleting(true);
     try {
       await api(`/api/admin/products/${encodeURIComponent(toDelete.id)}`, { method: "DELETE" });
-      toast.success(`„${toDelete.name}“ wurde gelöscht.`);
+      toast.success(`«${toDelete.name}» wurde gelöscht.`);
       setToDelete(null);
       router.refresh();
     } catch (err) {
@@ -311,12 +290,6 @@ export function ProductManager({ products }: { products: ProductRow[] }) {
                       <dt>Slug:</dt>
                       <dd className="font-mono">{p.slug}</dd>
                     </div>
-                    {p.nameEn && (
-                      <div className="flex gap-1.5">
-                        <dt>Name (EN):</dt>
-                        <dd>{p.nameEn}</dd>
-                      </div>
-                    )}
                     <div className="flex gap-1.5">
                       <dt>Reihenfolge:</dt>
                       <dd className="tabular-nums">{p.sortOrder}</dd>
@@ -372,7 +345,7 @@ export function ProductManager({ products }: { products: ProductRow[] }) {
       <ConfirmDialog
         open={toDelete !== null}
         title="Produkt löschen?"
-        description={toDelete ? `„${toDelete.name}“ wird dauerhaft gelöscht. Das kann nicht rückgängig gemacht werden.` : ""}
+        description={toDelete ? `«${toDelete.name}» wird dauerhaft gelöscht. Das kann nicht rückgängig gemacht werden.` : ""}
         confirmLabel="Endgültig löschen"
         danger
         busy={deleting}

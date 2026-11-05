@@ -1,16 +1,18 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
+import { SITE } from "@/lib/sites";
 
 // Einstellungen liegen als Key/Value in der DB und sind im Admin (Einstellungen) editierbar.
-// Für Impressum-Daten dienen die LEGAL_*/CONTACT_EMAIL-Umgebungsvariablen (vom Installer gesetzt) als Vorgabe.
+// Für die Anbieterangaben (Impressum) dienen die LEGAL_*/CONTACT_EMAIL-Umgebungsvariablen (vom Installer gesetzt) als Vorgabe;
+// die Werte des Vereins (Anschrift, Telefon, E-Mail) stehen im Seed bzw. in den Admin-Einstellungen, nicht im Code.
 
 export const LEGAL_FIELDS = ["responsible", "street", "zipCity", "country", "phone", "register", "vatId", "email"] as const;
 export type LegalField = (typeof LEGAL_FIELDS)[number];
 export const LEGAL_FLAGS = ["smallBusiness", "noRegister", "hideRegister", "hideVat"] as const;
 export type LegalFlag = (typeof LEGAL_FLAGS)[number];
-/** Texte + Häkchen: smallBusiness = Kleinunternehmer nach § 19 UStG (keine USt-IdNr.), noRegister = kein Registereintrag,
- *  hideRegister / hideVat = Zeile "Registereintrag" bzw. "Umsatzsteuer-ID" im Impressum gar nicht anzeigen. */
+/** Texte + Häkchen: smallBusiness = von der Mehrwertsteuer befreit (keine MWST-/UID-Nummer), noRegister = kein Registereintrag,
+ *  hideRegister / hideVat = Zeile "Registereintrag" bzw. "MWST-/UID-Nummer" im Impressum gar nicht anzeigen. */
 export type LegalSettings = Record<LegalField, string> & Record<LegalFlag, boolean>;
 
 export const MAIL_SECURITY = ["NONE", "STARTTLS", "SSL"] as const;
@@ -21,7 +23,7 @@ const LEGAL_ENV: Record<LegalField, string> = {
   responsible: "",
   street: env("LEGAL_STREET"),
   zipCity: env("LEGAL_ZIP_CITY"),
-  country: env("LEGAL_COUNTRY") || "Deutschland",
+  country: env("LEGAL_COUNTRY") || "Schweiz",
   phone: env("LEGAL_PHONE"),
   register: env("LEGAL_REGISTER"),
   vatId: env("LEGAL_VAT_ID"),
@@ -50,7 +52,8 @@ export async function getLegalSettings(): Promise<LegalSettings> {
   const out = {} as LegalSettings;
   for (const f of LEGAL_FIELDS) out[f] = (all[`legal.${f}`] ?? "").trim() || LEGAL_ENV[f];
   for (const f of LEGAL_FLAGS) out[f] = all[`legal.${f}`] === "true";
-  if (!out.responsible) out.responsible = "Lucas Wilms";
+  // Ohne eigene Angabe zeichnet die Leitung des Vereins (Präsident) verantwortlich.
+  if (!out.responsible) out.responsible = SITE.leader.name;
   return out;
 }
 

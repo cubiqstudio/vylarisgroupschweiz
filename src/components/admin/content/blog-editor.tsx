@@ -11,7 +11,6 @@ import { Card } from "@/components/ui/card";
 import { Field, Input, Textarea } from "@/components/ui/form";
 import { Markdown } from "@/components/ui/markdown";
 import { ConfirmDialog } from "./confirm-dialog";
-import { EnglishSection } from "@/components/admin/core/english-section";
 import { Notice } from "./notice";
 import { PostStatusBadge } from "./badges";
 
@@ -23,9 +22,6 @@ export type EditorPost = {
   content: string;
   author: string;
   published: boolean;
-  titleEn: string | null;
-  excerptEn: string | null;
-  contentEn: string | null;
 };
 
 type Fields = {
@@ -34,28 +30,21 @@ type Fields = {
   excerpt: string;
   content: string;
   author: string;
-  titleEn: string;
-  excerptEn: string;
-  contentEn: string;
 };
 type Busy = "draft" | "publish" | "unpublish" | "save" | "delete" | null;
 type Tab = "write" | "preview";
 
 const EXCERPT_MAX = 400;
-const EXCERPT_EN_MAX = 400;
-const FIELD_ORDER: (keyof Fields)[] = ["title", "slug", "author", "excerpt", "content", "titleEn", "excerptEn", "contentEn"];
+const FIELD_ORDER: (keyof Fields)[] = ["title", "slug", "author", "excerpt", "content"];
 const FIELD_IDS: Record<keyof Fields, string> = {
   title: "post-title",
   slug: "post-slug",
   author: "post-author",
   excerpt: "post-excerpt",
   content: "post-content",
-  titleEn: "post-title-en",
-  excerptEn: "post-excerpt-en",
-  contentEn: "post-content-en",
 };
 
-const snapshot = (f: Fields) => JSON.stringify([f.title, f.slug, f.excerpt, f.content, f.author, f.titleEn, f.excerptEn, f.contentEn]);
+const snapshot = (f: Fields) => JSON.stringify([f.title, f.slug, f.excerpt, f.content, f.author]);
 
 const initialFields = (post: EditorPost | undefined, defaultAuthor: string): Fields => ({
   title: post?.title ?? "",
@@ -63,9 +52,6 @@ const initialFields = (post: EditorPost | undefined, defaultAuthor: string): Fie
   excerpt: post?.excerpt ?? "",
   content: post?.content ?? "",
   author: post?.author ?? defaultAuthor,
-  titleEn: post?.titleEn ?? "",
-  excerptEn: post?.excerptEn ?? "",
-  contentEn: post?.contentEn ?? "",
 });
 
 const HELP: { label: string; code: string }[] = [
@@ -122,7 +108,7 @@ export function BlogEditor({
     setErrors((e) => ({ ...e, title: undefined, ...(slugTouched ? {} : { slug: undefined }) }));
   }
 
-  // Warnung bei Reload/Tab schließen und bei Klicks auf interne Links, solange ungespeicherte Änderungen existieren.
+  // Warnung bei Reload/Tab schliessen und bei Klicks auf interne Links, solange ungespeicherte Änderungen existieren.
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (!dirtyRef.current || leaving.current) return;
@@ -168,10 +154,6 @@ export function BlogEditor({
       excerpt: fields.excerpt.trim(),
       content: fields.content,
       author: fields.author.trim(),
-      // Leere englische Felder werden serverseitig als null gespeichert.
-      titleEn: fields.titleEn.trim(),
-      excerptEn: fields.excerptEn.trim(),
-      contentEn: fields.contentEn,
       published: target,
     };
     try {
@@ -200,7 +182,7 @@ export function BlogEditor({
     } catch (e) {
       if (e instanceof ApiClientError) {
         if (e.code === "CONFLICT") {
-          const errs = { slug: "Dieser Slug ist bereits vergeben. Wähle eine andere URL-Kennung, z. B. durch einen Zusatz wie „-2“." };
+          const errs = { slug: "Dieser Slug ist bereits vergeben. Wähle eine andere URL-Kennung, z. B. durch einen Zusatz wie «-2»." };
           setErrors(errs);
           setFormError("Der Beitrag wurde nicht gespeichert, weil der Slug bereits verwendet wird.");
           focusFirstError(errs);
@@ -439,48 +421,6 @@ export function BlogEditor({
         </details>
       </div>
 
-      <EnglishSection
-        filled={Boolean(post?.titleEn || post?.excerptEn || post?.contentEn)}
-        hasError={Boolean(errors.titleEn || errors.excerptEn || errors.contentEn)}
-        hint="Ohne englischen Inhalt erscheint der Beitrag auf vylaris.net nicht. Titel, Auszug und Inhalt (Markdown) sollten vollständig übersetzt sein."
-      >
-        <Field label="Titel (Englisch)" htmlFor={id("titleEn")} error={errors.titleEn}>
-          <Input
-            id={id("titleEn")}
-            value={fields.titleEn}
-            onChange={(e) => set("titleEn", e.target.value)}
-            maxLength={160}
-            autoComplete="off"
-            lang="en"
-            aria-invalid={Boolean(errors.titleEn)}
-          />
-        </Field>
-        <Field label="Auszug (Englisch)" htmlFor={id("excerptEn")} error={errors.excerptEn}>
-          <Textarea
-            id={id("excerptEn")}
-            value={fields.excerptEn}
-            onChange={(e) => set("excerptEn", e.target.value)}
-            rows={3}
-            maxLength={EXCERPT_EN_MAX}
-            lang="en"
-            aria-invalid={Boolean(errors.excerptEn)}
-          />
-          <p className={cn("text-right text-xs tabular-nums", fields.excerptEn.length >= EXCERPT_EN_MAX - 20 ? "text-amber-400" : "text-zinc-500")}>
-            {fields.excerptEn.length} / {EXCERPT_EN_MAX} Zeichen
-          </p>
-        </Field>
-        <Field label="Inhalt (Englisch, Markdown)" htmlFor={id("contentEn")} error={errors.contentEn}>
-          <Textarea
-            id={id("contentEn")}
-            value={fields.contentEn}
-            onChange={(e) => set("contentEn", e.target.value)}
-            lang="en"
-            aria-invalid={Boolean(errors.contentEn)}
-            className="h-[26rem] resize-y font-mono text-[13px] leading-6"
-          />
-        </Field>
-      </EnglishSection>
-
       <div className="z-10 lg:sticky lg:bottom-3">
         <Card className="space-y-3 bg-zinc-900/90 p-4 shadow-2xl shadow-black/40">
           {(formError || success) && (
@@ -563,7 +503,7 @@ export function BlogEditor({
           title="Beitrag löschen?"
           description={
             <>
-              Der Beitrag <strong className="font-medium text-zinc-200">„{post.title}“</strong> wird endgültig gelöscht
+              Der Beitrag <strong className="font-medium text-zinc-200">«{post.title}»</strong> wird endgültig gelöscht
               {published ? " und ist auf der Website nicht mehr erreichbar" : ""}. Das lässt sich nicht rückgängig machen.
             </>
           }

@@ -11,7 +11,7 @@ import { useToast } from "@/components/admin/core/toast";
 
 type Settings = { enabled: boolean; mailConfigured: boolean };
 
-/** Schalter „Newsletter aktiv“ samt Hinweis zum Mailserver. Einschalten geht nur mit eingerichtetem Mailserver. */
+/** Schalter «Newsletter aktiv» samt Hinweis zum Mailserver. Einschalten geht nur mit eingerichtetem Mailserver. */
 export function NewsletterToggle({ enabled: initialEnabled, mailConfigured }: Settings) {
   const router = useRouter();
   const toast = useToast();

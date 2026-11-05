@@ -9,7 +9,7 @@ const subscriberPatchSchema = z.object({ status: z.enum(["ACTIVE", "UNSUBSCRIBED
 
 const SELECT = { id: true, email: true, name: true, status: true, consentAt: true, confirmedAt: true, unsubscribedAt: true, createdAt: true } as const;
 
-/** Status manuell setzen. „Aktiv“ nur mit nachweisbarer Einwilligung der Person verwenden. */
+/** Status manuell setzen. «Aktiv» nur mit nachweisbarer Einwilligung der Person verwenden. */
 export const PATCH = handle(async (req: Request, ctx: IdContext) => {
   await requireAdmin(req);
   const { id } = await ctx.params;
@@ -29,7 +29,7 @@ export const PATCH = handle(async (req: Request, ctx: IdContext) => {
   return adminOk(subscriber);
 });
 
-/** DSGVO-Löschung: entfernt die Person samt Zustellprotokoll. */
+/** Löschung auf Wunsch der betroffenen Person: entfernt die Person samt Zustellprotokoll. */
 export const DELETE = handle(async (req: Request, ctx: IdContext) => {
   await requireAdmin(req);
   const { id } = await ctx.params;

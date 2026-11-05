@@ -1,16 +1,18 @@
-// Prüft, ob alle deutschen API-Meldungen eine englische Übersetzung haben (src/i18n/server-messages.ts).
-// Aufruf:  npx tsx scripts/check-api-messages.mts      (Exit-Code 1, wenn Meldungen ohne Übersetzung bleiben)
+// Prüft die Meldungen der REST-API auf Schweizer Schreibweise (Seite ist nur Deutsch, Schweiz).
+// Aufruf:  npx tsx scripts/check-api-messages.mts      (Exit-Code 1, wenn eine Meldung ein Eszett oder deutsche Anführungszeichen enthält)
 //
 // Quellen:
 //  - statische Meldungen in den öffentlichen Routen, src/app/api/_lib und den genannten Hilfsdateien in src/lib
-//    (ApiError-/fail()-Aufrufe, benannte Konstanten, notFound("…"), Standardwerte, Texte in validation.ts und mailer.ts),
+//    (ApiError-/fail()-Aufrufe, benannte Konstanten, notFound("…"), Standardwerte, Texte in validation.ts und mailer.ts).
+//    Sie müssen direkt in Schweizer Schreibweise im Quelltext stehen (ss statt Eszett, «…» statt tiefgestellter Anführungszeichen).
 //  - die tatsächlich entstehenden Zod-Meldungen (eigene und deutsche Standardtexte): alle Schemas aus validation.ts
-//    werden mit ungültigen Werten gefüttert.
-// Dynamische Meldungen (mit eingesetzten Werten) werden mit Beispielwerten geprüft und müssen über ein Muster treffen.
+//    werden mit ungültigen Werten gefüttert. Die Zod-Standardtexte enthalten das Eszett und gerade Anführungszeichen; sie werden
+//    in `fail()` über `swissText` (src/i18n/server-messages.ts) umgeschrieben und müssen danach sauber sein.
+// Dynamische Meldungen (mit eingesetzten Werten) werden mit Beispielwerten geprüft.
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { translateApiMessage } from "../src/i18n/server-messages.ts";
+import { swissText } from "../src/i18n/server-messages.ts";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
@@ -46,9 +48,9 @@ const add = (text: string, file: string) => {
   if (isMessage(text)) found.push({ text, where: relative(root, file) });
 };
 
-/** Meldung = Satz mit Großbuchstaben am Anfang und Satzzeichen am Ende; Codes, Header-Werte und Schlüssel fallen heraus. */
+/** Meldung = Satz mit Grossbuchstaben am Anfang und Satzzeichen am Ende; Codes, Header-Werte und Schlüssel fallen heraus. */
 function isMessage(s: string): boolean {
-  return /^[A-ZÄÖÜ]/.test(s) && /[.!?]$/.test(s) && /[a-zäöüß]/.test(s);
+  return /^[A-ZÄÖÜ]/.test(s) && /[.!?]$/.test(s) && /[a-z\u00e4\u00f6\u00fc\u00df]/.test(s);
 }
 
 const STRING_RE = /"((?:[^"\\\n]|\\.)*)"|'((?:[^'\\\n]|\\.)*)'|`((?:[^`\\]|\\.)*)`/g;
@@ -184,21 +186,34 @@ for (const f of all) {
   unique.set(f.text, arr);
 }
 
-const missing = [...unique].filter(([text]) => translateApiMessage(text, "en") === text);
-const total = unique.size;
-const covered = total - missing.length;
+const BAD = /[\u00df\u201e\u201c\u201d]/;
+const problems: Array<[text: string, where: string[], hint: string]> = [];
+for (const [text, where] of unique) {
+  const fromZodOnly = where.every((w) => w.startsWith("validation.ts ("));
+  // Zod-Texte kommen über swissText in die Antwort, alle anderen Texte müssen schon im Quelltext sauber sein.
+  const shown = fromZodOnly ? swissText(text) : text;
+  if (BAD.test(shown)) problems.push([text, where, "enthält ein Eszett oder deutsche Anführungszeichen (ss und «…» verwenden)"]);
+}
 
 console.log(`Dateien geprüft: ${files.length}`);
-console.log(`Meldungen: ${total} (davon aus Zod-Prüfung: ${new Set(zodFound.map((z) => z.text)).size})`);
-console.log(`Mit englischer Übersetzung: ${covered}/${total} (${((covered / total) * 100).toFixed(1)} %)`);
-if (missing.length > 0) {
-  console.log("\nOhne Übersetzung:");
-  for (const [text, where] of missing) console.log(`  - ${JSON.stringify(text)}  [${where.join(", ")}]`);
+console.log(`Meldungen: ${unique.size} (davon aus Zod-Prüfung: ${new Set(zodFound.map((z) => z.text)).size})`);
+if (problems.length > 0) {
+  console.log("\nMeldungen mit Beanstandung:");
+  for (const [text, where, hint] of problems) console.log(`  - ${JSON.stringify(text)}  [${where.join(", ")}]  ${hint}`);
   process.exit(1);
 }
-// Deutsch bleibt unverändert, unbekannte Texte ebenfalls.
-if (translateApiMessage("Ungültige Eingabe.", "de") !== "Ungültige Eingabe." || translateApiMessage("Irgendein neuer Text", "en") !== "Irgendein neuer Text") {
-  console.error("translateApiMessage verändert Deutsch oder unbekannte Texte.");
-  process.exit(1);
+
+// Selbsttest der Umschreibung
+const selfTests: Array<[string, string]> = [
+  ["Zu gro\u00df: erwartet, dass string <=5 Zeichen hat", "Zu gross: erwartet, dass string <=5 Zeichen hat"],
+  ["Bald verf\u00fcgbar \u201eNeu\u201c und \u201cAlt\u201d", "Bald verf\u00fcgbar \u00abNeu\u00bb und \u00abAlt\u00bb"],
+  ['Ungültiger String: muss mit "ab" beginnen', "Ungültiger String: muss mit «ab» beginnen"],
+  ["Ungültige Eingabe.", "Ungültige Eingabe."],
+];
+for (const [input, expected] of selfTests) {
+  if (swissText(input) !== expected) {
+    console.error(`swissText(${JSON.stringify(input)}) lieferte ${JSON.stringify(swissText(input))}, erwartet ${JSON.stringify(expected)}.`);
+    process.exit(1);
+  }
 }
-console.log("OK: alle bekannten Meldungen sind übersetzt.");
+console.log("OK: alle Meldungen sind in Schweizer Schreibweise.");
