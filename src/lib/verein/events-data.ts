@@ -3,7 +3,7 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { EVENT_VIEWS, seatsLeft, type EventView } from "./events-lib";
+import { confirmPurgeCutoff, EVENT_VIEWS, seatsLeft, type EventView } from "./events-lib";
 import { startOfDayZurich } from "./dates";
 import { firstParam, searchWhere } from "./pagination";
 
@@ -186,7 +186,7 @@ export async function listEventsAdmin(filters: EventFilters, skip: number, take:
   ]);
   const seats = await seatInfoFor(rows);
   const counts = rows.length
-    ? await db.eventRegistration.groupBy({ by: ["eventId", "status"], where: { eventId: { in: rows.map((r) => r.id) }, status: { in: ["ANGEMELDET", "WARTELISTE", "UNBESTAETIGT"] } }, _count: { _all: true } })
+    ? await db.eventRegistration.groupBy({ by: ["eventId", "status"], where: { eventId: { in: rows.map((r) => r.id) }, OR: [{ status: { in: ["ANGEMELDET", "WARTELISTE"] } }, { status: "UNBESTAETIGT", createdAt: { gt: confirmPurgeCutoff(now) } }] }, _count: { _all: true } })
     : [];
   const countOf = new Map<string, number>();
   const unconfirmedOf = new Map<string, number>();

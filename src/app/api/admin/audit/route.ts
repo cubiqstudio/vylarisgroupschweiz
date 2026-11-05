@@ -1,6 +1,7 @@
 import { handle, requireAdmin } from "@/lib/api";
 import { auditActionLabel, auditChanges } from "@/lib/verein/audit-view";
 import { listAuditLog, parseAuditFilters } from "@/lib/verein/audit-data";
+import { canSeeBoardDocuments } from "@/lib/verein/permissions";
 import { listParams, pageMeta } from "@/lib/verein/pagination";
 import { adminOk } from "../../_lib/http";
 
@@ -8,13 +9,14 @@ export const dynamic = "force-dynamic";
 
 /** Änderungsprotokoll als JSON (seitenweise, mit Filtern). Nur Lesen; Modul «audit». */
 export const GET = handle(async (req: Request) => {
-  await requireAdmin(req);
+  const admin = await requireAdmin(req);
+  const board = canSeeBoardDocuments(admin.roles);
   const params = new URL(req.url).searchParams;
   const filters = parseAuditFilters(params);
   const { page, pageSize } = listParams(params);
-  const first = await listAuditLog(filters, (page - 1) * pageSize, pageSize);
+  const first = await listAuditLog(filters, board, (page - 1) * pageSize, pageSize);
   const meta = pageMeta(first.total, page, pageSize);
-  const rows = meta.page === page ? first.rows : (await listAuditLog(filters, (meta.page - 1) * pageSize, pageSize)).rows;
+  const rows = meta.page === page ? first.rows : (await listAuditLog(filters, board, (meta.page - 1) * pageSize, pageSize)).rows;
   return adminOk({
     meta,
     items: rows.map((r) => ({

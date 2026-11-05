@@ -118,6 +118,33 @@ export function isPublicStatute(doc: { category: string; visibility: string; arc
   return doc.category === "STATUTEN" && doc.visibility === "OEFFENTLICH" && doc.archivedAt === null;
 }
 
+// ---- Änderungsprotokoll --------------------------------------------------------------------------------------------
+
+/** Gilt das Dokument (vorher oder nachher) als «Nur Vorstand»? Dann darf das Änderungsprotokoll keine Inhalte davon verraten. */
+export const isBoardOnlyAudit = (...visibilities: ReadonlyArray<string | null | undefined>): boolean => visibilities.some((v) => v === "VORSTAND");
+
+/** Neutrale Bezeichnung für Einträge des Änderungsprotokolls zu Vorstandsdokumenten: ohne Titel, Kategorie und Dateiname. */
+export const BOARD_DOCUMENT_AUDIT_LABEL = "Dokument (Nur Vorstand)";
+
+/**
+ * Angaben für das Änderungsprotokoll bei Dokumenten «Nur Vorstand»: Das Modul «Änderungsprotokoll» ist unabhängig vom Einzelrecht
+ * «Dokumente „Nur Vorstand“ sehen». Deshalb stehen bei solchen Dokumenten weder Titel noch Beschreibung, Kategorie oder Dateiname
+ * im Protokoll, nur der Vorgang, die Grösse und die Sichtbarkeit. Bleibt `values` ohne Treffer, wird es unverändert zurückgegeben.
+ */
+export function redactBoardAuditValues(values: Record<string, unknown>, keep: readonly string[] = ["visibility", "archivedAt", "version", "groesse", "sichtbarkeit", "versionen"]): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const hidden: string[] = [];
+  for (const [k, v] of Object.entries(values)) {
+    if (keep.includes(k)) out[k] = v;
+    else hidden.push(k);
+  }
+  if (hidden.length > 0) out.weitereFelder = hidden.length;
+  return out;
+}
+
+/** Sichtbarkeit, die in alten Einträgen (vor der neutralen Schreibweise) mit Titel im Klartext stand: «Titel» (Kategorie, Nur Vorstand). */
+export const LEGACY_BOARD_SUMMARY_MARKER = ", Nur Vorstand)";
+
 // ---- Anzeige ------------------------------------------------------------------------------------------------------
 
 /** Dateiname für den Download: «Titel-vN.endung» – ohne Pfad und Sonderzeichen. Bei der aktuellen Fassung ohne Versionsnummer. */

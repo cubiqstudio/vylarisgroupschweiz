@@ -288,7 +288,7 @@ export function RegistrationManager({ eventId, eventTitle, capacity, cancelled, 
           {unconfirmed.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-sm font-semibold text-sky-300">E-Mail noch nicht bestätigt ({unconfirmed.length}, {unconfirmedSeats} {unconfirmedSeats === 1 ? "Person" : "Personen"})</h3>
-              <p className="text-xs text-zinc-500">Diese Gäste haben den Link in der Mail noch nicht angeklickt. Sie belegen keinen Platz und stehen nicht auf der Warteliste. Nach 48 Stunden werden die Angaben automatisch gelöscht. Bei einer Anmeldung per Telefon kannst du die Anmeldung von Hand bestätigen.</p>
+              <p className="text-xs text-zinc-500">Diese Gäste haben den Link in der Mail noch nicht angeklickt. Sie belegen keinen Platz und stehen nicht auf der Warteliste. Der Link gilt 48 Stunden; danach werden die Angaben im täglichen Aufräumlauf gelöscht, spätestens drei Tage nach der Anmeldung. Bei einer Anmeldung per Telefon kannst du die Anmeldung von Hand bestätigen.</p>
               <Card className="overflow-hidden">
                 {renderTable(unconfirmed, "unconfirmed")}
               </Card>

@@ -222,7 +222,6 @@ export function isAllowedLevel(role: string, module: VereinModule, level: Config
 }
 
 const isLevelValue = (v: unknown): v is ConfigurableLevel => v === "none" || v === "read" || v === "write";
-const isModule = (v: string): v is VereinModule => (VEREIN_MODULES as readonly string[]).includes(v);
 const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
 const isPlain = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -262,11 +261,11 @@ export function resolveMatrix(overrides: unknown): EffectiveMatrix {
     for (const role of CONFIGURABLE_ROLES) {
       const row = own(levels, role) ? levels[role] : undefined;
       if (!isPlain(row)) continue;
-      for (const module of VEREIN_MODULES) {
-        const v = own(row, module) ? row[module] : undefined;
-        if (!isLevelValue(v) || !isAllowedLevel(role, module, v)) continue;
-        if (v === "none") delete m.levels[role][module];
-        else m.levels[role][module] = v;
+      for (const mod of VEREIN_MODULES) {
+        const v = own(row, mod) ? row[mod] : undefined;
+        if (!isLevelValue(v) || !isAllowedLevel(role, mod, v)) continue;
+        if (v === "none") delete m.levels[role][mod];
+        else m.levels[role][mod] = v;
       }
     }
   }
@@ -287,10 +286,10 @@ export function resolveMatrix(overrides: unknown): EffectiveMatrix {
 export function diffFromDefault(matrix: EffectiveMatrix): PermissionOverrides {
   const out: PermissionOverrides = {};
   for (const role of CONFIGURABLE_ROLES) {
-    for (const module of VEREIN_MODULES) {
-      const have = matrix.levels[role][module] ?? "none";
-      const def = DEFAULT_MATRIX.levels[role][module] ?? "none";
-      if (have !== def) ((out.levels ??= {})[role] ??= {})[module] = have;
+    for (const mod of VEREIN_MODULES) {
+      const have = matrix.levels[role][mod] ?? "none";
+      const def = DEFAULT_MATRIX.levels[role][mod] ?? "none";
+      if (have !== def) ((out.levels ??= {})[role] ??= {})[mod] = have;
     }
     for (const flag of ROLE_FLAGS) {
       if (matrix.flags[role][flag] !== DEFAULT_MATRIX.flags[role][flag]) ((out.flags ??= {})[role] ??= {})[flag] = matrix.flags[role][flag];

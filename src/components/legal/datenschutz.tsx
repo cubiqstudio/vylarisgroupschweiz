@@ -8,6 +8,7 @@ import { getMessages, getSite } from "@/i18n/server";
 import { formatPrivacyUpdatedAt, getLegal } from "@/lib/legal";
 import { formatSectionRefs, privacyPlan } from "@/lib/legal-toggles";
 import { SESSION_COOKIE } from "@/lib/session";
+import { GUEST_RETENTION_DAYS } from "@/lib/verein/events-lib";
 
 /** Schlüssel der Hell-/Dunkel-Wahl im lokalen Speicher (siehe src/components/theme/theme-switch.tsx). */
 const THEME_KEY = "vgs-theme";
@@ -537,7 +538,9 @@ export async function Datenschutz() {
           </p>
           <h3>Aufbewahrung und Löschung</h3>
           <p>
-            Wir speichern die Daten, solange du Mitglied bist. Nach einem Austritt, Ausschluss oder Todesfall bewahren wir
+            Wir speichern die Daten, solange du Mitglied bist. Ist ein Austritt gemeldet, setzt ein täglicher automatischer
+            Lauf den Status nach Ablauf des eingetragenen Austrittsdatums auf «ausgetreten»; dabei werden keine weiteren
+            Daten bearbeitet. Nach einem Austritt, Ausschluss oder Todesfall bewahren wir
             sie nur noch, soweit dies nötig ist, etwa für offene Forderungen, Buchhaltungsbelege, Protokolle und das
             Mitgliederverzeichnis der Vereinsgeschichte. Darüber hinaus entfernt der Vorstand die Personendaten
             (Kontaktdaten, Geburtsdatum, Notizen); Mitgliedernummer, Status sowie Eintritts- und Austrittsdatum bleiben
@@ -720,7 +723,8 @@ export async function Datenschutz() {
             der Seite, die sich öffnet, die Schaltfläche «Anmeldung bestätigen» anklickst, gilt deine Anmeldung. Dann
             erhältst du einen Platz oder, wenn der Anlass ausgebucht ist, einen Platz auf der Warteliste, und wir senden
             dir die Bestätigung mit dem Link zum Abmelden. Der Link gilt 48 Stunden. Bestätigst du nicht innerhalb von 48
-            Stunden, löschen wir die unbestätigte Anmeldung samt Name, E-Mail-Adresse und Bemerkung. Wiederholst du die
+            Stunden, verfällt die Anmeldung; wir löschen sie samt Name, E-Mail-Adresse und Bemerkung im täglichen
+            Aufräumlauf, spätestens drei Tage nach deiner Anmeldung. Wiederholst du die
             Anmeldung mit derselben Adresse, senden wir höchstens alle paar Minuten eine neue E-Mail. Mitglieder, die im
             Mitgliederportal angemeldet sind, müssen nichts bestätigen.
           </p>
@@ -732,9 +736,12 @@ export async function Datenschutz() {
           </p>
           <h3>Aufbewahrung und Löschung</h3>
           <p>
-            Unbestätigte Anmeldungen von Gästen löschen wir nach 48 Stunden automatisch. Bestätigte Angaben von Gästen
-            bewahren wir nur für den Anlass auf und entfernen oder anonymisieren sie danach.
-            Anmeldungen von Mitgliedern gehören zu den Mitgliederdaten{paren("mitglieder")}. Mit dem Abmelde-Link kannst du
+            Unbestätigte Anmeldungen von Gästen verfallen nach 48 Stunden und werden im täglichen Aufräumlauf gelöscht,
+            spätestens drei Tage nach der Anmeldung. Bestätigte Angaben von Gästen (Name, E-Mail-Adresse, Bemerkung)
+            bewahren wir bis {GUEST_RETENTION_DAYS} Tage nach dem Anlass auf; danach werden sie im täglichen Aufräumlauf entfernt. Die
+            Anmeldung bleibt dann ohne Personenbezug als Zahl der Plätze bestehen. Auf Wunsch löschen wir deine Angaben
+            früher: Schreib uns die E-Mail-Adresse, mit der du dich angemeldet hast. Wir suchen alle Anmeldungen zu dieser
+            Adresse, geben dir Auskunft darüber und löschen sie auf Verlangen. Anmeldungen von Mitgliedern gehören zu den Mitgliederdaten{paren("mitglieder")}. Mit dem Abmelde-Link kannst du
             dich jederzeit abmelden.
           </p>
           {rights()}
@@ -910,7 +917,7 @@ export async function Datenschutz() {
             </li>
           )}
           {has("versammlungen") && <li>Protokolle und Beschlüsse: solange der Verein sie braucht{paren("versammlungen")}.</li>}
-          {has("anlaesse") && <li>Anmeldungen von Gästen: unbestätigte 48 Stunden, bestätigte nur für den Anlass{paren("anlaesse")}.</li>}
+          {has("anlaesse") && <li>Anmeldungen von Gästen: unbestätigte spätestens drei Tage, bestätigte bis {GUEST_RETENTION_DAYS} Tage nach dem Anlass{paren("anlaesse")}.</li>}
           {has("dokumente") && <li>Dokumente: solange der Verein sie braucht, frühere Fassungen bleiben erhalten{paren("dokumente")}.</li>}
           {has("audit") && <li>Änderungsprotokoll: Einträge bleiben bestehen und werden nicht nachträglich geändert{paren("audit")}.</li>}
         </ul>

@@ -21,12 +21,12 @@ type ChangeSet = { before: Record<string, string | boolean>; after: Record<strin
 export function describeMatrixChange(before: EffectiveMatrix, after: EffectiveMatrix): ChangeSet {
   const out: ChangeSet = { before: {}, after: {} };
   for (const role of CONFIGURABLE_ROLES) {
-    for (const module of VEREIN_MODULES) {
-      const b = before.levels[role][module] ?? "none";
-      const a = after.levels[role][module] ?? "none";
+    for (const mod of VEREIN_MODULES) {
+      const b = before.levels[role][mod] ?? "none";
+      const a = after.levels[role][mod] ?? "none";
       if (a !== b) {
-        out.before[`${role}.${module}`] = b;
-        out.after[`${role}.${module}`] = a;
+        out.before[`${role}.${mod}`] = b;
+        out.after[`${role}.${mod}`] = a;
       }
     }
     for (const flag of ROLE_FLAGS) {

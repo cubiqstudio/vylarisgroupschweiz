@@ -9,6 +9,10 @@
 {$DOMAIN}, www.{$DOMAIN} {
 	encode zstd gzip
 
+	# Der tägliche Lauf (/api/cron/*) wird nur intern vom Dienst «cron» direkt bei app:3000 aufgerufen, nie von aussen.
+	@cron path /api/cron /api/cron/*
+	respond @cron "Nicht gefunden." 404
+
 	reverse_proxy app:3000 {
 		health_uri /api/health
 		health_interval 15s

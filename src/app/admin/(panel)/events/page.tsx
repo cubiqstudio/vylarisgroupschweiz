@@ -39,6 +39,9 @@ export default async function AdminEventsPage({ searchParams }: Props) {
   return (
     <div>
       <PageTitle title="Anlässe" description="Anlässe planen und veröffentlichen, Anmeldungen und Warteliste verwalten, Teilnehmerlisten exportieren.">
+        <Link href="/admin/events/gaeste" className={buttonClass("ghost", "md")}>
+          Gäste: Auskunft und Löschung
+        </Link>
         {canWrite && (
           <Link href="/admin/events/new" className={buttonClass("primary", "md")}>
             <CalendarPlus className="h-4 w-4" aria-hidden />

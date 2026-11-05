@@ -3,7 +3,7 @@ import { site } from "@/lib/site";
 import { requireModulePage } from "@/lib/verein/guard";
 import { loadVereinDashboard } from "@/lib/verein/overview-data";
 import { PageTitle } from "@/components/admin/core/page-title";
-import { NextDatesCard, QuickActions, SetupHelp, VereinKpis } from "@/components/admin/verein/dashboard-parts";
+import { CronStatusCard, NextDatesCard, QuickActions, SetupHelp, VereinKpis } from "@/components/admin/verein/dashboard-parts";
 import { WebsiteOverview } from "@/components/admin/verein/website-overview";
 
 export const metadata: Metadata = { title: "Übersicht" };
@@ -31,6 +31,7 @@ export default async function AdminOverviewPage() {
       />
 
       {data.setup && <SetupHelp groups={data.setup} />}
+      <CronStatusCard data={data} />
 
       {hasVerein && (
         <>

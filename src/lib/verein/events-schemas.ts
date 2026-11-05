@@ -104,6 +104,10 @@ export const adminRegistrationSchema = z
   });
 export type AdminRegistrationInput = z.infer<typeof adminRegistrationSchema>;
 
+/** Auskunft und Löschung für Gäste: die E-Mail-Adresse, mit der sich die Person angemeldet hat. */
+export const guestEmailSchema = z.object({ email: emailSchema });
+export type GuestEmailInput = z.infer<typeof guestEmailSchema>;
+
 export const registrationActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("cancel"), sendMail: boolSchema.default(true) }),
   z.object({ action: z.literal("promote"), force: boolSchema.default(false), sendMail: boolSchema.default(true) }),

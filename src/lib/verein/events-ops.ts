@@ -106,7 +106,7 @@ export const contactSelect = { guestName: true, guestEmail: true, member: { sele
 export type Promoted = { id: string; seats: number; recipient: Recipient | null };
 
 /** Lässt von der Warteliste nachrücken, wer in die freien Plätze passt (nur bei veröffentlichten Anlässen). Aufruf innerhalb der Transaktion nach lockEvent. */
-async function promoteWaitlist(tx: Tx, event: Pick<LockedEvent, "id" | "capacity" | "status">, now: Date): Promise<Promoted[]> {
+export async function promoteWaitlist(tx: Tx, event: Pick<LockedEvent, "id" | "capacity" | "status">, now: Date): Promise<Promoted[]> {
   if (event.status !== "VEROEFFENTLICHT") return [];
   const waiting = await tx.eventRegistration.findMany({
     where: { eventId: event.id, status: "WARTELISTE" },
@@ -126,7 +126,7 @@ async function promoteWaitlist(tx: Tx, event: Pick<LockedEvent, "id" | "capacity
 }
 
 /** Informiert die Nachgerückten (im Hintergrund, Fehler werden nur protokolliert). */
-function mailPromoted(event: MailEvent, promoted: readonly Promoted[]): void {
+export function mailPromoted(event: MailEvent, promoted: readonly Promoted[]): void {
   const todo = promoted.filter((p): p is Promoted & { recipient: Recipient } => p.recipient !== null);
   if (todo.length === 0) return;
   runInBackground(() => Promise.allSettled(todo.map((p) => sendPromotionMail({ recipient: p.recipient, event, seats: p.seats }))));
@@ -185,10 +185,10 @@ export async function registerForEvent(opts: {
 
     let existing =
       who.kind === "member"
-        ? await tx.eventRegistration.findUnique({ where: { eventId_memberId: { eventId: ev.id, memberId: who.member.id } }, select: { id: true, status: true, seats: true, createdAt: true, confirmSentAt: true } })
+        ? await tx.eventRegistration.findUnique({ where: { eventId_memberId: { eventId: ev.id, memberId: who.member.id } }, select: { id: true, status: true, seats: true, guestName: true, note: true, createdAt: true, confirmSentAt: true } })
         : who.email === ""
           ? null
-          : await tx.eventRegistration.findFirst({ where: { eventId: ev.id, memberId: null, guestEmail: who.email, status: { not: "ABGESAGT" } }, select: { id: true, status: true, seats: true, createdAt: true, confirmSentAt: true } });
+          : await tx.eventRegistration.findFirst({ where: { eventId: ev.id, memberId: null, guestEmail: who.email, status: { not: "ABGESAGT" } }, select: { id: true, status: true, seats: true, guestName: true, note: true, createdAt: true, confirmSentAt: true } });
 
     // Gast mit noch unbestätigter Anmeldung: Ist die Frist um oder trägt der Vorstand die Person von Hand ein, ersetzt die neue Anmeldung die alte.
     // Sonst bleibt die alte unverändert (niemand kann fremde, noch offene Angaben überschreiben); die Bestätigungsmail geht höchstens alle paar Minuten erneut hinaus.
@@ -203,7 +203,7 @@ export async function registerForEvent(opts: {
           ev,
           outcome: { registrationId: existing.id, status: "UNBESTAETIGT" as const, seats: existing.seats, created: false },
           token: undefined,
-          confirm: resend ? { registrationId: existing.id, createdAt: existing.createdAt } : undefined,
+          confirm: resend ? { registrationId: existing.id, createdAt: existing.createdAt, name: existing.guestName, note: existing.note } : undefined,
         };
       }
     }
@@ -270,7 +270,7 @@ export async function registerForEvent(opts: {
       ev,
       outcome: { registrationId, status, seats, created: true },
       token: pending ? undefined : t.token,
-      confirm: pending ? { registrationId, createdAt: now } : undefined,
+      confirm: pending ? { registrationId, createdAt: now, name: who.kind === "guest" ? who.name : "", note: opts.note } : undefined,
     };
   });
 
@@ -280,7 +280,7 @@ export async function registerForEvent(opts: {
       // Double-Opt-In: Link zur Bestätigung der Adresse (der Aufruf allein bestätigt nichts, erst die Schaltfläche auf der Seite).
       const confirmToken = signConfirmToken(confirmSecret(), confirm.registrationId, confirmExpiresAt(confirm.createdAt));
       const recipient: Recipient = { to: who.email, name: who.name, isMember: false };
-      runInBackground(() => sendConfirmRequestMail({ recipient, event: mailEventOf(ev), seats: outcome.seats, token: confirmToken }));
+      runInBackground(() => sendConfirmRequestMail({ recipient, event: mailEventOf(ev), seats: outcome.seats, token: confirmToken, registeredName: confirm.name, note: confirm.note }));
     } else if (outcome.status !== "UNBESTAETIGT" && (token !== undefined || (!outcome.created && who.kind === "guest"))) {
       const recipient: Recipient | null =
         who.kind === "member"

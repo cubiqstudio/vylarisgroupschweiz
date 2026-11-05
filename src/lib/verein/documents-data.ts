@@ -7,7 +7,7 @@ import type { CurrentAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { auditActor, diffForAudit, logAudit } from "./audit";
 import { DOCUMENT_CATEGORY_LABEL, DOCUMENT_VISIBILITY_LABEL, type DocumentCategory, type DocumentVisibility } from "./constants";
-import { isSameContent, nextVersionNumber, visibilitiesFor, type DocumentAudience, type DocumentFilters } from "./documents-lib";
+import { BOARD_DOCUMENT_AUDIT_LABEL, isBoardOnlyAudit, isSameContent, nextVersionNumber, redactBoardAuditValues, visibilitiesFor, type DocumentAudience, type DocumentFilters } from "./documents-lib";
 import type { DocumentCreateInput, DocumentPatchInput } from "./documents-schemas";
 import type { UploadCheck } from "./files";
 import { searchWhere } from "./pagination";
@@ -119,8 +119,11 @@ async function requireMeetingRef(tx: Tx, meetingId: string | null | undefined): 
   if (n === 0) throw new ApiError(422, "VALIDATION_ERROR", "Ungültige Eingabe.", { meetingId: "Die gewählte Sitzung wurde nicht gefunden." });
 }
 
+/** Bezeichnung für das Änderungsprotokoll. Bei «Nur Vorstand» ohne Titel und Kategorie (das Protokoll sehen auch Rollen ohne dieses Recht). */
 const describe = (d: { title: string; category: string; visibility: string }) =>
-  `«${d.title}» (${DOCUMENT_CATEGORY_LABEL[d.category as DocumentCategory] ?? d.category}, ${DOCUMENT_VISIBILITY_LABEL[d.visibility as DocumentVisibility] ?? d.visibility})`;
+  isBoardOnlyAudit(d.visibility)
+    ? BOARD_DOCUMENT_AUDIT_LABEL
+    : `Dokument «${d.title}» (${DOCUMENT_CATEGORY_LABEL[d.category as DocumentCategory] ?? d.category}, ${DOCUMENT_VISIBILITY_LABEL[d.visibility as DocumentVisibility] ?? d.visibility})`;
 
 /** «Nur Vorstand» ohne das Einzelrecht: weder sehen noch anlegen noch ändern (Antwort wie «nicht gefunden»). */
 function assertBoardAllowed(admin: { roles: readonly string[] }, visibility: string, create = false): void {
@@ -163,8 +166,8 @@ export async function createDocument(admin: CurrentAdmin, input: DocumentCreateI
       action: "document.create",
       objectType: "Document",
       objectId: doc.id,
-      summary: `Dokument ${describe(doc)} hochgeladen`,
-      after: { datei: file.fileName, groesse: file.sizeBytes, sha256: file.sha256 },
+      summary: `${describe(doc)} hochgeladen`,
+      after: isBoardOnlyAudit(doc.visibility) ? { groesse: file.sizeBytes } : { datei: file.fileName, groesse: file.sizeBytes, sha256: file.sha256 },
     });
     return doc;
   });
@@ -205,7 +208,7 @@ export async function addDocumentVersion(admin: CurrentAdmin, id: string, file: 
       objectType: "Document",
       objectId: id,
       summary: `Neue Version ${version} zu ${describe(doc)} hochgeladen`,
-      after: { version, datei: file.fileName, groesse: file.sizeBytes, sha256: file.sha256 },
+      after: isBoardOnlyAudit(doc.visibility) ? { version, groesse: file.sizeBytes } : { version, datei: file.fileName, groesse: file.sizeBytes, sha256: file.sha256 },
     });
     return { id, version };
   });
@@ -226,13 +229,16 @@ export async function updateDocument(admin: CurrentAdmin, id: string, patch: Doc
     const diff = diffForAudit(before, after);
     if (Object.keys(diff.after).length > 0 || Object.keys(diff.before).length > 0) {
       const archiveChanged = (before.archivedAt === null) !== (after.archivedAt === null);
+      // Vorher oder nachher «Nur Vorstand»: keine Inhalte (Titel, Beschreibung, Sitzung) ins Protokoll.
+      const board = isBoardOnlyAudit(before.visibility, after.visibility);
+      const text = (d: typeof after) => (board ? BOARD_DOCUMENT_AUDIT_LABEL : describe(d));
       await logAudit(tx, {
         actor: auditActor(admin),
         action: archiveChanged ? (after.archivedAt ? "document.archive" : "document.unarchive") : "document.update",
         objectType: "Document",
         objectId: id,
-        summary: archiveChanged ? `Dokument ${describe(after)} ${after.archivedAt ? "archiviert" : "wiederhergestellt"}` : `Dokument ${describe(after)} geändert`,
-        ...diff,
+        summary: archiveChanged ? `${text(after)} ${after.archivedAt ? "archiviert" : "wiederhergestellt"}` : `${text(after)} geändert`,
+        ...(board ? { before: redactBoardAuditValues(diff.before), after: redactBoardAuditValues(diff.after) } : diff),
       });
     }
     return { id };
@@ -251,8 +257,10 @@ export async function deleteDocument(admin: CurrentAdmin, id: string) {
       action: "document.delete",
       objectType: "Document",
       objectId: id,
-      summary: `Dokument ${describe(doc)} mit ${doc._count.versions} ${doc._count.versions === 1 ? "Version" : "Versionen"} gelöscht`,
-      before: { titel: doc.title, kategorie: doc.category, sichtbarkeit: doc.visibility, versionen: doc._count.versions },
+      summary: `${describe(doc)} mit ${doc._count.versions} ${doc._count.versions === 1 ? "Version" : "Versionen"} gelöscht`,
+      before: isBoardOnlyAudit(doc.visibility)
+        ? { sichtbarkeit: doc.visibility, versionen: doc._count.versions }
+        : { titel: doc.title, kategorie: doc.category, sichtbarkeit: doc.visibility, versionen: doc._count.versions },
     });
     return { id };
   });

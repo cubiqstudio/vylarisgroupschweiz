@@ -5,7 +5,8 @@
 // (POST) ruft confirmRegistrationByToken auf. So bestätigen Mail-Scanner, die Links vorab abrufen, nichts. Beim Bestätigen wird in einer
 // Transaktion, die den Anlass sperrt, ein Platz vergeben oder die Person auf die Warteliste gesetzt: gleichzeitige Bestätigungen
 // überbuchen den Anlass nie. Eine zweite Bestätigung ändert nichts.
-// Unbestätigte Anmeldungen, die älter als 48 Stunden sind, werden gelöscht (Datensparsamkeit, revDSG).
+// Unbestätigte Anmeldungen, die älter als 48 Stunden sind, werden gelöscht (Datensparsamkeit, revDSG): im täglichen Lauf, also spätestens
+// CONFIRM_PURGE_MAX_DAYS Tage nach der Anmeldung; bis dahin gelten sie als abgelaufen (kein Bestätigen mehr möglich, in Zählern ausgeblendet).
 import "server-only";
 import { runInBackground } from "@/lib/account";
 import { db } from "@/lib/db";
@@ -30,7 +31,7 @@ export type ConfirmResult =
   | "UNKNOWN";
 
 export type ConfirmInfo =
-  | { state: "READY"; eventTitle: string; startsAt: Date; endsAt: Date | null; location: string; seats: number; expiresAt: Date }
+  | { state: "READY"; eventTitle: string; startsAt: Date; endsAt: Date | null; location: string; seats: number; /** Name und Bemerkung, wie sie in der Anmeldung stehen (die Besitzerin der Adresse sieht so, was sie bestätigt) */ guestName: string; note: string; expiresAt: Date }
   | { state: "UNKNOWN" | "ALREADY" | "EXPIRED" | "CLOSED"; eventTitle?: string };
 
 const isConfirmed = (status: string) => status === "ANGEMELDET" || status === "WARTELISTE";
@@ -42,14 +43,14 @@ export async function describeConfirmToken(token: string, now: Date = new Date()
   const registrationId = check.registrationId;
   const reg = await db.eventRegistration.findUnique({
     where: { id: registrationId },
-    select: { status: true, seats: true, createdAt: true, event: { select: { title: true, startsAt: true, endsAt: true, location: true, status: true, registrationDeadline: true, isPublic: true, membersOnly: true } } },
+    select: { status: true, seats: true, guestName: true, note: true, createdAt: true, event: { select: { title: true, startsAt: true, endsAt: true, location: true, status: true, registrationDeadline: true, isPublic: true, membersOnly: true } } },
   });
   if (!reg) return { state: check.ok ? "UNKNOWN" : "EXPIRED" };
   if (isConfirmed(reg.status)) return { state: "ALREADY", eventTitle: reg.event.title };
   if (reg.status !== "UNBESTAETIGT") return { state: "UNKNOWN" };
   if (!check.ok || isConfirmationExpired(reg.createdAt, now)) return { state: "EXPIRED", eventTitle: reg.event.title };
   if (registrationBlock(reg.event, now) || reg.event.membersOnly || !reg.event.isPublic) return { state: "CLOSED", eventTitle: reg.event.title };
-  return { state: "READY", eventTitle: reg.event.title, startsAt: reg.event.startsAt, endsAt: reg.event.endsAt, location: reg.event.location, seats: reg.seats, expiresAt: check.expiresAt };
+  return { state: "READY", eventTitle: reg.event.title, startsAt: reg.event.startsAt, endsAt: reg.event.endsAt, location: reg.event.location, seats: reg.seats, guestName: reg.guestName, note: reg.note, expiresAt: check.expiresAt };
 }
 
 /**
@@ -97,7 +98,7 @@ export async function purgeExpiredUnconfirmedRegistrations(now: Date = new Date(
       action: "registration.purge",
       objectType: "EventRegistration",
       objectId: null,
-      summary: `${res.count} unbestätigte ${res.count === 1 ? "Anmeldung" : "Anmeldungen"} zu Anlässen nach 48 Stunden gelöscht`,
+      summary: `${res.count} unbestätigte ${res.count === 1 ? "Anmeldung" : "Anmeldungen"} zu Anlässen nach Ablauf der Frist von 48 Stunden gelöscht`,
       after: { anzahl: res.count },
     });
   }

@@ -605,6 +605,11 @@ export async function runMemberAction(admin: CurrentAdmin, id: string, input: Me
 
 /** Vollzieht alle fälligen Austritte (letzter Tag der Mitgliedschaft liegt hinter uns). Gibt die betroffenen Mitglieder zurück. */
 export async function completeDueExits(admin: CurrentAdmin): Promise<Array<{ id: string; memberNumber: number }>> {
+  return completeDueExitsAs(auditActor(admin));
+}
+
+/** Wie completeDueExits, aber mit beliebigem Akteur im Änderungsprotokoll (täglicher Lauf: SYSTEM_ACTOR). */
+export async function completeDueExitsAs(actor: AuditActor): Promise<Array<{ id: string; memberNumber: number }>> {
   const today = todayZurich();
   const due = await db.member.findMany({ where: { status: "AKTIV", exitNoticeAt: { not: null }, leftAt: { lt: today } }, select: { id: true, memberNumber: true } });
   const done: Array<{ id: string; memberNumber: number }> = [];
@@ -613,7 +618,7 @@ export async function completeDueExits(admin: CurrentAdmin): Promise<Array<{ id:
       const res = await tx.member.updateMany({ where: { id: m.id, status: "AKTIV", leftAt: { lt: today } }, data: { status: "AUSGETRETEN" } });
       if (res.count === 0) return;
       await logAudit(tx, {
-        actor: auditActor(admin),
+        actor: actor,
         action: "member.exit.complete",
         objectType: "Member",
         objectId: m.id,

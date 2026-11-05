@@ -81,15 +81,28 @@ export default async function ConfirmPage({ params }: Props) {
                     <dd className="mt-0.5 text-zinc-200 [overflow-wrap:anywhere]">{info.location}</dd>
                   </div>
                 )}
+                {info.guestName && (
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">{m.registeredAs}</dt>
+                    <dd className="mt-0.5 text-zinc-200 [overflow-wrap:anywhere]">{info.guestName}</dd>
+                  </div>
+                )}
                 <div>
                   <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">{m.seats}</dt>
                   <dd className="mt-0.5 text-zinc-200">{info.seats}</dd>
                 </div>
+                {info.note && (
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">{m.note}</dt>
+                    <dd className="mt-0.5 whitespace-pre-line text-zinc-200 [overflow-wrap:anywhere]">{info.note}</dd>
+                  </div>
+                )}
                 <div>
                   <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">{m.validUntil}</dt>
                   <dd className="mt-0.5 text-zinc-200">{formatDateTimeCh(info.expiresAt)}</dd>
                 </div>
               </dl>
+              <p className="text-sm leading-relaxed text-zinc-400">{m.notYours}</p>
               <ConfirmByToken token={token} />
             </div>
           )}

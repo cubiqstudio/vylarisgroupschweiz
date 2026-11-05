@@ -312,14 +312,17 @@ if [ "$DRY_RUN" -eq 0 ]; then
 fi
 
 # --- 6. Ingress (Veröffentlichte Anwendungen) -----------------------------------------------------
-DESIRED_INGRESS=$(printf '%s\n' "${HOSTS[@]}" | jq -R . | jq -sc --arg s "$ORIGIN_SERVICE" \
-  '[.[] | {hostname: ., service: $s}] + [{hostname: null, service: "http_status:404"}]')
+# Der tägliche Lauf (/api/cron/*) wird nur intern vom Dienst «cron» aufgerufen: von aussen gibt der Tunnel dafür 404 zurück
+# (die Regel mit Pfad muss vor der Regel für die ganze Domain stehen).
+CRON_PATH_REGEX='^/api/cron(/|$)'
+DESIRED_INGRESS=$(printf '%s\n' "${HOSTS[@]}" | jq -R . | jq -sc --arg s "$ORIGIN_SERVICE" --arg p "$CRON_PATH_REGEX" \
+  '[.[] | {hostname: ., path: $p, service: "http_status:404"}] + [.[] | {hostname: ., path: null, service: $s}] + [{hostname: null, path: null, service: "http_status:404"}]')
 
 ingress_unchanged=0
 if [ -n "$TUNNEL_ID" ]; then
   cf GET "/accounts/$ACCOUNT_ID/cfd_tunnel/$TUNNEL_ID/configurations"
   if api_ok; then
-    current=$(jq -c '[.result.config.ingress[]? | {hostname: (.hostname // null), service: .service}]' <<<"$CF_BODY")
+    current=$(jq -c '[.result.config.ingress[]? | {hostname: (.hostname // null), path: (.path // null), service: .service}]' <<<"$CF_BODY")
     jq -e --argjson a "$current" --argjson b "$DESIRED_INGRESS" -n '$a == $b' >/dev/null && ingress_unchanged=1
   elif [ "$CF_CODE" = 401 ] || [ "$CF_CODE" = 403 ]; then
     api_fail "Tunnel-Konfiguration lesen" "Account → Cloudflare Tunnel: Bearbeiten"
@@ -331,7 +334,7 @@ elif [ "$DRY_RUN" -eq 1 ]; then
   plan "Ingress würde gesetzt: ${HOSTS[*]} → $ORIGIN_SERVICE (sonst 404)."
 else
   log "Setze die Ingress-Regeln (${HOSTS[*]} → $ORIGIN_SERVICE) …"
-  body=$(jq -nc --argjson i "$DESIRED_INGRESS" '{config: {ingress: ($i | map(if .hostname == null then del(.hostname) else . end))}}')
+  body=$(jq -nc --argjson i "$DESIRED_INGRESS" '{config: {ingress: ($i | map(with_entries(select(.value != null))))}}')
   api PUT "/accounts/$ACCOUNT_ID/cfd_tunnel/$TUNNEL_ID/configurations" "$body" "Tunnel-Konfiguration setzen" "Account → Cloudflare Tunnel: Bearbeiten"
   ok "Ingress-Regeln gesetzt"
 fi

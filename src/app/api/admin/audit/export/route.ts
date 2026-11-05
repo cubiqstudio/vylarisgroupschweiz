@@ -4,6 +4,7 @@ import { listAuditForExport, parseAuditFilters } from "@/lib/verein/audit-data";
 import { auditActionLabel, auditObjectLabel } from "@/lib/verein/audit-view";
 import { auditActor, logAudit } from "@/lib/verein/audit";
 import { csvResponse } from "@/lib/verein/csv";
+import { canSeeBoardDocuments } from "@/lib/verein/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ const TYPE_LABEL: Record<string, string> = { ADMIN: "Verwaltung", MEMBER: "Mitgl
 export const GET = handle(async (req: Request) => {
   const admin = await requireAdmin(req);
   const filters = parseAuditFilters(new URL(req.url).searchParams);
-  const rows = await listAuditForExport(filters);
+  const rows = await listAuditForExport(filters, canSeeBoardDocuments(admin.roles));
   await logAudit(db, {
     actor: auditActor(admin),
     action: "export.audit",

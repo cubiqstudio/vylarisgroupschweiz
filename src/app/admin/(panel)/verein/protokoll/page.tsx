@@ -10,6 +10,7 @@ import { PageTitle } from "@/components/admin/core/page-title";
 import { AuditTable } from "@/components/admin/verein/audit-table";
 import { auditFacets, listAuditLog, parseAuditFilters } from "@/lib/verein/audit-data";
 import { auditActionLabel, auditObjectLabel } from "@/lib/verein/audit-view";
+import { canSeeBoardDocuments } from "@/lib/verein/permissions";
 import { requireModulePage } from "@/lib/verein/guard";
 import { listHref, listParams, pageMeta } from "@/lib/verein/pagination";
 
@@ -19,15 +20,16 @@ export const metadata: Metadata = { title: "Änderungsprotokoll" };
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function Page({ searchParams }: Props) {
-  await requireModulePage("audit");
+  const admin = await requireModulePage("audit");
+  const board = canSeeBoardDocuments(admin.roles);
   const sp = await searchParams;
   const filters = parseAuditFilters(sp);
   const { page, pageSize } = listParams(sp);
 
-  const first = await listAuditLog(filters, (page - 1) * pageSize, pageSize);
+  const first = await listAuditLog(filters, board, (page - 1) * pageSize, pageSize);
   const meta = pageMeta(first.total, page, pageSize);
   const [rows, facets] = await Promise.all([
-    meta.page === page ? first.rows : listAuditLog(filters, (meta.page - 1) * pageSize, pageSize).then((r) => r.rows),
+    meta.page === page ? first.rows : listAuditLog(filters, board, (meta.page - 1) * pageSize, pageSize).then((r) => r.rows),
     auditFacets(),
   ]);
 
