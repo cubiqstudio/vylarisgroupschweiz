@@ -2,7 +2,7 @@ import { handle } from "@/lib/api";
 import { getPortalMember, updateOwnProfile } from "@/lib/verein/members-data";
 import { portalProfilePatchSchema } from "@/lib/verein/members-schemas";
 import { requireMember } from "@/lib/verein/guard";
-import { adminOk, notFound, parsePatch } from "../../../../_lib/http";
+import { adminOk, notFound, parsePatch } from "../../../_lib/http";
 
 export const dynamic = "force-dynamic";
 

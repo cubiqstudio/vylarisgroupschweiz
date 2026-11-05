@@ -125,6 +125,27 @@ export function sendExitConfirmed(m: { email: string; firstName: string; memberN
   }));
 }
 
+/** Hinweis an den Vorstand (Adresse aus den Vereinseinstellungen), wenn ein Mitglied im Portal den Austritt erklärt hat. */
+export async function sendExitNotice(m: { id: string; memberNumber: number; firstName: string; lastName: string }, plan: ExitPlan): Promise<MailReport> {
+  const settings = await getVereinSettings();
+  if (!settings.applyNotifyEmail) return { sent: false, skipped: "Keine Benachrichtigungsadresse eingestellt." };
+  return deliver(settings.applyNotifyEmail, () => ({
+    to: settings.applyNotifyEmail,
+    subject: `Austrittserklärung von Mitglied ${m.memberNumber}`,
+    heading: "Austrittserklärung eingegangen",
+    paragraphs: ["Ein Mitglied hat im Mitgliederbereich den Austritt erklärt. Der Termin wurde nach den Vereinseinstellungen berechnet; bitte prüfe ihn gemäss Statuten."],
+    details: [
+      ["Mitglied", `${m.firstName} ${m.lastName}`.trim()],
+      ["Mitgliedernummer", String(m.memberNumber)],
+      ["Erklärung vom", formatDateCh(plan.noticeAt)],
+      ["Mitgliedschaft endet am", formatDateCh(plan.effective)],
+    ],
+    cta: { label: "Mitglied ansehen", url: publicUrl(`/admin/members/${encodeURIComponent(m.id)}`) },
+    signature: false,
+    footerNote: "Interne Benachrichtigung des Vereins.",
+  }));
+}
+
 /** Mail zur ausgeführten Aktion (falls vorgesehen). Fehler beim Versand brechen die Aktion nie ab; das Ergebnis meldet sie. */
 export async function mailAfterAction(outcome: ActionOutcome): Promise<MailReport | null> {
   switch (outcome.notify) {

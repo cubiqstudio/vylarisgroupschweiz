@@ -26,12 +26,6 @@ export const verein = defineMessages({
       documents: "Dokumente",
     },
   },
-  inProgress: {
-    badge: "In Arbeit",
-    title: "In Arbeit",
-    text: "Dieser Bereich wird gerade aufgebaut und ist bald verfügbar.",
-    back: "Zurück zur Übersicht",
-  },
   public: {
     join: {
       metaTitle: "Mitglied werden",

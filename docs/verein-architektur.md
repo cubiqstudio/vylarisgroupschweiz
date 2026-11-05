@@ -297,6 +297,19 @@ Die Einstellungen liegen in `SiteSetting` (Schlüssel/Wert), Schlüssel mit Prä
 | `applyEnabled` | `verein.public.applyEnabled` | `false` (Beitrittsformular aus) |
 | `applyNotifyEmail` | `verein.public.applyNotifyEmail` | leer |
 
+Die Vereinsstammdaten liegen getrennt davon unter eigenen Schlüsseln (`src/lib/verein/profile-schema.ts`, Lesen und Schreiben in `profile.ts`, mit Protokolleintrag):
+
+| Feld | Schlüssel | Voreinstellung |
+| --- | --- | --- |
+| `name` | `verein.profile.name` | Rechtsträger der Website (`src/lib/sites.ts`) |
+| `seat` | `verein.profile.seat` | leer (Sitz gemäss Statuten) |
+| `foundedOn` | `verein.profile.foundedOn` | leer |
+| `purpose` | `verein.profile.purpose` | leer (Zweck gemäss Statuten) |
+| `uid` | `verein.profile.uid` | leer (UID mit Prüfziffer geprüft) |
+| `register` | `verein.profile.register` | leer |
+
+Wer den Vereinsnamen braucht (Mails, Impressum, Dokumente), nutzt `getVereinName()` aus `profile.ts`.
+
 Keine erfundenen Werte: Beträge, Fristen und Kontodaten sind leer, bis der Verein sie einträgt. Fehlt etwas, das eine Funktion braucht, meldet `missingForInvoicing`, `missingForReminders` bzw. `missingForInvitations` genau, was fehlt. Die Funktion bleibt bis dahin gesperrt, mit Hinweis und Link auf `/admin/verein/finanzen` bzw. `/admin/verein`.
 
 Zwei Voreinstellungen haben eine Grundlage im Gesetz bzw. sind neutral und sind in der Oberfläche mit «gemäss Statuten anpassen» zu kennzeichnen:

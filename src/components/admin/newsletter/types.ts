@@ -8,6 +8,9 @@ export type CampaignDto = {
   preheader: string;
   content: string;
   status: string;
+  /** Empfängerkreis: ALL | MEMBERS | MEMBERSHIP_TYPE */
+  segment: string;
+  segmentTypeId: string | null;
   recipientCount: number;
   sentCount: number;
   failedCount: number;

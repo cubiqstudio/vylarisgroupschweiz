@@ -6,6 +6,7 @@ import { Container } from "@/components/ui/section";
 import { ThemeSwitch } from "@/components/theme/theme-switch";
 import { site } from "@/lib/site";
 import { getLegal } from "@/lib/legal";
+import { hasPublicStatutes } from "@/lib/verein/documents-data";
 import { getMessages } from "@/i18n/server";
 import { shell } from "@/i18n/shell";
 
@@ -21,10 +22,19 @@ async function loadAddress(): Promise<string[]> {
   }
 }
 
+/** Der Statuten-Link erscheint nur, wenn ein öffentliches Statuten-Dokument vorliegt. */
+async function loadHasStatutes(): Promise<boolean> {
+  try {
+    return await hasPublicStatutes();
+  } catch {
+    return false;
+  }
+}
+
 /** Dunkler Footer: Kurztext, Anschrift, soziale Netzwerke, „Entdecken“ und „Konto & Recht“. */
 export async function SiteFooter() {
   const m = (await getMessages(shell)).footer;
-  const address = await loadAddress();
+  const [address, hasStatutes] = await Promise.all([loadAddress(), loadHasStatutes()]);
   const social = [
     { href: site.social.x, label: m.socialX },
     { href: site.social.youtube, label: m.socialYoutube },
@@ -69,7 +79,7 @@ export async function SiteFooter() {
             <li><Link className={link} href="/allianz">{m.alliance}</Link></li>
             <li><Link className={link} href="/anlaesse">{m.events}</Link></li>
             <li><Link className={link} href="/mitglied-werden">{m.join}</Link></li>
-            <li><Link className={link} href="/verein/statuten">{m.statutes}</Link></li>
+            {hasStatutes && <li><Link className={link} href="/verein/statuten">{m.statutes}</Link></li>}
           </ul>
         </nav>
         <nav aria-label={m.accountNav}>

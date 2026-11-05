@@ -1,7 +1,6 @@
 // Zod-Schemas der Beiträge, Rechnungen, Zahlungen und Mahnungen (Eingaben der Admin-API). Reine Definitionen.
 import { z } from "zod";
 import { PAYMENT_METHODS } from "./constants";
-import { MAX_REMINDER_LEVEL } from "./constants";
 import { chfInputSchema, dateOnlySchema, idSchema, longText, oneOf, optionalText, positiveRappenSchema, rappenSchema, text } from "./validation";
 
 /** Position einer Rechnung. Menge: ganze Zahl 1–9999; Einzelpreis in Rappen (auch als «12.50» lesbar). */
@@ -119,12 +118,4 @@ export const reminderSendSchema = z.object({
   ids: z.array(idSchema).min(1, "Keine Rechnung ausgewählt.").max(100, "Höchstens 100 Rechnungen auf einmal."),
   /** Optionaler Verzugszins in Rappen (nur bei genau einer Rechnung sinnvoll; wird als eigene Position angehängt) */
   interest: rappenSchema.optional(),
-});
-
-export const reminderResendSchema = z.object({ level: z.number().int().min(1).max(MAX_REMINDER_LEVEL).optional() });
-
-export const listFilterSchema = z.object({
-  status: z.string().max(20).optional(),
-  periodId: z.string().max(40).optional(),
-  q: z.string().max(100).optional(),
 });

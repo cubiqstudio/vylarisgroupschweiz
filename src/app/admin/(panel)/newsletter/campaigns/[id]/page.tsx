@@ -5,6 +5,8 @@ import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireModulePage } from "@/lib/verein/guard";
 import { getNewsletterAvailability, serializeCampaign } from "@/lib/newsletter";
+import { normalizeSegment } from "@/lib/verein/newsletter-segment";
+import { listSegmentTypes, segmentRecipientCount } from "@/lib/verein/newsletter-segment-data";
 import { formatDateTime } from "@/lib/utils";
 import { BrandMark } from "@/components/contact/brand-mark";
 import { ContentHeader } from "@/components/admin/content/page-header";
@@ -22,9 +24,11 @@ export default async function EditCampaignPage({ params }: Props) {
   const campaign = await db.newsletterCampaign.findUnique({ where: { id } });
   if (!campaign) notFound();
 
-  const [availability, activeCount, failures] = await Promise.all([
+  const selection = normalizeSegment(campaign.segment, campaign.segmentTypeId);
+  const [availability, activeCount, segmentTypes, failures] = await Promise.all([
     getNewsletterAvailability(),
-    db.newsletterSubscriber.count({ where: { status: "ACTIVE" } }),
+    selection.error ? Promise.resolve(0) : segmentRecipientCount(selection),
+    listSegmentTypes(),
     campaign.failedCount > 0
       ? db.newsletterDelivery.findMany({
           where: { campaignId: id, status: "FAILED" },
@@ -55,6 +59,7 @@ export default async function EditCampaignPage({ params }: Props) {
         key={campaign.id}
         campaign={{ ...serializeCampaign(campaign), failures: failures.map((f) => ({ id: f.id, email: f.subscriber.email, error: f.error })) }}
         activeCount={activeCount}
+        segmentTypes={segmentTypes}
         mailConfigured={availability.mailConfigured}
         enabled={availability.enabled}
         defaultTestEmail={admin.email}

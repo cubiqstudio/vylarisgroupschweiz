@@ -5,7 +5,8 @@ import { requireModulePage } from "@/lib/verein/guard";
 import { listMembershipTypes } from "@/lib/verein/members-data";
 import { hasBoardRole } from "@/lib/verein/permissions";
 import { PageTitle } from "@/components/admin/core/page-title";
-import { EMPTY_MEMBER, MemberForm } from "@/components/admin/members/member-form";
+import { MemberForm } from "@/components/admin/members/member-form";
+import { EMPTY_MEMBER } from "@/components/admin/members/member-values";
 import { MembersNav } from "@/components/admin/members/members-nav";
 
 export const dynamic = "force-dynamic";

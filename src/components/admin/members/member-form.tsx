@@ -11,40 +11,7 @@ import { COMMUNICATION_PREF_LABEL, SALUTATION_LABEL, SALUTATIONS, COMMUNICATION_
 import { Notice } from "@/components/admin/core/notice";
 import { useToast } from "@/components/admin/core/toast";
 import { describeError } from "@/components/admin/settings/form-utils";
-
-export type MemberFormValues = {
-  salutation: string;
-  firstName: string;
-  lastName: string;
-  birthDate: string;
-  street: string;
-  houseNumber: string;
-  zip: string;
-  city: string;
-  country: string;
-  email: string;
-  phone: string;
-  communicationPref: string;
-  membershipTypeId: string;
-  boardNotes: string;
-};
-
-export const EMPTY_MEMBER: MemberFormValues = {
-  salutation: "",
-  firstName: "",
-  lastName: "",
-  birthDate: "",
-  street: "",
-  houseNumber: "",
-  zip: "",
-  city: "",
-  country: "CH",
-  email: "",
-  phone: "",
-  communicationPref: "EMAIL",
-  membershipTypeId: "",
-  boardNotes: "",
-};
+import type { MemberFormValues } from "./member-values";
 
 export type TypeOption = { id: string; name: string; active: boolean };
 

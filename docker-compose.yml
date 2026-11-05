@@ -37,6 +37,8 @@ services:
       # Optional: eigenes Geheimnis (mind. 32 Zeichen) für Lizenzschlüssel-Hashes und Signaturen, sonst gilt AUTH_SECRET.
       # Ein Wechsel macht bestehende Lizenzschlüssel ungültig.
       LICENSE_SECRET: ${LICENSE_SECRET:-}
+      # Optional: Geheimnis für den täglichen Aufruf der Anlass-Erinnerungen (docs/verein-anlaesse.md); leer = abgeschaltet.
+      EVENTS_CRON_SECRET: ${EVENTS_CRON_SECRET:-}
       # Passwort ggf. URL-kodieren; am einfachsten ein Passwort ohne Sonderzeichen wählen
       # (z. B. openssl rand -hex 24).
       DATABASE_URL: postgresql://${POSTGRES_USER:-vylaris}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD setzen}@db:5432/${POSTGRES_DB:-vylaris_schweiz}?schema=public

@@ -7,6 +7,7 @@ import type { Prisma } from "@prisma/client";
 import { ApiError } from "@/lib/api";
 import { getLegalSettings } from "@/lib/settings";
 import { db } from "@/lib/db";
+import { site } from "@/lib/site";
 import { auditActor, diffObjects, logAudit } from "./audit";
 import { INVOICE_STATUSES, type InvoiceStatus } from "./constants";
 import { addDays, todayZurich, yearOf } from "./dates";
@@ -524,4 +525,36 @@ export async function bookExistingPayment(admin: Actor, paymentId: string, accou
     await logAudit(tx, { actor: auditActor(admin), action: "payment.book", objectType: "Payment", objectId: paymentId, summary: `Zahlung nachgebucht (Beleg ${booking.voucherNo})`, after: { voucherNo: booking.voucherNo } });
     return booking;
   });
+}
+
+// ---- Darstellung der Rechnung (Druckansicht) --------------------------------------------------------------------------
+
+/** Alles, was die Rechnungsansicht braucht: Absender, QR-Rechnung (nur für zahlbare Rechnungen) und die Rechnung in schlanker Form. */
+export async function loadInvoiceRender(inv: InvoiceDetail) {
+  const ctx = await loadBillContext();
+  const payable = inv.status === "OFFEN" || inv.status === "ENTWURF";
+  const bill: InvoiceBill | null = payable ? composeInvoiceBill(ctx, inv) : null;
+  const sender = { name: ctx.accountHolder || site.legalName, lines: [ctx.legal.street, ctx.legal.zipCity].map((l) => l.trim()).filter(Boolean) };
+  const last = inv.reminders.find((r) => r.level === inv.reminderLevel) ?? null;
+  return {
+    bill,
+    sender,
+    document: {
+      number: inv.number,
+      subject: inv.subject,
+      status: inv.status,
+      issueDate: inv.issueDate,
+      dueDate: inv.dueDate,
+      totalRappen: inv.totalRappen,
+      paidRappen: inv.paidRappen,
+      paidAt: inv.paidAt,
+      cancelledAt: inv.cancelledAt,
+      reminderLevel: inv.reminderLevel,
+      recipientName: inv.recipientName,
+      recipientAddress: inv.recipientAddress,
+      member: { memberNumber: inv.member.memberNumber },
+      items: inv.items.map((i) => ({ id: i.id, description: i.description, quantity: i.quantity, unitRappen: i.unitRappen, totalRappen: i.totalRappen })),
+      lastReminderDueDate: last?.dueDate ?? null,
+    },
+  };
 }

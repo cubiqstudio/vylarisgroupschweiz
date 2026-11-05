@@ -3,9 +3,9 @@ import { rateLimit } from "@/lib/rate-limit";
 import { tooManyRequests } from "@/lib/account";
 import { requireActiveMember } from "@/lib/verein/guard";
 import { declareOwnExit } from "@/lib/verein/members-data";
-import { sendExitConfirmed } from "@/lib/verein/members-mail";
+import { sendExitConfirmed, sendExitNotice } from "@/lib/verein/members-mail";
 import { portalExitSchema } from "@/lib/verein/members-schemas";
-import { adminOk, readJson } from "../../../../../_lib/http";
+import { adminOk, readJson } from "../../../../_lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +16,6 @@ export const POST = handle(async (req: Request) => {
   if (!rl.ok) return tooManyRequests(rl.retryAfter);
   const input = portalExitSchema.parse(await readJson(req));
   const { member: after, plan } = await declareOwnExit(member, input.reason);
-  const mail = await sendExitConfirmed(after, plan);
+  const [mail] = await Promise.all([sendExitConfirmed(after, plan), sendExitNotice(after, plan)]);
   return adminOk({ noticeAt: plan.noticeAt.toISOString(), effective: plan.effective.toISOString(), mailSent: mail.sent });
 });

@@ -9,6 +9,8 @@ import { mailCtx } from "@/lib/mail-ctx";
 import { newsletterCampaignMail } from "@/lib/mail-templates";
 import { unsubscribeApiUrl, unsubscribeUrl } from "@/lib/newsletter-links";
 import { getMailConfig, getNewsletterEnabled } from "@/lib/settings";
+import { normalizeSegment, type SegmentSelection } from "@/lib/verein/newsletter-segment";
+import { segmentSubscriberIds } from "@/lib/verein/newsletter-segment-data";
 import type { CampaignDto } from "@/components/admin/newsletter/types";
 
 /** Maximale Versandrate (Mails pro Sekunde). Schont den Mailserver und die Absender-Reputation. */
@@ -36,8 +38,11 @@ export type CampaignProgress = {
   failedCount: number;
 };
 
-/** Abonnenten, die eine Kampagne erhalten: alle aktiven. Weitere Sprachen bekämen später je eine eigene Fassung. */
-const RECIPIENT_WHERE = { status: "ACTIVE" } as const;
+/** Empfängerkreis einer Kampagne aus ihren Segment-Feldern (unbekannte Werte gelten als «alle Abonnenten»). */
+const selectionOf = (c: { segment: string; segmentTypeId: string | null }): SegmentSelection => {
+  const { segment, segmentTypeId } = normalizeSegment(c.segment, c.segmentTypeId);
+  return { segment, segmentTypeId };
+};
 
 /** Datenbankzeile → JSON-taugliches Objekt (Datumswerte als ISO-Strings). */
 export function serializeCampaign(c: NewsletterCampaign): CampaignDto {
@@ -47,6 +52,8 @@ export function serializeCampaign(c: NewsletterCampaign): CampaignDto {
     preheader: c.preheader,
     content: c.content,
     status: c.status,
+    segment: c.segment,
+    segmentTypeId: c.segmentTypeId,
     recipientCount: c.recipientCount,
     sentCount: c.sentCount,
     failedCount: c.failedCount,
@@ -80,14 +87,14 @@ async function syncCounters(campaignId: string): Promise<CampaignProgress | null
     : null;
 }
 
-/** Legt für alle aktiven Abonnenten fehlende Zustellungen (PENDING) an. */
-async function createDeliveries(campaignId: string): Promise<void> {
-  const [subscribers, existing] = await Promise.all([
-    db.newsletterSubscriber.findMany({ where: RECIPIENT_WHERE, select: { id: true } }),
+/** Legt für alle Abonnenten des Empfängerkreises (Segment der Kampagne) fehlende Zustellungen (PENDING) an. */
+async function createDeliveries(campaignId: string, selection: SegmentSelection): Promise<void> {
+  const [subscriberIds, existing] = await Promise.all([
+    segmentSubscriberIds(selection),
     db.newsletterDelivery.findMany({ where: { campaignId }, select: { subscriberId: true } }),
   ]);
   const have = new Set(existing.map((d) => d.subscriberId));
-  const missing = subscribers.filter((s) => !have.has(s.id));
+  const missing = subscriberIds.filter((id) => !have.has(id)).map((id) => ({ id }));
   for (let i = 0; i < missing.length; i += CREATE_CHUNK) {
     await db.newsletterDelivery.createMany({
       data: missing.slice(i, i + CREATE_CHUNK).map((s) => ({ campaignId, subscriberId: s.id, status: "PENDING" })),
@@ -218,18 +225,28 @@ export async function sendCampaign(campaignId: string): Promise<CampaignProgress
     throw new ApiError(409, "NEWSLETTER_DISABLED", "Der Newsletter ist ausgeschaltet. Schalte ihn zuerst ein.");
   }
 
-  const current = await db.newsletterCampaign.findUnique({ where: { id: campaignId }, select: { status: true } });
+  const current = await db.newsletterCampaign.findUnique({ where: { id: campaignId }, select: { status: true, segment: true, segmentTypeId: true } });
   if (!current) throw new ApiError(404, "NOT_FOUND", "Kampagne nicht gefunden.");
   if (current.status === "SENT") throw new ApiError(409, "ALREADY_SENT", "Diese Kampagne wurde bereits versendet.");
   if (running.has(campaignId)) throw new ApiError(409, "ALREADY_SENDING", "Diese Kampagne wird gerade versendet.");
 
   if (current.status === "DRAFT" || current.status === "FAILED") {
+    const selection = selectionOf(current);
+    if (selection.segment === "MEMBERSHIP_TYPE" && !selection.segmentTypeId) {
+      throw new ApiError(409, "NO_SEGMENT_TYPE", "Bitte wähle zuerst die Mitgliedschaftsart für den Empfängerkreis.");
+    }
     const [active, open] = await Promise.all([
-      db.newsletterSubscriber.count({ where: RECIPIENT_WHERE }),
+      segmentSubscriberIds(selection).then((ids) => ids.length),
       db.newsletterDelivery.count({ where: { campaignId, status: { in: ["PENDING", "FAILED"] } } }),
     ]);
     if (active === 0 && open === 0) {
-      throw new ApiError(409, "NO_RECIPIENTS", "Es gibt keine aktiven Abonnenten. Die Kampagne wurde nicht versendet.");
+      throw new ApiError(
+        409,
+        "NO_RECIPIENTS",
+        selection.segment === "ALL"
+          ? "Es gibt keine aktiven Abonnenten. Die Kampagne wurde nicht versendet."
+          : "In diesem Empfängerkreis gibt es keine Abonnenten (Mitglieder müssen sich mit derselben E-Mail-Adresse für den Newsletter angemeldet haben). Die Kampagne wurde nicht versendet.",
+      );
     }
   }
 
@@ -256,7 +273,7 @@ export async function sendCampaign(campaignId: string): Promise<CampaignProgress
     if (previousFailed) {
       await db.newsletterDelivery.updateMany({ where: { campaignId, status: "FAILED" }, data: { status: "PENDING", error: "" } });
     }
-    await createDeliveries(campaignId);
+    await createDeliveries(campaignId, selectionOf(current));
     progress = await syncCounters(campaignId);
   } catch (e) {
     running.delete(campaignId);

@@ -298,3 +298,16 @@ body {
 .animate-node-pulse { animation: node-pulse 3.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 .animate-glow-pulse { animation: glow-pulse 5s ease-in-out infinite; }
 .animate-float-y { animation: float-y 6s ease-in-out infinite; }
+
+/* Bedienelemente von Druckansichten (Rechnung, Protokoll, Ausweis) erscheinen nicht auf Papier. */
+@media print {
+  .invoice-hide-print {
+    display: none !important;
+  }
+}
+
+/* Scrollbare Tabellen-Container sind Bezugsrahmen für absolut positionierte Hilfselemente (z. B. sr-only in Tabellenzellen).
+   Sonst ragen diese über den Container hinaus und erzeugen auf dem Handy eine waagrechte Seitenleiste. */
+.overflow-x-auto {
+  position: relative;
+}

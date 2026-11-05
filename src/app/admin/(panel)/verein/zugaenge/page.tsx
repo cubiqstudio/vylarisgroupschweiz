@@ -1,13 +1,41 @@
 import type { Metadata } from "next";
-import { UserCog } from "lucide-react";
-import { AdminInProgress } from "@/components/admin/verein/in-progress";
+import { PageTitle } from "@/components/admin/core/page-title";
+import { AccessManager, type AccessRowDto } from "@/components/admin/verein/access-manager";
+import { RoleMatrix } from "@/components/admin/verein/role-matrix";
+import { listAccessAccounts } from "@/lib/verein/access-data";
 import { requireModulePage } from "@/lib/verein/guard";
+import { canAccess } from "@/lib/verein/permissions";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Zugänge und Rollen" };
 
-// Platzhalter (Besitzer: uebersicht-einstellungen). Ersetzen: echte Seite, erste Anweisung bleibt der Rechte-Wächter.
 export default async function Page() {
-  await requireModulePage("system");
-  return <AdminInProgress title="Zugänge und Rollen" description="Admin-Konten, Rollen (Präsident, Vize, Kassier, Aktuar, Revisor, Administrator) und Verknüpfung mit Mitgliedern." icon={UserCog} />;
+  const admin = await requireModulePage("system");
+  const rows = await listAccessAccounts();
+  const dto: AccessRowDto[] = rows.map((r) => ({
+    id: r.id,
+    email: r.email,
+    name: r.name,
+    role: r.role,
+    extraRoles: r.extraRoles
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean),
+    roles: r.roles,
+    mustChangePassword: r.mustChangePassword,
+    lastLoginAt: r.lastLoginAt?.toISOString() ?? null,
+    member: r.member,
+    suggestedRoles: r.suggestedRoles,
+  }));
+
+  return (
+    <>
+      <PageTitle
+        title="Zugänge und Rollen"
+        description="Wer die Verwaltung nutzen darf und was er dort darf. Rollen (Präsident/in, Vize-Präsident/in, Kassier/in, Aktuar/in, Revisor/in, Administrator) und die Verknüpfung mit dem Mitglied im Verein."
+      />
+      <AccessManager rows={dto} selfId={admin.id} selfRoles={admin.roles} canWrite={canAccess(admin.roles, "system", "write")} />
+      <RoleMatrix />
+    </>
+  );
 }

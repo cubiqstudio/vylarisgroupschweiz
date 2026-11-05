@@ -1,8 +1,10 @@
-// Schnittstelle Zahlungseingang → Kassa (Buchung). Besitzer: Beiträge. Das Kassa-Modul darf die Innenleben ersetzen, solange die
-// Signaturen dieser Datei erhalten bleiben (siehe Abschlussbericht).
+// Schnittstelle Zahlungseingang → Kassa (Buchung). Besitzer: Kassa (Signaturen für Beiträge unverändert).
 //
 // Regeln:
 //  - Jede Zahlung wird, wenn Konten bekannt sind, in derselben Datenbank-Transaktion als Einnahme gebucht (source «ZAHLUNG», paymentId).
+//  - Idempotent: Zu einer Zahlung gibt es höchstens eine Buchung (Payment.paymentId ist eindeutig). Ein zweiter Aufruf legt nichts
+//    doppelt an, sondern gleicht Betrag und Datum der bestehenden Buchung an (nur solange das Geschäftsjahr offen ist und die
+//    Buchung nicht storniert wurde).
 //  - Die Belegnummer vergibt nextVoucherNumber innerhalb dieser Transaktion (lückenlos).
 //  - Liegt das Datum in einem abgeschlossenen Geschäftsjahr (FiscalYear.lockedAt), wird die Zahlung abgelehnt (409).
 //  - Der Verein hat keine vorgegebenen Konten. Fehlt die Kontenwahl, wird die Zahlung trotzdem erfasst und als «noch nicht gebucht»
@@ -31,19 +33,43 @@ export type BookPaymentInput = {
   actor: { id: string | null; name: string };
 };
 
-/** Wirft 409, wenn das Geschäftsjahr des Datums abgeschlossen ist. Gibt das Geschäftsjahr zurück. */
-export async function assertFiscalYearOpen(client: LedgerClient, date: Date, fiscalStart: FiscalStart): Promise<number> {
-  const year = fiscalYearOf(date, fiscalStart);
+/** Wirft 409, wenn das Geschäftsjahr abgeschlossen ist. */
+export async function assertYearUnlocked(client: LedgerClient, year: number): Promise<void> {
   const fy = await client.fiscalYear.findUnique({ where: { year }, select: { lockedAt: true } });
   if (fy?.lockedAt) {
     throw new ApiError(409, "FISCAL_YEAR_LOCKED", `Das Geschäftsjahr ${year} ist abgeschlossen. Mit diesem Datum kann nichts mehr gebucht oder geändert werden. Wähle ein Datum im offenen Geschäftsjahr oder korrigiere in der Kassa mit einer Gegenbuchung.`);
   }
+}
+
+/** Wirft 409, wenn das Geschäftsjahr des Datums abgeschlossen ist. Gibt das Geschäftsjahr zurück. */
+export async function assertFiscalYearOpen(client: LedgerClient, date: Date, fiscalStart: FiscalStart): Promise<number> {
+  const year = fiscalYearOf(date, fiscalStart);
+  await assertYearUnlocked(client, year);
   return year;
 }
 
 /** Bucht einen Zahlungseingang als Einnahme. Muss in der Transaktion der Zahlung aufgerufen werden. */
 export async function bookPayment(tx: LedgerClient, input: BookPaymentInput): Promise<BookingOutcome> {
-  const fiscalYear = await assertFiscalYearOpen(tx, input.payment.receivedAt, input.fiscalStart);
+  const fiscalYear = fiscalYearOf(input.payment.receivedAt, input.fiscalStart);
+
+  // Idempotenz: Es gibt schon eine Buchung zu dieser Zahlung.
+  const existing = await tx.transaction.findUnique({
+    where: { paymentId: input.payment.id },
+    select: { id: true, voucherNo: true, fiscalYear: true, bookingDate: true, amountRappen: true, reversedBy: { select: { id: true } } },
+  });
+  if (existing) {
+    const changed = existing.amountRappen !== input.payment.amountRappen || existing.bookingDate.getTime() !== input.payment.receivedAt.getTime();
+    if (changed && !existing.reversedBy) {
+      if (existing.fiscalYear !== fiscalYear) {
+        throw new ApiError(409, "CONFLICT", `Das neue Datum liegt im Geschäftsjahr ${fiscalYear}, die Buchung ${existing.voucherNo} im Geschäftsjahr ${existing.fiscalYear}. Storniere die Buchung in der Kassa und buche neu.`);
+      }
+      await assertYearUnlocked(tx, existing.fiscalYear);
+      await tx.transaction.update({ where: { id: existing.id }, data: { bookingDate: input.payment.receivedAt, amountRappen: input.payment.amountRappen } });
+    }
+    return { status: "BOOKED", transactionId: existing.id, voucherNo: existing.voucherNo };
+  }
+
+  await assertYearUnlocked(tx, fiscalYear);
   const incomeId = input.incomeAccountId ?? input.invoice?.categoryIds.find((c): c is string => Boolean(c)) ?? null;
   if (!input.assetAccountId) return { status: "PENDING", reason: "Es wurde kein Konto gewählt, auf das die Zahlung eingegangen ist." };
   if (!incomeId) return { status: "PENDING", reason: "Es ist kein Ertragskonto bekannt (weder gewählt noch bei der Rechnungsposition hinterlegt)." };

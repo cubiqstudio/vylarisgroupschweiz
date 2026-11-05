@@ -4,8 +4,7 @@
 import { createHash } from "node:crypto";
 import { safeDownloadName } from "./csv";
 
-export const RECEIPT_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
-export const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+export { RECEIPT_MAX_BYTES, DOCUMENT_MAX_BYTES } from "./file-limits";
 
 export type UploadKind = "pdf" | "png" | "jpeg" | "webp" | "docx" | "xlsx" | "odt" | "ods" | "txt" | "csv";
 

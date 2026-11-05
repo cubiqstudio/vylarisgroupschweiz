@@ -690,7 +690,9 @@ model Meeting {
   invitationCount     Int          @default(0)
   minutes             String       @default("") // Protokoll, Markdown
   minutesApprovedAt   DateTime?
-  minutesApprovedNote String       @default("") // z. B. «genehmigt an der Sitzung vom …»
+  minutesApprovedNote String       @default("") // z. B. «genehmigt an der Sitzung vom …» bzw. Vermerk über nachträgliche Änderungen
+  minutesApprovedBy   String       @default("") // wer genehmigt hat (Organ, z. B. «Vorstand»), Freitext
+  quorumMin           Int? // Mindestzahl anwesender Stimmberechtigter gemäss Statuten (nur Hinweis, leer = keine Angabe)
   leaderId            String? // Leitung
   leader              Member?      @relation("MeetingLeader", fields: [leaderId], references: [id], onDelete: SetNull)
   recorderId          String? // Protokoll
@@ -702,6 +704,7 @@ model Meeting {
   resolutions         Resolution[]
   tasks               BoardTask[]
   documents           Document[]
+  mails               MeetingMail[]
 
   @@index([kind, startsAt])
   @@index([status, startsAt])
@@ -731,6 +734,8 @@ model Attendance {
   status    String  @default("ANWESEND") // ANWESEND | ENTSCHULDIGT | ABWESEND
   canVote   Boolean @default(true) // Stimmrecht zum Zeitpunkt der Versammlung (aus der Mitgliedschaftsart übernommen)
   note      String  @default("")
+  rsvp      String  @default("") // Rückmeldung vor der Sitzung: "" (keine) | ZUSAGE | ABSAGE
+  rsvpAt    DateTime?
 
   @@unique([meetingId, memberId])
   @@index([memberId])
@@ -749,10 +754,33 @@ model Resolution {
   votesNo      Int?
   abstentions  Int?
   result       String      @default("ANGENOMMEN") // ANGENOMMEN | ABGELEHNT | VERSCHOBEN
+  majority     String      @default("EINFACH") // EINFACH | ABSOLUT | ZWEIDRITTEL (Voreinstellung gemäss Statuten anpassen)
+  recusal      String      @default("") // Ausstand (ZGB Art. 68): wer nicht mitgestimmt hat, Freitext
   createdAt    DateTime    @default(now())
   tasks        BoardTask[]
 
   @@index([meetingId, number])
+}
+
+// Versandprotokoll der Einladungen und Erinnerungen. Eine Zeile je Empfänger und Versand (batchId gruppiert einen Versand).
+// Bewusst ohne Fremdschlüssel auf das Mitglied: Name und Adresse sind eine Momentaufnahme.
+model MeetingMail {
+  id            String   @id @default(cuid())
+  meetingId     String
+  meeting       Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  batchId       String
+  kind          String // EINLADUNG | ERINNERUNG | ABSAGE
+  memberId      String
+  recipientName String
+  email         String
+  ok            Boolean  @default(false)
+  error         String   @default("")
+  late          Boolean  @default(false) // Versand nach Ablauf der Einladungsfrist
+  sentByName    String   @default("")
+  sentAt        DateTime @default(now())
+
+  @@index([meetingId, sentAt])
+  @@index([meetingId, memberId])
 }
 
 // ---- 5. Anlässe --------------------------------------------------------------------------------------------------
@@ -769,6 +797,7 @@ model Event {
   status               String              @default("ENTWURF") // ENTWURF | VEROEFFENTLICHT | ABGESAGT
   isPublic             Boolean             @default(false) // auf der öffentlichen Website sichtbar (nur wenn VEROEFFENTLICHT)
   membersOnly          Boolean             @default(true) // Anmeldung nur für Mitglieder; false = auch Gäste
+  sequence             Int                 @default(0) // Versionszähler für den Kalendereintrag (ICS SEQUENCE), steigt bei Änderungen an Zeit, Ort und Status
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
   registrations        EventRegistration[]
@@ -792,7 +821,9 @@ model EventRegistration {
   consentAt       DateTime? // Gäste: Einwilligung zur Datenbearbeitung
   promotedAt      DateTime? // von der Warteliste nachgerückt
   cancelledAt     DateTime?
-  createdAt       DateTime  @default(now())
+  attendedAt      DateTime? // Anwesenheit am Anlass (von Hand abgehakt)
+  reminderSentAt  DateTime? // Erinnerungsmail verschickt (jede Anmeldung höchstens einmal)
+  createdAt       DateTime  @default(now()) // bestimmt die Reihenfolge auf der Warteliste
 
   @@unique([eventId, memberId])
   @@index([eventId, status, createdAt])
@@ -854,11 +885,26 @@ model BoardTask {
   resolutionId     String?
   resolution       Resolution? @relation(fields: [resolutionId], references: [id], onDelete: SetNull)
   doneAt           DateTime?
+  lastReminderAt   DateTime? // letzte manuelle Erinnerung per Mail (Sperrfrist gegen Mehrfachversand)
   createdByName    String      @default("")
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
+  comments         TaskComment[]
 
   @@index([status, dueDate])
   @@index([assigneeMemberId])
   @@index([assigneeAdminId])
+}
+
+// Einfache Kommentare zu einer Vorstandsaufgabe (Modul Dokumente und Aufgaben). Ohne Fremdschlüssel auf Konten: der Name bleibt als Text erhalten.
+model TaskComment {
+  id            String    @id @default(cuid())
+  taskId        String
+  task          BoardTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  body          String
+  authorName    String    @default("")
+  authorAdminId String?
+  createdAt     DateTime  @default(now())
+
+  @@index([taskId, createdAt])
 }

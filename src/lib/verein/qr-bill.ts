@@ -152,9 +152,9 @@ const TRANSLITERATION: Record<string, string> = {
   "−": "-",
   "…": "...",
   "€": "EUR",
-  " ": " ",
-  " ": " ",
-  " ": " ",
+  "\u00a0": " ",
+  "\u202f": " ",
+  "\u2009": " ",
   "ẞ": "SS",
   "Œ": "OE",
   "œ": "oe",
@@ -181,12 +181,12 @@ export function toQrBillText(input: string, maxLength = 140): string {
       out += mapped;
       continue;
     }
-    if (/[\r\n\t  ]/.test(ch)) {
+    if (/[\r\n\t\u2028\u2029]/.test(ch)) {
       out += " ";
       continue;
     }
     // Akzente/Buchstaben ausserhalb von Latin-1 (č → c): zerlegen und nur Basiszeichen behalten
-    const base = ch.normalize("NFD").replace(/[̀-ͯ]/g, "");
+    const base = ch.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     for (const b of base) if (isQrBillChar(b)) out += b;
   }
   const trimmed = out.replace(/ {2,}/g, " ").trim();
@@ -232,7 +232,7 @@ export function parseInvoiceReference(reference: string): { year: number; seq: n
   if (type === "QRR") digits = ref.slice(0, 26).replace(/^0+/, "");
   else if (type === "SCOR") digits = ref.slice(4);
   else return null;
-  if (!/^\d{9,12}$/.test(digits)) return null;
+  if (!/^\d{8,12}$/.test(digits)) return null;
   const year = Number(digits.slice(0, 4));
   const seq = Number(digits.slice(4));
   if (year < 1900 || year > 2999 || seq < 1) return null;

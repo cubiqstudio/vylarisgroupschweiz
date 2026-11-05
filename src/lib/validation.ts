@@ -9,6 +9,7 @@ import {
   TICKET_STATUSES,
 } from "@/lib/constants";
 import { IMPRINT_KEYS, PRIVACY_KEYS } from "@/lib/legal-toggles";
+import { NEWSLETTER_SEGMENTS } from "@/lib/verein/constants";
 
 // Deutsche Standard-Fehlermeldungen (eigene Meldungen unten haben Vorrang).
 z.config(z.locales.de());
@@ -207,6 +208,9 @@ export const campaignSchema = z.object({
   subject: trimmed(3, 150),
   preheader: z.string().trim().max(200).default(""),
   content: trimmed(10, 100_000),
+  // Empfängerkreis: alle Abonnenten, aktive Mitglieder oder Mitglieder einer Mitgliedschaftsart (Regeln: src/lib/verein/newsletter-segment.ts)
+  segment: z.enum(NEWSLETTER_SEGMENTS, { error: "Bitte einen Empfängerkreis wählen." }).default("ALL"),
+  segmentTypeId: z.string().trim().min(1).max(40).regex(/^[A-Za-z0-9_-]+$/, "Ungültige Mitgliedschaftsart.").nullable().default(null),
 });
 export const newsletterSettingsSchema = z.object({ enabled: z.boolean() });
 export const newsletterTestSchema = z.object({

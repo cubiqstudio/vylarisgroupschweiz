@@ -116,7 +116,7 @@ export function AdminShell({
           Zum Inhalt springen
         </a>
 
-        <aside className="sticky top-0 z-40 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur lg:flex lg:h-screen lg:w-60 lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r">
+        <aside className="print:hidden sticky top-0 z-40 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur lg:flex lg:h-screen lg:w-60 lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r">
           <div className="flex h-14 items-center justify-between px-4 lg:h-16">
             <Link href="/admin" className="flex items-center gap-2.5 font-semibold tracking-tight text-white" onClick={() => setOpen(false)}>
               <span className="grid h-7 w-7 place-items-center rounded-lg bg-emerald-400/10 text-emerald-400 ring-1 ring-inset ring-emerald-400/30">
@@ -186,7 +186,7 @@ export function AdminShell({
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-zinc-800 px-4 py-3 sm:px-6 lg:px-8">
+          <header className="print:hidden flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-zinc-800 px-4 py-3 sm:px-6 lg:px-8">
             <div className="min-w-0 text-sm">
               <p className="truncate font-medium text-white">{user.name}</p>
               <p className="truncate text-xs text-zinc-500">

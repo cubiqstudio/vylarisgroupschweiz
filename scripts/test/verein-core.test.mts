@@ -463,7 +463,7 @@ test("ics: Kalenderdatei", () => {
   );
   assert.ok(out.startsWith("BEGIN:VCALENDAR\r\n"));
   assert.ok(out.endsWith("END:VCALENDAR\r\n"));
-  assert.ok(out.includes("SUMMARY:Hauptversammlung\; mit\\, Komma\r\n"));
+  assert.ok(out.includes("SUMMARY:Hauptversammlung\\; mit\\, Komma\r\n"));
   assert.ok(out.includes("DESCRIPTION:Zeile 1\\nZeile 2 mit \\\\ Backslash\r\n"));
   assert.ok(out.includes("DTSTART:20261130T180000Z\r\n"));
   assert.ok(out.includes("DTEND:20261130T200000Z\r\n"));
