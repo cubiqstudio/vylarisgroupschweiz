@@ -11,7 +11,7 @@ import { canAccess } from "@/lib/verein/permissions";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Konten der Kassa" };
+export const metadata: Metadata = { title: "Konten der Kasse" };
 
 export default async function AccountsPage() {
   const admin = await requireModulePage("ledger");

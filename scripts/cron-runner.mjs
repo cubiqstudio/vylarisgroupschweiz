@@ -9,7 +9,8 @@
 //   - Beim Start wird nicht sofort gelaufen, ausser der Server meldet (GET /api/cron/daily), dass noch nie oder seit mehr als
 //     36 Stunden kein Lauf stattfand.
 //   - Schlägt ein Aufruf fehl (Netz, HTTP-Fehler oder eine fehlgeschlagene Aufgabe), folgen bis zu zwei weitere Versuche im
-//     Abstand von 5 Minuten.
+//     Abstand von 5 Minuten. Eine übersprungene Aufgabe (z. B. Erinnerungen ohne eingerichteten Mailserver) ist kein Fehler:
+//     keine Wiederholung, Lauf gilt als abgeschlossen.
 //   - Fehlt CRON_SECRET oder ist es zu kurz, beendet sich der Läufer nicht (sonst startet Docker ihn endlos neu und füllt das Log),
 //     sondern meldet das Problem beim Start und danach alle 6 Stunden und wartet. Nach dem Eintragen des Geheimnisses in der .env:
 //     docker compose up -d cron
@@ -109,7 +110,7 @@ export function summarizeRun(run) {
   if (!run || !Array.isArray(run.tasks)) return "";
   return run.tasks
     .filter((t) => t && typeof t.name === "string")
-    .map((t) => `${t.name.slice(0, 40)}: ${t.ok ? "ok" : "Fehler"} (${Number.isFinite(t.count) ? t.count : 0})`)
+    .map((t) => `${t.name.slice(0, 40)}: ${t.ok ? (t.note ? "übersprungen" : "ok") : "Fehler"} (${Number.isFinite(t.count) ? t.count : 0})`)
     .join(", ");
 }
 

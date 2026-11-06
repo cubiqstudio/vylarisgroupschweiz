@@ -1,6 +1,6 @@
-# Kassa und Buchhaltung
+# Kasse und Buchhaltung
 
-Die Kassa bildet eine einfache Vereinsbuchhaltung ab: Einnahmen, Ausgaben und Vermögenslage (Art. 69a ZGB). Vereine, die im Handelsregister eingetragen sind oder bestimmte Grössen überschreiten, können weitergehenden Pflichten nach Art. 957 ff. OR unterliegen; die Statuten gehen vor, im Zweifel klärt der Verein dies mit seiner Revisionsstelle oder Treuhand.
+Die Kasse bildet eine einfache Vereinsbuchhaltung ab: Einnahmen, Ausgaben und Vermögenslage (Art. 69a ZGB). Vereine, die im Handelsregister eingetragen sind oder bestimmte Grössen überschreiten, können weitergehenden Pflichten nach Art. 957 ff. OR unterliegen; die Statuten gehen vor, im Zweifel klärt der Verein dies mit seiner Revisionsstelle oder Treuhand.
 
 ## Begriffe
 
@@ -14,9 +14,9 @@ Die Kassa bildet eine einfache Vereinsbuchhaltung ab: Einnahmen, Ausgaben und Ve
 
 | Aktion | Wer |
 | --- | --- |
-| Lesen, Exportieren, Kassabericht drucken | Rollen mit Leserecht auf `ledger` (Kassier, Präsident, Vize, Revisor, Inhaber, Administration) |
+| Lesen, Exportieren, Kassenbericht drucken | Rollen mit Leserecht auf `ledger` (Kassier, Präsident, Vize, Revisor, Inhaber, Administration) |
 | Buchen, Stornieren, Konten, Budget, Belege | Schreibrecht auf `ledger` (Kassier, Inhaber, Administration) |
-| Geschäftsjahr abschliessen, wieder öffnen, Genehmigung vermerken | Kassier und Präsident (`canCloseFiscalYear`), sowie Inhaber und Administration |
+| Geschäftsjahr abschliessen, wieder öffnen, Genehmigung vermerken | Einzelrecht «Geschäftsjahr abschliessen und wieder öffnen» (`fiscalYearClose`, `canCloseFiscalYear`) zusammen mit mindestens Leserecht auf die Kasse. Voreinstellung: Präsident, Kassier, Inhaber und Administration. Einstellbar unter «Rollen und Rechte» |
 
 Aktuar und Redaktion haben keinen Zugriff.
 
@@ -35,7 +35,7 @@ Aktuar und Redaktion haben keinen Zugriff.
 - Fachlogik (rein, mit Tests in `scripts/test/ledger.test.mts`): `ledger-lib.ts`, `ledger-schemas.ts`, `ledger-export.ts`.
 - Datenzugriff (server-only): `ledger-data.ts`. `getLedgerSummary()` liefert Kennzahlen für die Übersicht.
 - API: `/api/admin/ledger/**` (Buchungen, Gegenbuchung, Belege, Konten, Budget, Geschäftsjahre, CSV-Export).
-- Seiten: `/admin/ledger` (Buchungen), `/new`, `/[id]`, `/accounts`, `/budget`, `/reports`, `/reports/[year]/print` (Kassabericht A4), `/years`.
+- Seiten: `/admin/ledger` (Buchungen), `/new`, `/[id]`, `/accounts`, `/budget`, `/reports`, `/reports/[year]/print` (Kassenbericht A4), `/years`.
 
 ## Datenschutz und Aufbewahrung
 

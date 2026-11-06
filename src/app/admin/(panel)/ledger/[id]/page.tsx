@@ -44,7 +44,7 @@ export default async function TransactionPage({ params }: { params: Promise<{ id
       <PageTitle title={`Buchung ${t.voucherNo || ""}`.trim()} description={t.text}>
         <Link href="/admin/ledger" className="inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-semibold text-zinc-300 hover:bg-zinc-900 hover:text-white">
           <ArrowLeft className="h-4 w-4" aria-hidden />
-          Zur Kassa
+          Zur Kasse
         </Link>
       </PageTitle>
       <LedgerNav />

@@ -16,14 +16,14 @@ import { yearSchema } from "@/lib/verein/ledger-schemas";
 import { TRANSACTION_DIRECTION_LABEL, type TransactionDirection } from "@/lib/verein/constants";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Kassabericht" };
+export const metadata: Metadata = { title: "Kassenbericht" };
 
 type Props = { params: Promise<{ year: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 const LINE = "mt-10 border-t border-black pt-1 text-[10px] text-zinc-600";
 
-/** Kassabericht für ein Geschäftsjahr, gestaltet für A4 (Hochformat) mit Raum für das Visum der Revisoren. */
-export default async function KassaberichtPage({ params, searchParams }: Props) {
+/** Kassenbericht für ein Geschäftsjahr, gestaltet für A4 (Hochformat) mit Raum für das Visum der Revisoren. */
+export default async function KassenberichtPage({ params, searchParams }: Props) {
   await requireModulePage("ledger");
   const parsed = yearSchema.safeParse((await params).year);
   if (!parsed.success) notFound();
@@ -51,10 +51,10 @@ export default async function KassaberichtPage({ params, searchParams }: Props) 
         </div>
       </div>
 
-      <article className="ledger-sheet mx-auto w-full max-w-[210mm] bg-white p-[12mm] text-[12px] leading-snug text-black shadow-xl shadow-black/40 print:max-w-none print:p-0 print:shadow-none" aria-label={`Kassabericht ${label}`}>
+      <article className="ledger-sheet mx-auto w-full max-w-[210mm] bg-white p-[12mm] text-[12px] leading-snug text-black shadow-xl shadow-black/40 print:max-w-none print:p-0 print:shadow-none" aria-label={`Kassenbericht ${label}`}>
         <header className="mb-6 border-b-2 border-black pb-3">
           <p className="text-[11px] uppercase tracking-widest text-zinc-600">{site.name}</p>
-          <h1 className="mt-1 text-2xl font-semibold">Kassabericht {label}</h1>
+          <h1 className="mt-1 text-2xl font-semibold">Kassenbericht {label}</h1>
           <p className="mt-1 text-[11px] text-zinc-700">
             Geschäftsjahr vom {formatDateCh(info.startsOn)} bis {formatDateCh(info.endsOn)} · Stand {formatDateTimeCh(new Date())}
           </p>

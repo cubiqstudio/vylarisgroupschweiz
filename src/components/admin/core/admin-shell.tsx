@@ -49,7 +49,7 @@ const NAV: AdminNavGroup<NavItem>[] = [
       { href: "/admin", label: "Übersicht", icon: LayoutDashboard, module: "dashboard" },
       { href: "/admin/members", label: "Mitglieder", icon: Users, module: "members", badge: "applications" },
       { href: "/admin/fees", label: "Beiträge", icon: Receipt, module: "fees" },
-      { href: "/admin/ledger", label: "Kassa", icon: Wallet, module: "ledger" },
+      { href: "/admin/ledger", label: "Kasse", icon: Wallet, module: "ledger" },
       { href: "/admin/meetings", label: "Versammlungen", icon: Gavel, module: "meetings" },
       { href: "/admin/events", label: "Anlässe", icon: CalendarDays, module: "events" },
       { href: "/admin/documents", label: "Dokumente", icon: FolderOpen, module: "documents" },

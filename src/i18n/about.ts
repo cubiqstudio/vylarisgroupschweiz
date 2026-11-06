@@ -88,6 +88,8 @@ export const about = defineMessages({
     title: "Die Menschen hinter der VylarisGroup",
     description:
       "Drei Informatik-Lehrlinge, zwei in der Plattformentwicklung und einer in der Applikationsentwicklung, bilden den Vorstand der VylarisGroup.",
+    photoAlt: "Der Vorstand der VylarisGroup: drei Vorstandsmitglieder",
+    photoCaption: "Der Vorstand der VylarisGroup",
     initialsOf: (name: string) => `Initialen von ${name}`,
     training: "i. A. = in Ausbildung",
     members: (members: number, board: number) => `Der Verein hat ${members} Mitglieder, davon ${board} im Vorstand.`,

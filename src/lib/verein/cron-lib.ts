@@ -10,8 +10,17 @@ export const CRON_STALE_AFTER_MS = 36 * 3_600_000;
 /** Mindestlänge des Geheimnisses (CRON_SECRET, EVENTS_CRON_SECRET). */
 export const CRON_MIN_SECRET_LENGTH = 24;
 
-/** Ergebnis einer Tagesaufgabe. Enthält nie Personendaten: nur Name, Erfolg, Anzahl und eine kurze Fehlerart. */
-export type CronTaskResult = { name: string; ok: boolean; count: number; error?: string };
+/**
+ * Hinweistext, wenn eine Mail-Aufgabe mangels eingerichtetem Mailserver übersprungen wurde. Das ist kein Fehler: Die Aufgabe gilt als
+ * erledigt (ok), nichts wird als versendet markiert, und die Erinnerungen werden nach der Einrichtung nachgeholt (solange sie fällig sind).
+ */
+export const MAIL_SKIPPED_NOTE = "Kein Mailserver eingerichtet, Erinnerungen wurden nicht verschickt.";
+
+/**
+ * Ergebnis einer Tagesaufgabe. Enthält nie Personendaten: nur Name, Erfolg, Anzahl und eine kurze Fehlerart.
+ * `note` ist ein neutraler Hinweis bei einer übersprungenen Aufgabe (ok bleibt true).
+ */
+export type CronTaskResult = { name: string; ok: boolean; count: number; error?: string; note?: string };
 
 /** Ergebnis eines Laufs. */
 export type CronRun = { startedAt: string; finishedAt: string; ok: boolean; tasks: CronTaskResult[] };
@@ -56,9 +65,15 @@ export function parseCronRun(raw: string | null | undefined): CronRun | null {
       ok: r.ok,
       count: typeof r.count === "number" && Number.isFinite(r.count) ? Math.max(0, Math.trunc(r.count)) : 0,
       ...(typeof r.error === "string" && r.error ? { error: r.error.slice(0, 200) } : {}),
+      ...(typeof r.note === "string" && r.note ? { note: r.note.slice(0, 200) } : {}),
     });
   }
   return { startedAt: v.startedAt, finishedAt: v.finishedAt, ok: tasks.every((t) => t.ok), tasks };
+}
+
+/** Hat mindestens eine Aufgabe des Laufs etwas übersprungen (z. B. mangels Mailserver)? */
+export function cronRunHasNotes(run: CronRun | null): boolean {
+  return Boolean(run?.tasks.some((t) => t.ok && t.note));
 }
 
 export type CronHealth = "ok" | "failed" | "stale" | "never";

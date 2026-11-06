@@ -97,7 +97,7 @@ export function PaymentRowActions({
         }}
       />
 
-      <Modal open={dialog === "book"} onClose={() => !busy && setDialog(null)} title="Zahlung nachbuchen" description={`Zahlung ${label} in der Kassa als Einnahme buchen.`} size="sm" dismissible={!busy}>
+      <Modal open={dialog === "book"} onClose={() => !busy && setDialog(null)} title="Zahlung nachbuchen" description={`Zahlung ${label} in der Kasse als Einnahme buchen.`} size="sm" dismissible={!busy}>
         <form onSubmit={book} className="space-y-4">
           {error && <Notice variant="error">{error}</Notice>}
           <Field label="Eingegangen auf" htmlFor={`${uid}-asset`} error={fields.assetAccountId}>

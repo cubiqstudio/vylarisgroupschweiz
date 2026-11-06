@@ -54,7 +54,7 @@ Bei Gästen steht ein zufälliges Token (256 Bit) nur in der Bestätigungsmail, 
 ## Erinnerungen
 
 - Von Hand: Auf der Seite eines veröffentlichten, noch nicht begonnenen Anlasses mit «Erinnerung senden». Jede Anmeldung wird höchstens einmal erinnert.
-- Automatisch: Der tägliche Lauf (Dienst `cron`, 03:15 Uhr Zeit Europe/Zurich, siehe README «Täglicher Lauf» und `docs/verein-architektur.md`, Abschnitt «Hintergrundläufe») verschickt Erinnerungen für veröffentlichte Anlässe, die in den nächsten 36 Stunden beginnen. `install.sh` richtet ihn mit `CRON_SECRET` ein; es ist nichts weiter nötig.
+- Automatisch: Der tägliche Lauf (Dienst `cron`, 03:15 Uhr Zeit Europe/Zurich, siehe README «Täglicher Lauf» und `docs/verein-architektur.md`, Abschnitt «Hintergrundläufe») verschickt Erinnerungen für veröffentlichte Anlässe, die in den nächsten 36 Stunden beginnen. `install.sh` richtet ihn mit `CRON_SECRET` ein; es ist nichts weiter nötig. Ohne eingerichteten Mailserver werden die Erinnerungen **übersprungen** (kein Fehler, Lauf gilt als ok, Hinweis in der Übersicht); `reminderSentAt` bleibt leer, sodass der nächste Lauf nach der Einrichtung des Mailservers sie nachholt, solange der Anlass innerhalb der 36 Stunden beginnt. Ein Versandfehler bei eingerichtetem Mailserver bleibt ein Fehler. Die Erinnerung von Hand meldet ohne Mailserver «409» mit Hinweis auf die Einstellungen.
 - Eigener Aufruf (optional): `POST /api/events/reminders` mit `Authorization: Bearer <Geheimnis>`. Gültig ist `CRON_SECRET`; `EVENTS_CRON_SECRET` wird weiterhin akzeptiert, ist aber nur noch für bestehende Einrichtungen nötig:
 
 ```sh

@@ -9,6 +9,7 @@ import { runInBackground } from "@/lib/account";
 import { ApiError } from "@/lib/api";
 import type { CurrentAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isMailConfigured } from "@/lib/mailer";
 import { authSecretString } from "@/lib/session";
 import { auditActor, diffForAudit, logAudit, SYSTEM_ACTOR, type AuditActor } from "./audit";
 import { formatDateTimeCh } from "./dates";
@@ -685,7 +686,8 @@ export async function deleteEvent(admin: CurrentAdmin, id: string, now: Date = n
 
 // ---- Erinnerungen --------------------------------------------------------------------------------------------------------
 
-export type ReminderSummary = { events: number; mailed: number; failed: number; noEmail: number };
+/** `skipped`: Anmeldungen, die eine Erinnerung bekommen hätten, aber nicht, weil kein Mailserver eingerichtet ist (nichts als erinnert markiert). */
+export type ReminderSummary = { events: number; mailed: number; failed: number; noEmail: number; skipped: number };
 
 const REMINDER_BATCH = 500;
 
@@ -693,6 +695,10 @@ const REMINDER_BATCH = 500;
  * Verschickt Erinnerungen an alle angemeldeten Personen (jede Anmeldung höchstens einmal).
  *  - mit `eventId`: von Hand für diesen Anlass (veröffentlicht, noch nicht begonnen), unabhängig vom Zeitfenster
  *  - ohne `eventId`: für alle veröffentlichten Anlässe, die innerhalb des Zeitfensters beginnen (für einen täglichen Cron-Aufruf)
+ *
+ * Ohne eingerichteten Mailserver wird nichts versendet und nichts als erinnert gespeichert (`reminderSentAt` bleibt leer): Der tägliche
+ * Lauf zählt solche Anmeldungen in `skipped` (kein Fehler) und holt sie nach der Einrichtung nach, solange der Anlass im Zeitfenster
+ * liegt. Von Hand (`eventId`) gibt es stattdessen die Meldung 409. Schlägt der Versand bei eingerichtetem Mailserver fehl, zählt `failed`.
  */
 export async function sendEventReminders(opts: { eventId?: string; actor?: AuditActor; now?: Date } = {}): Promise<ReminderSummary> {
   const now = opts.now ?? new Date();
@@ -705,7 +711,12 @@ export async function sendEventReminders(opts: { eventId?: string; actor?: Audit
   const events = candidates.filter((e) => e.status === "VEROEFFENTLICHT" && e.startsAt.getTime() > now.getTime() && (opts.eventId ? true : isReminderDue(e.startsAt, now)));
   if (opts.eventId && events.length === 0) throw new ApiError(409, "CONFLICT", "Erinnerungen gibt es nur für veröffentlichte Anlässe, die noch nicht begonnen haben.");
 
-  const summary: ReminderSummary = { events: 0, mailed: 0, failed: 0, noEmail: 0 };
+  if (opts.eventId && !(await isMailConfigured())) {
+    throw new ApiError(409, "MAIL_NOT_CONFIGURED", "Es ist kein Mailserver eingerichtet. Erinnerungen werden per E-Mail verschickt; richte zuerst den Mailserver ein (Einstellungen > Mailserver).");
+  }
+
+  const summary: ReminderSummary = { events: 0, mailed: 0, failed: 0, noEmail: 0, skipped: 0 };
+  let mailReady: boolean | null = opts.eventId ? true : null;
   let budget = REMINDER_BATCH;
   for (const e of events) {
     if (budget <= 0) break;
@@ -718,11 +729,17 @@ export async function sendEventReminders(opts: { eventId?: string; actor?: Audit
     if (regs.length === 0) continue;
     summary.events += 1;
     budget -= regs.length;
+    mailReady ??= await isMailConfigured();
     const event = mailEventOf(e);
     for (const r of regs) {
       const recipient = contactOf(r);
       if (!recipient) {
         summary.noEmail += 1;
+        continue;
+      }
+      if (!mailReady) {
+        // Kein Mailserver: überspringen, ohne etwas als erinnert zu markieren.
+        summary.skipped += 1;
         continue;
       }
       try {
@@ -736,7 +753,7 @@ export async function sendEventReminders(opts: { eventId?: string; actor?: Audit
       }
     }
   }
-  if (summary.events > 0) {
+  if (summary.events > 0 && mailReady) {
     await logAudit(db, {
       actor: opts.actor ?? SYSTEM_ACTOR,
       action: "event.reminders",

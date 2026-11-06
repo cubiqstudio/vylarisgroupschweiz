@@ -118,7 +118,7 @@ const ACTION_LABEL: Record<string, string> = {
   "meeting.minutes.amend": "Protokoll nachträglich geändert",
   "export.members": "Mitgliederliste exportiert",
   "export.disclosure": "Auskunft über eigene Daten bezogen",
-  "export.ledger": "Kassa exportiert",
+  "export.ledger": "Kasse exportiert",
   "export.invoices": "Rechnungen exportiert",
   "export.registrations": "Anmeldungen exportiert",
   "registration.confirm": "Anmeldung: E-Mail-Adresse von Hand bestätigt",

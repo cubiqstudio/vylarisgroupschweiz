@@ -12,7 +12,7 @@ Die Software besteht aus drei Teilen, die dieselbe Datenbank und dieselbe Anmeld
 | Mitgliederportal | `src/app/(site)/account/**` | angemeldete Website-Konten, mit einem Mitglied verknüpft (`/account/verein/**`) |
 | Verwaltung | `src/app/admin/(panel)/**`, `src/app/api/admin/**` | Admin-Konten mit Rolle |
 
-Bestehendes bleibt erhalten: Website, Konten, Tickets, Newsletter, Lizenzen und das Admin-Dashboard. Neu sind die Module Mitglieder, Beiträge, Kassa, Versammlungen, Anlässe, Dokumente und Aufgaben samt Vereinseinstellungen.
+Bestehendes bleibt erhalten: Website, Konten, Tickets, Newsletter, Lizenzen und das Admin-Dashboard. Neu sind die Module Mitglieder, Beiträge, Kasse, Versammlungen, Anlässe, Dokumente und Aufgaben samt Vereinseinstellungen.
 
 ## 2. Mitglieder, Website-Konten und Admin-Konten
 
@@ -60,7 +60,7 @@ Jede Rolle hat je Modul die Stufe «kein Zugriff», `read` (lesen) oder `write` 
 | `dashboard` (Übersicht) | W | R | R | R | R | R | R |
 | `members` | W | W | W | R | W | – | – |
 | `fees` (Beiträge, Rechnungen) | W | R | R | W | – | R | – |
-| `ledger` (Kassa) | W | W | R | W | – | R | – |
+| `ledger` (Kasse) | W | W | R | W | – | R | – |
 | `meetings` | W | W | W | R | W | R | – |
 | `events` | W | W | W | R | W | – | – |
 | `documents` | W | W | W | W | W | R | – |
@@ -73,28 +73,31 @@ Jede Rolle hat je Modul die Stufe «kein Zugriff», `read` (lesen) oder `write` 
 | `system` (Zugänge, Mailserver, Registrierung, Impressum, Rollen und Rechte) | W | R | – | – | – | – | – |
 | `self` (eigenes Passwort) | W | W | W | W | W | W | W |
 
-W = lesen und ändern, R = nur lesen. Das ist eine Voreinstellung für die übliche Aufgabenverteilung im Vorstand. Der Präsident darf in der Kassa buchen und Konten ändern (zusammen mit dem Kassier); der Vize-Präsident nur lesen. Die Statuten gehen vor: Wo sie etwas anderes regeln, stellt der Verein die Rechte entsprechend ein.
+W = lesen und ändern, R = nur lesen. Das ist eine Voreinstellung für die übliche Aufgabenverteilung im Vorstand. Der Präsident darf in der Kasse buchen und Konten ändern (zusammen mit dem Kassier); der Vize-Präsident nur lesen. Die Statuten gehen vor: Wo sie etwas anderes regeln, stellt der Verein die Rechte entsprechend ein.
 
 Änderung gegenüber früher: `EDITOR` hatte bisher Zugriff auf alle Admin-Bereiche. Jetzt darf die Rolle Website-Inhalte und Newsletter bearbeiten, aber keine Systemeinstellungen (Mailserver, Registrierung, Impressum) mehr.
 
 ### Einzelrechte
 
-Neben den Modulstufen gibt es zwei Einzelrechte je Rolle (Schalter):
+Neben den Modulstufen gibt es drei Einzelrechte je Rolle (Schalter):
 
 | Einzelrecht | Schlüssel | Wirkung | Voreinstellung |
 | --- | --- | --- | --- |
 | Vorstandsnotizen bei Mitgliedern sehen | `boardNotes` | `Member.boardNotes` anzeigen, erfassen und ändern (`canSeeBoardNotes`, früher fest `hasBoardRole`) | an für Inhaber, Administrator, Präsident, Vize, Kassier, Aktuar; aus für Revisor und Redakteur (Datenminimierung) |
 | Dokumente «Nur Vorstand» sehen | `boardDocuments` | Dokumente mit der Sichtbarkeit `VORSTAND` in Liste, Suche, Zähler, Einzelansicht und Download; ohne das Recht sind sie auch nicht änderbar und nicht anlegbar | wie oben |
+| Geschäftsjahr abschliessen und wieder öffnen | `fiscalYearClose` | Abschluss, Wiedereröffnung und Genehmigungsvermerk eines Geschäftsjahres in der Kasse (`canCloseFiscalYear`, serverseitig in `applyFiscalAction` und im Hinweis der Seite «Geschäftsjahre») | an für Inhaber, Administrator, Präsident und Kassier; aus für Vize-Präsident, Aktuar, Revisor und Redakteur |
+
+Beim Recht «Geschäftsjahr abschliessen» gilt: Es wirkt nur zusammen mit mindestens Leserecht auf `ledger` (Kasse); ohne Zugriff auf die Kasse gibt es keinen Abschluss, auch wenn der Schalter an ist (die Oberfläche weist darauf hin, Vorschau und Rollenerklärung zeigen das Recht dann nicht als erlaubt). Das Schreibrecht auf `ledger` genügt nicht mehr und ist nicht nötig: Buchen, Stornieren, Konten und Budget bleiben am Schreibrecht. Inhaber und Administrator haben das Recht immer. Eine gespeicherte Konfiguration ohne das Feld bleibt gültig und bekommt die Voreinstellung; eine Änderung steht im Änderungsprotokoll wie die anderen Einzelrechte (`ROLLE.fiscalYearClose`, Vorher/Nachher).
 
 Beim Dokumentenrecht reicht das Leserecht auf `documents` allein nicht mehr: Ein Revisor mit Leserecht sieht «Nur Vorstand»-Dokumente nur, wenn der Verein ihm das Einzelrecht gibt. Das wird serverseitig in den Datenbankabfragen erzwungen (`documents-data.ts`, `boardOnly`) und im Download (`/api/documents/[id]/download`, `/api/admin/documents/[id]/download`, Publikum `STAFF` ohne, `BOARD` mit dem Recht), nicht nur in der Anzeige. Das Modul `audit` ist unabhängig von diesem Recht: Deshalb schreiben Dokumente «Nur Vorstand» nur neutral ins Änderungsprotokoll («Dokument (Nur Vorstand) hochgeladen», ohne Titel, Kategorie und Dateiname; `documents-lib.ts`, `redactBoardAuditValues`), und alte Einträge mit Klartext-Titel blenden Liste, Suche, Zähler und Export für Rollen ohne das Recht aus (`audit-data.ts`, `legacyBoardDocumentRows`).
 
 ### Einstellbare Rechte
 
-Inhaber und Administrator stellen unter **Verwaltung > Rollen und Rechte** (`/admin/verein/rollen`, Modul `system`) ein, was die Rollen dürfen: Tabelle Rollen × Module mit «Kein Zugriff / Lesen / Ändern», die zwei Einzelrechte als Schalter, Erklärung je Rolle (dynamisch aus der wirksamen Matrix), Vorschau «Diese Person darf …» und «Auf Voreinstellung zurücksetzen» je Rolle und gesamt. Jede Änderung steht im Änderungsprotokoll (`permissions.update`, Vorher/Nachher als `ROLLE.modul` ohne Personendaten).
+Inhaber und Administrator stellen unter **Verwaltung > Rollen und Rechte** (`/admin/verein/rollen`, Modul `system`) ein, was die Rollen dürfen: Tabelle Rollen × Module mit «Kein Zugriff / Lesen / Ändern», die drei Einzelrechte als Schalter, Erklärung je Rolle (dynamisch aus der wirksamen Matrix), Vorschau «Diese Person darf …» und «Auf Voreinstellung zurücksetzen» je Rolle und gesamt. Jede Änderung steht im Änderungsprotokoll (`permissions.update`, Vorher/Nachher als `ROLLE.modul` ohne Personendaten).
 
 - **Speicherort:** nur die Abweichungen von der Voreinstellung, als JSON in `SiteSetting` mit dem Schlüssel `verein.permissions.v1`, z. B. `{"levels":{"KASSIER":{"ledger":"read"}},"flags":{"REVISOR":{"boardDocuments":true}}}`. `none` nimmt eine Stufe weg. Ist nichts abweichend, gibt es den Eintrag nicht. Format und Zod-Prüfung: `permissions-config.ts`.
 - **Wirksame Matrix:** `resolveMatrix(overrides)` in `permissions.ts` ist die einzige Stelle, die sie bildet. Unbekannte Rollen und Module, ungültige Werte, Inhaber/Administrator und alles, was die Schranken verletzt, werden verworfen; es gilt die Voreinstellung. Kaputtes JSON, falsche Form oder ein Lesefehler ergeben die Voreinstellung. Eine gespeicherte Matrix kann also nie mehr Rechte geben, als die Schranken zulassen.
-- **Laden:** `getEffectiveMatrix()` (`permissions-data.ts`) liest mit 15 Sekunden Zwischenspeicher; Speichern macht ihn im Prozess sofort ungültig. `getCurrentAdmin()` hängt die Matrix mit `withMatrix` an `admin.roles`. Alle reinen Funktionen (`canAccess`, `levelFor`, `visibleModules`, `levelsFor`, `filterNav`, `canSeeBoardNotes`, `canSeeBoardDocuments`, `describeAccess`, `roleHint`) lesen sie von dort. Eine Rollenliste ohne Matrix (Tests, Kopien, Client) nutzt die Voreinstellung; Client-Komponenten bekommen deshalb fertig berechnete Stufen als Props (`levelsFor`, `filterNavByLevels`). Wer `admin.roles` kopiert oder umbaut, verliert die Matrix: immer die Liste selbst weitergeben.
+- **Laden:** `getEffectiveMatrix()` (`permissions-data.ts`) liest mit 15 Sekunden Zwischenspeicher; Speichern macht ihn im Prozess sofort ungültig. `getCurrentAdmin()` hängt die Matrix mit `withMatrix` an `admin.roles`. Alle reinen Funktionen (`canAccess`, `levelFor`, `visibleModules`, `levelsFor`, `filterNav`, `canSeeBoardNotes`, `canSeeBoardDocuments`, `canCloseFiscalYear`, `describeAccess`, `roleHint`) lesen sie von dort. Eine Rollenliste ohne Matrix (Tests, Kopien, Client) nutzt die Voreinstellung; Client-Komponenten bekommen deshalb fertig berechnete Stufen als Props (`levelsFor`, `filterNavByLevels`). Wer `admin.roles` kopiert oder umbaut, verliert die Matrix: immer die Liste selbst weitergeben.
 - **Speichern:** `saveRolePermissions` (`permissions-save.ts`) prüft selbst, dass die Person das Modul `system` ändern darf (nur Inhaber/Administrator), schreibt Einstellung und Protokolleintrag in einer Transaktion. Die Route `/api/admin/settings/verein/rollen` ist in `PATH_MODULES` dem Modul `system` zugeordnet.
 
 **Schranken** (gegen Aussperrung und Rechteausweitung, `isAllowedLevel`):
@@ -161,7 +164,7 @@ Jedes Modul besitzt seine Routen, Komponenten (`src/components/admin/<modul>/**`
 | --- | --- | --- |
 | mitglieder | `/admin/members/**`, `/api/admin/members/**`, `/mitglied-werden`, `/account/verein/mitgliedschaft` | `Member`, `MembershipType`, `Office` |
 | beitraege | `/admin/fees/**` (inkl. `/admin/fees/invoices/[id]/print`), `/api/admin/fees/**`, `/api/admin/invoices/**`, `/account/verein/beitraege` | `FeePeriod`, `FeePeriodRate`, `Invoice`, `InvoiceItem`, `Payment`, `Reminder` |
-| kassa | `/admin/ledger/**`, `/api/admin/ledger/**` | `AccountCategory`, `Transaction`, `Budget`, `Receipt`, `FiscalYear` |
+| kasse | `/admin/ledger/**`, `/api/admin/ledger/**` | `AccountCategory`, `Transaction`, `Budget`, `Receipt`, `FiscalYear` |
 | versammlungen | `/admin/meetings/**`, `/api/admin/meetings/**`, `/account/verein/versammlungen` | `Meeting`, `AgendaItem`, `Attendance`, `Resolution` |
 | anlaesse | `/admin/events/**`, `/api/admin/events/**`, `/anlaesse/**`, `/api/events/**`, `/account/verein/anlaesse` | `Event`, `EventRegistration` |
 | dokumente-aufgaben | `/admin/documents/**`, `/admin/tasks/**`, `/api/admin/documents/**`, `/api/admin/tasks/**`, `/api/documents/**`, `/account/verein/dokumente`, `/verein/statuten` | `Document`, `DocumentVersion`, `BoardTask` |
@@ -364,7 +367,7 @@ Die Mitgliedschaftsarten «Aktivmitglied» und «Passivmitglied» legt der Seed 
 Zeitgesteuerte Arbeiten laufen nicht im Webserver, sondern werden von aussen ausgelöst:
 
 - Der Dienst `cron` (`docker-compose.yml`, gleiches Image wie die App, `scripts/cron-runner.mjs`, reines Node) ruft täglich um 03:15 Uhr Zeit Europe/Zurich `POST /api/cron/daily` auf (Bearer-Token `CRON_SECRET`, mind. 24 Zeichen; ohne Geheimnis antwortet die Route mit 404). `install.sh` erzeugt das Geheimnis automatisch.
-- Die Aufgaben stehen in `DAILY_TASKS` (`src/lib/verein/cron.ts`): fällige Austritte vollziehen (`completeDueExitsAs(SYSTEM_ACTOR)`, dieselbe Fachlogik wie «Austritt vollziehen»), Anlass-Erinnerungen (`sendEventReminders`), unbestätigte Gast-Anmeldungen löschen (`purgeExpiredUnconfirmedRegistrations`), Angaben von Gästen 30 Tage nach dem Anlass entfernen (`anonymizePastGuestRegistrations`, `events-guests.ts`). Eine neue Aufgabe ist ein Eintrag in dieser Liste plus ein Anzeigename in `CRON_TASK_LABELS` (`cron-lib.ts`). Aufgaben müssen wiederholbar sein; jede läuft einzeln abgesichert, ein Fehler stoppt die anderen nicht. Der Dienst `cron` schaltet den geerbten Healthcheck des Images ab; fehlt `CRON_SECRET`, meldet der Läufer das im Log und wartet (keine Neustart-Schleife); `/api/cron/*` ist in Caddy und im Tunnel von aussen gesperrt, abgewiesene Aufrufe erscheinen (gedrosselt) im App-Log.
+- Die Aufgaben stehen in `DAILY_TASKS` (`src/lib/verein/cron.ts`): fällige Austritte vollziehen (`completeDueExitsAs(SYSTEM_ACTOR)`, dieselbe Fachlogik wie «Austritt vollziehen»), Anlass-Erinnerungen (`sendEventReminders`), unbestätigte Gast-Anmeldungen löschen (`purgeExpiredUnconfirmedRegistrations`), Angaben von Gästen 30 Tage nach dem Anlass entfernen (`anonymizePastGuestRegistrations`, `events-guests.ts`). Eine neue Aufgabe ist ein Eintrag in dieser Liste plus ein Anzeigename in `CRON_TASK_LABELS` (`cron-lib.ts`). Aufgaben müssen wiederholbar sein; jede läuft einzeln abgesichert, ein Fehler stoppt die anderen nicht. Eine Aufgabe kann ein Ergebnis mit `note` liefern (übersprungen, `ok` bleibt wahr): so die Erinnerungen ohne eingerichteten Mailserver (`sendEventReminders` zählt `skipped`, markiert nichts als erinnert; Text `MAIL_SKIPPED_NOTE` in `cron-lib.ts`). Der Vollzug fälliger Austritte verschickt keine Mails und hängt nicht vom Mailserver ab. Der Dienst `cron` schaltet den geerbten Healthcheck des Images ab; fehlt `CRON_SECRET`, meldet der Läufer das im Log und wartet (keine Neustart-Schleife); `/api/cron/*` ist in Caddy und im Tunnel von aussen gesperrt, abgewiesene Aufrufe erscheinen (gedrosselt) im App-Log.
 - Das Ergebnis (Zeit, je Aufgabe Name, Erfolg, Anzahl; keine Personendaten) steht in `SiteSetting` unter `cron.lastRun`. Die Übersicht zeigt es Rollen mit Recht `system` oder `verein_settings` (nur lesend); nach mehr als 36 Stunden ohne Lauf erscheint eine Warnung. `GET /api/cron/daily` liefert dasselbe mit gültigem Token und dient dem Läufer beim Start, um einen verpassten Lauf nachzuholen.
 - Der Zugriffsschutz (`cron-auth.ts`) gilt auch für `POST /api/events/reminders` (`CRON_SECRET` oder weiterhin `EVENTS_CRON_SECRET`).
 - Tests: `scripts/test/cron.test.mts` (Zeitplan inkl. Sommerzeit, Wiederholung, Nachholen) und `scripts/test/cron-db.test.mts` (Temp-SQLite: Austritte, Fehlerisolation, Speichern, Routen, Übersicht).

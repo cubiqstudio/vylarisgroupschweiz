@@ -86,7 +86,7 @@ function LevelSelect({
       value={value}
       onChange={(e) => onChange(e.target.value as ConfigurableLevel)}
       disabled={disabled || options.length < 2}
-      className={cn("h-9 min-w-0 px-2 text-xs", changed && "border-amber-400/60")}
+      className={cn("h-9 min-w-[7.5rem] px-2 text-xs", changed && "border-amber-400/60")}
     >
       {options.map((l) => (
         <option key={l} value={l}>
@@ -97,20 +97,33 @@ function LevelSelect({
   );
 }
 
-function FlagSwitch({ role, flag, value, onChange, disabled, idPrefix }: { role: ConfigurableRole; flag: RoleFlag; value: boolean; onChange: (v: boolean) => void; disabled: boolean; idPrefix: string }) {
+/** Einzelrecht, das ohne Zugriff auf die Kasse nichts bewirkt (Geschäftsjahr abschliessen). */
+const flagInactive = (s: RolePermissionsState, role: string, flag: RoleFlag): boolean => flag === "fiscalYearClose" && flagOf(s, role, flag) && levelOf(s, role, "ledger") === "none";
+const INACTIVE_NOTE = "Wirkt nicht: kein Zugriff auf die Kasse";
+
+function FlagSwitch({ role, flag, value, onChange, disabled, idPrefix, inactive = false }: { role: ConfigurableRole; flag: RoleFlag; value: boolean; onChange: (v: boolean) => void; disabled: boolean; idPrefix: string; inactive?: boolean }) {
+  const id = `${idPrefix}-${role}-${flag}`;
   return (
-    <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-zinc-300">
-      <input
-        id={`${idPrefix}-${role}-${flag}`}
-        type="checkbox"
-        checked={value}
-        onChange={(e) => onChange(e.target.checked)}
-        disabled={disabled}
-        className="h-5 w-5 rounded border-zinc-600 accent-emerald-500"
-        aria-label={`${ADMIN_ROLE_LABEL[role]}: ${ROLE_FLAG_LABEL[flag]}`}
-      />
-      <span aria-hidden>{value ? "Ja" : "Nein"}</span>
-    </label>
+    <div className="inline-flex flex-col items-center gap-1">
+      <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-zinc-300">
+        <input
+          id={id}
+          type="checkbox"
+          checked={value}
+          onChange={(e) => onChange(e.target.checked)}
+          disabled={disabled}
+          className="h-5 w-5 rounded border-zinc-600 accent-emerald-500"
+          aria-label={`${ADMIN_ROLE_LABEL[role]}: ${ROLE_FLAG_LABEL[flag]}`}
+          aria-describedby={inactive ? `${id}-note` : undefined}
+        />
+        <span aria-hidden>{value ? "Ja" : "Nein"}</span>
+      </label>
+      {inactive && (
+        <span id={`${id}-note`} className="max-w-32 text-center text-[11px] leading-tight text-amber-300">
+          {INACTIVE_NOTE}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -221,7 +234,7 @@ export function RolePermissionsEditor({ current, defaults, canWrite }: Props) {
               {ROLE_FLAGS.map((f) => (
                 <li key={f} className="flex items-center justify-between gap-3 py-2">
                   <span className="min-w-0 text-xs text-zinc-300">{ROLE_FLAG_LABEL[f]}</span>
-                  <FlagSwitch role={role} flag={f} value={flagOf(draft, role, f)} onChange={(v) => setFlag(role, f, v)} disabled={dis} idPrefix="m" />
+                  <FlagSwitch role={role} flag={f} value={flagOf(draft, role, f)} onChange={(v) => setFlag(role, f, v)} disabled={dis} idPrefix="m" inactive={flagInactive(draft, role, f)} />
                 </li>
               ))}
             </ul>
@@ -236,7 +249,7 @@ export function RolePermissionsEditor({ current, defaults, canWrite }: Props) {
       {/* Ab mittlerer Breite: Tabelle Rollen × Bereiche */}
       <Card className="hidden overflow-hidden md:block">
         <div className="overflow-x-auto" role="region" aria-label="Rechte je Rolle und Bereich" tabIndex={0}>
-          <table className="w-full min-w-[52rem] text-left text-xs">
+          <table className="w-full min-w-[68rem] text-left text-xs">
             <caption className="sr-only">Rechte je Rolle und Bereich einstellen</caption>
             <thead className="border-b border-zinc-800 text-zinc-500">
               <tr>
@@ -255,7 +268,7 @@ export function RolePermissionsEditor({ current, defaults, canWrite }: Props) {
                   <th scope="row" className="px-3 py-1.5 text-left font-normal text-zinc-300">{MODULE_LABEL[m]}</th>
                   <td className="px-2 py-1.5 text-center font-semibold text-emerald-400">Ändern</td>
                   {CONFIGURABLE_ROLES.map((r) => (
-                    <td key={r} className="px-1.5 py-1.5">
+                    <td key={r} className="min-w-[8.5rem] px-1.5 py-1.5">
                       <LevelSelect role={r} module={m} value={levelOf(draft, r, m)} onChange={(l) => setLevel(r, m, l)} disabled={dis} changed={levelOf(draft, r, m) !== levelOf(defaults, r, m)} idPrefix="t" />
                     </td>
                   ))}
@@ -275,7 +288,7 @@ export function RolePermissionsEditor({ current, defaults, canWrite }: Props) {
                   <td className="px-2 py-1.5 text-center font-semibold text-emerald-400">Ja</td>
                   {CONFIGURABLE_ROLES.map((r) => (
                     <td key={r} className="px-2 py-1.5 text-center">
-                      <FlagSwitch role={r} flag={f} value={flagOf(draft, r, f)} onChange={(v) => setFlag(r, f, v)} disabled={dis} idPrefix="t" />
+                      <FlagSwitch role={r} flag={f} value={flagOf(draft, r, f)} onChange={(v) => setFlag(r, f, v)} disabled={dis} idPrefix="t" inactive={flagInactive(draft, r, f)} />
                     </td>
                   ))}
                 </tr>
@@ -362,6 +375,8 @@ export function RolePermissionsEditor({ current, defaults, canWrite }: Props) {
                   <span className="font-medium text-zinc-200">Vorstandsnotizen bei Mitgliedern:</span> {summary.boardNotes ? "sichtbar" : "nicht sichtbar"}
                   <br />
                   <span className="font-medium text-zinc-200">Dokumente «Nur Vorstand»:</span> {summary.boardDocuments ? "sichtbar" : "nicht sichtbar"}
+                  <br />
+                  <span className="font-medium text-zinc-200">Geschäftsjahr abschliessen und wieder öffnen:</span> {summary.fiscalYearClose ? "erlaubt" : "nicht erlaubt"}
                 </p>
               </>
             )}

@@ -31,7 +31,7 @@ export default async function FiscalYearsPage() {
       <PageTitle title="Geschäftsjahre" description="Abschliessen sperrt ein Jahr: Buchungen lassen sich dann nicht mehr ändern, Korrekturen erfolgen mit einer Gegenbuchung im offenen Jahr." />
       <LedgerNav />
       <Notice variant="info" className="mb-6">
-        Abschliessen, Wiedereröffnen und den Genehmigungsvermerk dürfen der Kassier und der Präsident. Jede Aktion steht im Änderungsprotokoll. Wann und von wem die Jahresrechnung zu genehmigen ist, regeln die Statuten.
+        Abschliessen, Wiedereröffnen und den Genehmigungsvermerk dürfen nur Rollen mit dem Recht «Geschäftsjahr abschliessen und wieder öffnen» (Voreinstellung: Präsident/in und Kassier/in; einstellbar unter «Rollen und Rechte»). Jede Aktion steht im Änderungsprotokoll. Wann und von wem die Jahresrechnung zu genehmigen ist, regeln die Statuten.
         {(fiscal.month !== 1 || fiscal.day !== 1) && ` Das Geschäftsjahr beginnt am ${fiscal.day}.${fiscal.month}.`}
       </Notice>
 

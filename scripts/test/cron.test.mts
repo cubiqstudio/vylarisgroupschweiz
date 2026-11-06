@@ -235,3 +235,44 @@ test("cron-lib: parseCronRun liest tolerant, cronHealth unterscheidet nie, zu al
   assert.equal(lib.cronIsOverdue(lib.parseCronRun(fresh), at("2026-07-17T00:00:00Z")), true);
   assert.equal(lib.cronIsOverdue(lib.parseCronRun(fresh), now), false);
 });
+
+// ---- Übersprungene Aufgabe (kein Mailserver) ist kein Fehler -----------------------------------------------------------------
+
+test("callDaily: übersprungene Aufgabe (Hinweis, ok) gilt als Erfolg und wird im Log als «übersprungen» gezeigt", async () => {
+  const secret = "geheim-geheim-geheim-geheim-1234";
+  const run = { ok: true, tasks: [{ name: "event-reminders", ok: true, count: 0, note: lib.MAIL_SKIPPED_NOTE }] };
+  const r = await runner.callDaily({ fetchImpl: async () => new Response(JSON.stringify({ data: run }), { status: 200 }), baseUrl: "http://app:3000", secret });
+  assert.equal(r.ok, true);
+  assert.match(r.detail, /event-reminders: übersprungen \(0\)/);
+});
+
+test("runWithRetry: bei übersprungener Aufgabe kein zweiter Versuch, kein Fehlerergebnis", async () => {
+  const secret = "geheim-geheim-geheim-geheim-1234";
+  const run = { ok: true, tasks: [{ name: "event-reminders", ok: true, count: 0, note: lib.MAIL_SKIPPED_NOTE }] };
+  let calls = 0;
+  const logs: string[] = [];
+  const done = await runner.runWithRetry({
+    call: () => (calls++, runner.callDaily({ fetchImpl: async () => new Response(JSON.stringify({ data: run }), { status: 200 }), baseUrl: "http://app:3000", secret })),
+    sleep: async () => assert.fail("keine Wartezeit"),
+    log: (m: string) => logs.push(m),
+  });
+  assert.equal(done, true);
+  assert.equal(calls, 1);
+  assert.ok(logs.every((m) => !/fehlgeschlagen/.test(m)));
+});
+
+test("parseCronRun und cronRunHasNotes: Hinweis bleibt erhalten, Lauf bleibt ok, Gesundheit «ok»", () => {
+  const raw = JSON.stringify({
+    startedAt: "2026-08-01T01:15:00.000Z",
+    finishedAt: "2026-08-01T01:15:02.000Z",
+    ok: true,
+    tasks: [{ name: "event-reminders", ok: true, count: 0, note: lib.MAIL_SKIPPED_NOTE }, { name: "exits-complete", ok: true, count: 1 }],
+  });
+  const run = lib.parseCronRun(raw)!;
+  assert.equal(run.ok, true);
+  assert.equal(run.tasks[0]!.note, "Kein Mailserver eingerichtet, Erinnerungen wurden nicht verschickt.");
+  assert.equal(lib.cronRunHasNotes(run), true);
+  assert.equal(lib.cronRunHasNotes({ ...run, tasks: [run.tasks[1]!] }), false);
+  assert.equal(lib.cronRunHasNotes(null), false);
+  assert.equal(lib.cronHealth(run, new Date("2026-08-01T12:00:00Z")), "ok");
+});

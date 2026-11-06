@@ -39,11 +39,11 @@ export const ADMIN_ROLE_HINT: Record<AdminRoleValue, string> = {
   OWNER: "Voller Zugriff auf alles, inklusive Zugänge und Systemeinstellungen.",
   ADMIN: "Voller Zugriff auf alles, inklusive Zugänge und Systemeinstellungen.",
   EDITOR: "Nur Website-Inhalte (Blog, Dienste, Status, Tickets, Lizenzen) und Newsletter.",
-  PRAESIDENT: "Mitglieder, Versammlungen, Anlässe, Dokumente, Aufgaben und Vereinseinstellungen; Kassa (buchen, Konten ändern); Beiträge lesend.",
-  VIZEPRAESIDENT: "Wie Präsident/in, aber Kassa und Vereinseinstellungen nur lesend.",
-  KASSIER: "Beiträge, Rechnungen, Kassa und Finanzeinstellungen; Mitglieder lesend.",
+  PRAESIDENT: "Mitglieder, Versammlungen, Anlässe, Dokumente, Aufgaben und Vereinseinstellungen; Kasse (buchen, Konten ändern); Beiträge lesend.",
+  VIZEPRAESIDENT: "Wie Präsident/in, aber Kasse und Vereinseinstellungen nur lesend.",
+  KASSIER: "Beiträge, Rechnungen, Kasse und Finanzeinstellungen; Mitglieder lesend.",
   AKTUAR: "Mitglieder, Versammlungen und Protokolle, Anlässe, Dokumente, Aufgaben und Newsletter.",
-  REVISOR: "Nur lesen: Beiträge, Kassa, Versammlungen, Dokumente und Änderungsprotokoll.",
+  REVISOR: "Nur lesen: Beiträge, Kasse, Versammlungen, Dokumente und Änderungsprotokoll.",
 };
 
 export const VEREIN_MODULES = [
@@ -69,7 +69,7 @@ export const MODULE_LABEL: Record<VereinModule, string> = {
   dashboard: "Übersicht",
   members: "Mitglieder",
   fees: "Beiträge und Rechnungen",
-  ledger: "Kassa",
+  ledger: "Kasse",
   meetings: "Versammlungen",
   events: "Anlässe",
   documents: "Dokumente",
@@ -95,16 +95,18 @@ export const CONFIGURABLE_ROLES: readonly ConfigurableRole[] = ADMIN_ROLE_VALUES
 export const isConfigurableRole = (value: string): value is ConfigurableRole => (CONFIGURABLE_ROLES as readonly string[]).includes(value);
 
 /** Einzelrechte neben den Modulstufen. */
-export const ROLE_FLAGS = ["boardNotes", "boardDocuments"] as const;
+export const ROLE_FLAGS = ["boardNotes", "boardDocuments", "fiscalYearClose"] as const;
 export type RoleFlag = (typeof ROLE_FLAGS)[number];
 export type RoleFlags = Record<RoleFlag, boolean>;
 export const ROLE_FLAG_LABEL: Record<RoleFlag, string> = {
   boardNotes: "Vorstandsnotizen bei Mitgliedern sehen",
   boardDocuments: "Dokumente «Nur Vorstand» sehen",
+  fiscalYearClose: "Geschäftsjahr abschliessen und wieder öffnen",
 };
 export const ROLE_FLAG_HINT: Record<RoleFlag, string> = {
   boardNotes: "Interne Notizen des Vorstands im Mitgliederdossier (Datenschutz: nur wer sie braucht).",
   boardDocuments: "Dokumente mit der Sichtbarkeit «Nur Vorstand»: in Liste, Suche und Download.",
+  fiscalYearClose: "Jahresabschluss in der Kasse, Wiedereröffnung und Genehmigungsvermerk. Wirkt nur mit mindestens «Lesen» bei «Kasse». Buchen braucht weiterhin «Ändern».",
 };
 
 /** Wirksame Rechte: Stufen je Rolle und Modul sowie Einzelrechte je Rolle. */
@@ -194,16 +196,19 @@ const DEFAULT_LEVELS: Record<AdminRoleValue, LevelMap> = {
   },
 };
 
-/** Voreinstellung der Einzelrechte: Vorstandsrollen ja, Revisor und Redakteur nein (Datenminimierung). */
+/**
+ * Voreinstellung der Einzelrechte. Vorstandsnotizen und Dokumente «Nur Vorstand»: Vorstandsrollen ja, Revisor und Redakteur nein
+ * (Datenminimierung). Geschäftsjahr abschliessen: nur Inhaber, Administration, Präsident/in und Kassier/in.
+ */
 const DEFAULT_FLAGS: Record<AdminRoleValue, RoleFlags> = {
-  OWNER: { boardNotes: true, boardDocuments: true },
-  ADMIN: { boardNotes: true, boardDocuments: true },
-  PRAESIDENT: { boardNotes: true, boardDocuments: true },
-  VIZEPRAESIDENT: { boardNotes: true, boardDocuments: true },
-  KASSIER: { boardNotes: true, boardDocuments: true },
-  AKTUAR: { boardNotes: true, boardDocuments: true },
-  REVISOR: { boardNotes: false, boardDocuments: false },
-  EDITOR: { boardNotes: false, boardDocuments: false },
+  OWNER: { boardNotes: true, boardDocuments: true, fiscalYearClose: true },
+  ADMIN: { boardNotes: true, boardDocuments: true, fiscalYearClose: true },
+  PRAESIDENT: { boardNotes: true, boardDocuments: true, fiscalYearClose: true },
+  VIZEPRAESIDENT: { boardNotes: true, boardDocuments: true, fiscalYearClose: false },
+  KASSIER: { boardNotes: true, boardDocuments: true, fiscalYearClose: true },
+  AKTUAR: { boardNotes: true, boardDocuments: true, fiscalYearClose: false },
+  REVISOR: { boardNotes: false, boardDocuments: false, fiscalYearClose: false },
+  EDITOR: { boardNotes: false, boardDocuments: false, fiscalYearClose: false },
 };
 
 /**
@@ -386,6 +391,12 @@ export function hasFlag(roles: readonly string[], flag: RoleFlag, matrix?: Effec
 export const canSeeBoardNotes = (roles: readonly string[], matrix?: EffectiveMatrix): boolean => hasFlag(roles, "boardNotes", matrix);
 /** Dokumente mit der Sichtbarkeit «Nur Vorstand» sehen (zusätzlich zum Leserecht auf «documents»). Einstellbar je Rolle. */
 export const canSeeBoardDocuments = (roles: readonly string[], matrix?: EffectiveMatrix): boolean => hasFlag(roles, "boardDocuments", matrix);
+/**
+ * Geschäftsjahr abschliessen, wieder öffnen und Genehmigung vermerken. Braucht das Einzelrecht «fiscalYearClose» UND mindestens das
+ * Leserecht auf «ledger» (Kasse): ohne Zugriff auf die Kasse gibt es keinen Abschluss. Das Schreibrecht auf «ledger» genügt nicht
+ * mehr und ist auch nicht nötig (Buchen bleibt am Schreibrecht). Inhaber und Administration haben das Recht immer.
+ */
+export const canCloseFiscalYear = (roles: readonly string[], matrix?: EffectiveMatrix): boolean => canAccess(roles, "ledger", "read", matrix) && hasFlag(roles, "fiscalYearClose", matrix);
 /** Ältere Bezeichnung für canSeeBoardNotes (gleiche Wirkung: gilt jetzt die Einstellung je Rolle, keine feste Liste mehr). */
 export const hasBoardRole = canSeeBoardNotes;
 
@@ -396,7 +407,7 @@ export const MODULE_SHORT_LABEL: Record<VereinModule, string> = {
   dashboard: "Übersicht",
   members: "Mitglieder",
   fees: "Beiträge und Rechnungen",
-  ledger: "Kassa",
+  ledger: "Kasse",
   meetings: "Versammlungen",
   events: "Anlässe",
   documents: "Dokumente",
@@ -410,11 +421,11 @@ export const MODULE_SHORT_LABEL: Record<VereinModule, string> = {
   self: "Eigenes Konto",
 };
 
-export type AccessSummary = { write: VereinModule[]; read: VereinModule[]; none: VereinModule[]; boardNotes: boolean; boardDocuments: boolean };
+export type AccessSummary = { write: VereinModule[]; read: VereinModule[]; none: VereinModule[]; boardNotes: boolean; boardDocuments: boolean; fiscalYearClose: boolean };
 
 /** Was dürfen die Rollen zusammen? Grundlage der Vorschau «Diese Person darf …» und der Rollenerklärungen. «self» bleibt aussen vor. */
 export function describeAccess(roles: readonly string[], matrix?: EffectiveMatrix): AccessSummary {
-  const out: AccessSummary = { write: [], read: [], none: [], boardNotes: canSeeBoardNotes(roles, matrix), boardDocuments: canSeeBoardDocuments(roles, matrix) };
+  const out: AccessSummary = { write: [], read: [], none: [], boardNotes: canSeeBoardNotes(roles, matrix), boardDocuments: canSeeBoardDocuments(roles, matrix), fiscalYearClose: canCloseFiscalYear(roles, matrix) };
   for (const m of VEREIN_MODULES) {
     if (m === "self") continue;
     const l = levelFor(roles, m, matrix);
@@ -435,6 +446,7 @@ export function roleHint(role: AdminRoleValue, matrix?: EffectiveMatrix): string
   if (a.boardNotes) extras.push("Vorstandsnotizen");
   if (a.boardDocuments) extras.push("Dokumente «Nur Vorstand»");
   if (extras.length > 0) parts.push(`Sieht zusätzlich: ${extras.join(", ")}`);
+  if (a.fiscalYearClose) parts.push("Darf das Geschäftsjahr abschliessen und wieder öffnen");
   return parts.join(". ") + (parts.length > 0 ? "." : "");
 }
 

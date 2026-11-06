@@ -113,7 +113,7 @@ export async function loadVereinDashboard(admin: { id: string; roles: readonly s
   const [members, fees, ledger, meeting, events, tasks, setup, cron] = await Promise.all([
     sections.members ? safe("Mitglieder", memberStats) : null,
     sections.fees ? safe("Rechnungen", invoiceStats) : null,
-    sections.ledger ? safe("Kassa", getLedgerSummary) : null,
+    sections.ledger ? safe("Kasse", getLedgerSummary) : null,
     sections.meetings ? safe("Versammlungen", meetingStats) : null,
     sections.events ? safe("Anlässe", upcomingEvents) : null,
     sections.tasks ? safe("Aufgaben", () => taskStats({ adminId: admin.id, memberId: admin.memberId })) : null,

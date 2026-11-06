@@ -1,4 +1,4 @@
-// Tests für die Fachlogik der Kassa (src/lib/verein/ledger-*.ts): Salden, Jahresrechnung, Monatsbilanz, Budget, Abschluss, Rechte, CSV.
+// Tests für die Fachlogik der Kasse (src/lib/verein/ledger-*.ts): Salden, Jahresrechnung, Monatsbilanz, Budget, Abschluss, Rechte, CSV.
 // Aufruf:  npx tsx scripts/test/ledger.test.mts
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
@@ -226,7 +226,7 @@ test("reversalText: Beleg, Original und Grund, gekürzt auf 200 Zeichen", () => 
   assert.ok(lib.reversalText({ voucherNo: "B-2026-0007", text: "x".repeat(300) }, "Grund").length <= 200);
 });
 
-test("Rechte: Schreiben Kassier, Präsident (Voreinstellung) und Inhaber/Administration, Abschluss auch Präsident", () => {
+test("Rechte: Schreiben Kassier, Präsident (Voreinstellung) und Inhaber/Administration, Abschluss über das Einzelrecht", () => {
   assert.equal(lib.canWriteLedger(["KASSIER"]), true);
   assert.equal(lib.canWriteLedger(["ADMIN"]), true);
   assert.equal(lib.canWriteLedger(["PRAESIDENT"]), true);
@@ -380,8 +380,8 @@ test("CSV: Buchungen mit negativer Gegenbuchung und Formel-Schutz", () => {
   assert.ok(lines[1]!.includes(";'+41;"));
   assert.ok(lines[1]!.endsWith(";'@Kassier"));
   assert.ok(lines[2]!.includes(";-5.00;Gegenbuchung;B-2026-0001;"));
-  assert.equal(exp.ledgerExportName("Buchungen", 2026), "Kassa-Buchungen-2026");
-  assert.equal(exp.ledgerExportName("Buchungen", null), "Kassa-Buchungen");
+  assert.equal(exp.ledgerExportName("Buchungen", 2026), "Kassen-Buchungen-2026");
+  assert.equal(exp.ledgerExportName("Buchungen", null), "Kassen-Buchungen");
 });
 
 test("CSV: Jahresrechnung enthält Summen und Vermögen", () => {

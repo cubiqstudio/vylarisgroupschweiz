@@ -1,4 +1,4 @@
-// Schnittstelle Zahlungseingang → Kassa (Buchung). Besitzer: Kassa (Signaturen für Beiträge unverändert).
+// Schnittstelle Zahlungseingang → Kasse (Buchung). Besitzer: Kasse (Signaturen für Beiträge unverändert).
 //
 // Regeln:
 //  - Jede Zahlung wird, wenn Konten bekannt sind, in derselben Datenbank-Transaktion als Einnahme gebucht (source «ZAHLUNG», paymentId).
@@ -37,7 +37,7 @@ export type BookPaymentInput = {
 export async function assertYearUnlocked(client: LedgerClient, year: number): Promise<void> {
   const fy = await client.fiscalYear.findUnique({ where: { year }, select: { lockedAt: true } });
   if (fy?.lockedAt) {
-    throw new ApiError(409, "FISCAL_YEAR_LOCKED", `Das Geschäftsjahr ${year} ist abgeschlossen. Mit diesem Datum kann nichts mehr gebucht oder geändert werden. Wähle ein Datum im offenen Geschäftsjahr oder korrigiere in der Kassa mit einer Gegenbuchung.`);
+    throw new ApiError(409, "FISCAL_YEAR_LOCKED", `Das Geschäftsjahr ${year} ist abgeschlossen. Mit diesem Datum kann nichts mehr gebucht oder geändert werden. Wähle ein Datum im offenen Geschäftsjahr oder korrigiere in der Kasse mit einer Gegenbuchung.`);
   }
 }
 
@@ -61,7 +61,7 @@ export async function bookPayment(tx: LedgerClient, input: BookPaymentInput): Pr
     const changed = existing.amountRappen !== input.payment.amountRappen || existing.bookingDate.getTime() !== input.payment.receivedAt.getTime();
     if (changed && !existing.reversedBy) {
       if (existing.fiscalYear !== fiscalYear) {
-        throw new ApiError(409, "CONFLICT", `Das neue Datum liegt im Geschäftsjahr ${fiscalYear}, die Buchung ${existing.voucherNo} im Geschäftsjahr ${existing.fiscalYear}. Storniere die Buchung in der Kassa und buche neu.`);
+        throw new ApiError(409, "CONFLICT", `Das neue Datum liegt im Geschäftsjahr ${fiscalYear}, die Buchung ${existing.voucherNo} im Geschäftsjahr ${existing.fiscalYear}. Storniere die Buchung in der Kasse und buche neu.`);
       }
       await assertYearUnlocked(tx, existing.fiscalYear);
       await tx.transaction.update({ where: { id: existing.id }, data: { bookingDate: input.payment.receivedAt, amountRappen: input.payment.amountRappen } });
@@ -106,14 +106,14 @@ export async function bookPayment(tx: LedgerClient, input: BookPaymentInput): Pr
 
 /**
  * Entfernt die Buchung einer Zahlung (beim Löschen der Zahlung). Abgeschlossene Geschäftsjahre bleiben unberührt: dort wird mit einer
- * Gegenbuchung in der Kassa korrigiert. Gibt true zurück, wenn eine Buchung entfernt wurde.
+ * Gegenbuchung in der Kasse korrigiert. Gibt true zurück, wenn eine Buchung entfernt wurde.
  */
 export async function removePaymentBooking(tx: LedgerClient, paymentId: string): Promise<boolean> {
   const t = await tx.transaction.findUnique({ where: { paymentId }, select: { id: true, fiscalYear: true, reversedBy: { select: { id: true } } } });
   if (!t) return false;
   const fy = await tx.fiscalYear.findUnique({ where: { year: t.fiscalYear }, select: { lockedAt: true } });
   if (fy?.lockedAt) {
-    throw new ApiError(409, "FISCAL_YEAR_LOCKED", `Die Buchung dieser Zahlung gehört zum abgeschlossenen Geschäftsjahr ${t.fiscalYear}. Korrigiere sie in der Kassa mit einer Gegenbuchung.`);
+    throw new ApiError(409, "FISCAL_YEAR_LOCKED", `Die Buchung dieser Zahlung gehört zum abgeschlossenen Geschäftsjahr ${t.fiscalYear}. Korrigiere sie in der Kasse mit einer Gegenbuchung.`);
   }
   if (t.reversedBy) throw new ApiError(409, "CONFLICT", "Die Buchung dieser Zahlung wurde bereits mit einer Gegenbuchung korrigiert. Die Zahlung kann nicht gelöscht werden.");
   await tx.transaction.delete({ where: { id: t.id } });

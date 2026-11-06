@@ -174,7 +174,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                   <th className={TH}>Eingang</th>
                   <th className={`${TH} text-right`}>Betrag (CHF)</th>
                   <th className={TH}>Art</th>
-                  <th className={TH}>Kassa</th>
+                  <th className={TH}>Kasse</th>
                   <th className={TH}>
                     <span className="sr-only">Aktionen</span>
                   </th>

@@ -20,7 +20,7 @@ Code: `src/lib/verein/overview-lib.ts` (Bereiche je Rolle, Rechnungen, Einrichtu
 
 ## Übersicht
 
-Die Kennzahlen werden nur für Bereiche berechnet, die die Rolle lesen darf (Revision sieht Rechnungen, Kassa und Versammlungen, aber keine Tickets oder Dienste; die Redaktion sieht nur die Website). Jede Gruppe wird für sich geladen: Fällt eine Abfrage aus oder ist ein Bereich noch leer, bleibt der Rest der Seite erhalten. Angezeigt werden aktive Mitglieder nach Art, offene Anträge, offene und überfällige Rechnungen (der Fälligkeitstag gilt noch als rechtzeitig), Kassastand des laufenden Geschäftsjahres, nächste Versammlung, nächste Anlässe, offene Aufgaben und die bisherigen Website-Kennzahlen. Fehlen Einstellungen (Konto, Zahlungsfrist, Mahnfristen, Einladungsfrist), erscheint oben eine Einrichtungshilfe mit Link auf die richtige Einstellungsseite.
+Die Kennzahlen werden nur für Bereiche berechnet, die die Rolle lesen darf (Revision sieht Rechnungen, Kasse und Versammlungen, aber keine Tickets oder Dienste; die Redaktion sieht nur die Website). Jede Gruppe wird für sich geladen: Fällt eine Abfrage aus oder ist ein Bereich noch leer, bleibt der Rest der Seite erhalten. Angezeigt werden aktive Mitglieder nach Art, offene Anträge, offene und überfällige Rechnungen (der Fälligkeitstag gilt noch als rechtzeitig), Kassenstand des laufenden Geschäftsjahres, nächste Versammlung, nächste Anlässe, offene Aufgaben und die bisherigen Website-Kennzahlen. Fehlen Einstellungen (Konto, Zahlungsfrist, Mahnfristen, Einladungsfrist), erscheint oben eine Einrichtungshilfe mit Link auf die richtige Einstellungsseite.
 
 ## Einstellungen
 

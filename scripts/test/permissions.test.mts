@@ -16,11 +16,11 @@ const docs = await import("../../src/lib/verein/documents-lib.ts");
 
 const { resolveMatrix, DEFAULT_MATRIX, canAccess, levelFor, VEREIN_MODULES, CONFIGURABLE_ROLES } = perms;
 
-test("Voreinstellung: Präsident darf in der Kassa buchen, Vize nur lesen", () => {
+test("Voreinstellung: Präsident darf in der Kasse buchen, Vize nur lesen", () => {
   assert.equal(levelFor(["PRAESIDENT"], "ledger"), "write");
   assert.equal(levelFor(["VIZEPRAESIDENT"], "ledger"), "read");
   assert.equal(levelFor(["KASSIER"], "ledger"), "write");
-  assert.match(perms.ADMIN_ROLE_HINT.PRAESIDENT, /Kassa \(buchen, Konten ändern\)/);
+  assert.match(perms.ADMIN_ROLE_HINT.PRAESIDENT, /Kasse \(buchen, Konten ändern\)/);
 });
 
 test("Voreinstellung: Einzelrechte nur für Vorstandsrollen, nicht für Revisor und Redakteur", () => {
@@ -204,7 +204,7 @@ test("Wirksame Matrix an der Rollenliste: canAccess, levelsFor, visibleModules, 
   assert.ok(!perms.visibleModules(roles).includes("ledger"));
   assert.equal(perms.levelsFor(roles).ledger, undefined);
   assert.equal(perms.levelsFor(roles).members, "read");
-  const groups = [{ title: "Verein", items: [{ href: "/admin/ledger", label: "Kassa", module: "ledger" as const }, { href: "/admin/members", label: "Mitglieder", module: "members" as const }] }];
+  const groups = [{ title: "Verein", items: [{ href: "/admin/ledger", label: "Kasse", module: "ledger" as const }, { href: "/admin/members", label: "Mitglieder", module: "members" as const }] }];
   assert.deepEqual(perms.filterNav(groups, roles).map((g) => g.items.map((i) => i.label)), [["Mitglieder"]]);
   assert.deepEqual(perms.filterNavByLevels(groups, perms.levelsFor(roles)).map((g) => g.items.map((i) => i.label)), [["Mitglieder"]]);
   // Die Rollenliste selbst bleibt eine gewöhnliche Liste
@@ -225,10 +225,10 @@ test("Rechte-Seite gehört zum Modul «system»", () => {
 });
 
 test("Erklärung je Rolle folgt der wirksamen Matrix", () => {
-  assert.match(perms.roleHint("PRAESIDENT"), /Ändern: .*Kassa/);
+  assert.match(perms.roleHint("PRAESIDENT"), /Ändern: .*Kasse/);
   const m = resolveMatrix({ levels: { PRAESIDENT: { ledger: "none" } }, flags: { PRAESIDENT: { boardDocuments: false } } });
   const hint = perms.roleHint("PRAESIDENT", m);
-  assert.doesNotMatch(hint, /Kassa/);
+  assert.doesNotMatch(hint, /Kasse/);
   assert.match(hint, /Vorstandsnotizen/);
   assert.doesNotMatch(hint, /Nur Vorstand/);
   assert.equal(perms.roleHint("OWNER"), perms.ADMIN_ROLE_HINT.OWNER);
@@ -251,4 +251,104 @@ test("Dokumente: Publikum der Verwaltung hängt am Einzelrecht", () => {
   assert.equal(docs.isStaffAudience(staff) && docs.isStaffAudience(board), true);
   assert.equal(docs.isStaffAudience("PUBLIC") || docs.isStaffAudience("MEMBER"), false);
   assert.deepEqual([...docs.visibilitiesFor("STAFF")], ["OEFFENTLICH", "MITGLIEDER"]);
+});
+
+// ---- Einzelrecht «Geschäftsjahr abschliessen und wieder öffnen» (fiscalYearClose) ------------------------------------------
+
+test("fiscalYearClose: Voreinstellung an für Inhaber, Administration, Präsident, Kassier; sonst aus", () => {
+  assert.ok((perms.ROLE_FLAGS as readonly string[]).includes("fiscalYearClose"));
+  for (const r of ["OWNER", "ADMIN", "PRAESIDENT", "KASSIER"]) assert.equal(perms.canCloseFiscalYear([r]), true, r);
+  for (const r of ["VIZEPRAESIDENT", "AKTUAR", "REVISOR", "EDITOR"]) assert.equal(perms.canCloseFiscalYear([r]), false, r);
+  assert.equal(perms.canCloseFiscalYear([]), false);
+  assert.equal(perms.canCloseFiscalYear(["HACKER"]), false);
+  assert.equal(perms.canCloseFiscalYear(["VIZEPRAESIDENT", "KASSIER"]), true, "mehrere Rollen: eine mit Recht genügt");
+});
+
+test("fiscalYearClose: alte gespeicherte Konfiguration ohne das Feld bleibt gültig und bekommt die Voreinstellung", () => {
+  const old = '{"levels":{"KASSIER":{"ledger":"read"}},"flags":{"REVISOR":{"boardDocuments":true},"AKTUAR":{"boardNotes":false}}}';
+  const m = cfg.matrixFromStored(old);
+  assert.equal(levelFor(["KASSIER"], "ledger", m), "read");
+  assert.equal(perms.canSeeBoardDocuments(["REVISOR"], m), true);
+  assert.equal(perms.canSeeBoardNotes(["AKTUAR"], m), false);
+  for (const r of CONFIGURABLE_ROLES) assert.equal(m.flags[r].fiscalYearClose, DEFAULT_MATRIX.flags[r].fiscalYearClose, r);
+  // Kassier hat «Lesen» auf die Kasse, das Recht ist an: Abschluss bleibt möglich
+  assert.equal(perms.canCloseFiscalYear(["KASSIER"], m), true);
+  // Beim erneuten Speichern kommt das Feld nicht in die Abweichungen (nur echte Abweichungen)
+  assert.deepEqual(perms.diffFromDefault(m), { levels: { KASSIER: { ledger: "read" } }, flags: { REVISOR: { boardDocuments: true }, AKTUAR: { boardNotes: false } } });
+});
+
+test("fiscalYearClose: Auflösung, Rundreise im Speicherformat und in der Eingabe", () => {
+  const m = resolveMatrix({ flags: { PRAESIDENT: { fiscalYearClose: false }, REVISOR: { fiscalYearClose: true }, OWNER: { fiscalYearClose: false }, ADMIN: { fiscalYearClose: false } } });
+  assert.equal(m.flags.PRAESIDENT.fiscalYearClose, false);
+  assert.equal(m.flags.REVISOR.fiscalYearClose, true);
+  assert.equal(m.flags.OWNER.fiscalYearClose, true, "Inhaber fest");
+  assert.equal(m.flags.ADMIN.fiscalYearClose, true, "Administration fest");
+  const diff = perms.diffFromDefault(m);
+  assert.deepEqual(diff, { flags: { PRAESIDENT: { fiscalYearClose: false }, REVISOR: { fiscalYearClose: true } } });
+  const text = cfg.serializeOverrides(diff);
+  assert.ok(text);
+  assert.deepEqual(JSON.parse(JSON.stringify(cfg.matrixFromStored(text))), JSON.parse(JSON.stringify(m)));
+  // Nicht-Booleans werden verworfen
+  const bad = resolveMatrix({ flags: { KASSIER: { fiscalYearClose: "nein" } } });
+  assert.equal(bad.flags.KASSIER.fiscalYearClose, true);
+  // Eingabe der Oberfläche: Feld ist erlaubt, für Inhaber/Administration nicht
+  const ok = cfg.rolePermissionsInputSchema.parse({ flags: { KASSIER: { fiscalYearClose: false } } });
+  assert.equal(cfg.matrixFromInput(ok).flags.KASSIER.fiscalYearClose, false);
+  assert.equal(cfg.rolePermissionsInputSchema.safeParse({ flags: { OWNER: { fiscalYearClose: false } } }).success, false);
+  assert.equal(cfg.rolePermissionsInputSchema.safeParse({ flags: { KASSIER: { fiscalYearClose: "ja" } } }).success, false);
+  const ui = cfg.matrixToInput(cfg.matrixFromInput(ok));
+  assert.equal(ui.flags.KASSIER.fiscalYearClose, false);
+  assert.equal(ui.flags.PRAESIDENT.fiscalYearClose, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(cfg.matrixFromInput(cfg.rolePermissionsInputSchema.parse(cfg.matrixToInput(DEFAULT_MATRIX))))), JSON.parse(JSON.stringify(DEFAULT_MATRIX)));
+});
+
+test("fiscalYearClose: Präsident mit Recht aus kann nicht abschliessen, Kassier ohne Recht ebenfalls, Revisor nie", () => {
+  const m = resolveMatrix({ flags: { PRAESIDENT: { fiscalYearClose: false }, KASSIER: { fiscalYearClose: false } } });
+  const praes = perms.withMatrix(["PRAESIDENT"], m);
+  const kassier = perms.withMatrix(["KASSIER"], m);
+  const revisor = perms.withMatrix(["REVISOR"], m);
+  assert.equal(perms.canCloseFiscalYear(praes), false);
+  assert.equal(perms.canCloseFiscalYear(kassier), false);
+  assert.equal(perms.canCloseFiscalYear(revisor), false);
+  // Das normale Buchen hängt weiter am Schreibrecht, nicht am neuen Recht
+  assert.equal(canAccess(praes, "ledger", "write"), true);
+  assert.equal(canAccess(kassier, "ledger", "write"), true);
+  // Revisor: auch ohne Matrix-Anhang (Voreinstellung) nie
+  assert.equal(perms.canCloseFiscalYear(["REVISOR"]), false);
+  // Inhaber und Administration behalten das Recht immer
+  assert.equal(perms.canCloseFiscalYear(perms.withMatrix(["OWNER"], m)), true);
+  assert.equal(perms.canCloseFiscalYear(perms.withMatrix(["ADMIN"], m)), true);
+});
+
+test("fiscalYearClose: wirkt nur mit mindestens Leserecht auf die Kasse; Schreibrecht allein genügt nicht", () => {
+  // Recht an, aber kein Zugriff auf die Kasse: kein Abschluss
+  const noLedger = resolveMatrix({ levels: { KASSIER: { ledger: "none" }, PRAESIDENT: { ledger: "none" } }, flags: { VIZEPRAESIDENT: { fiscalYearClose: true }, AKTUAR: { fiscalYearClose: true } } });
+  assert.equal(perms.canCloseFiscalYear(["KASSIER"], noLedger), false);
+  assert.equal(perms.canCloseFiscalYear(["PRAESIDENT"], noLedger), false);
+  assert.equal(perms.canCloseFiscalYear(["AKTUAR"], noLedger), false, "Aktuar hat keinen Zugriff auf die Kasse");
+  // Nur Lesen reicht zusammen mit dem Recht (Vize hat «Lesen»)
+  assert.equal(perms.canCloseFiscalYear(["VIZEPRAESIDENT"], noLedger), true);
+  const readOnly = resolveMatrix({ levels: { KASSIER: { ledger: "read" } } });
+  assert.equal(perms.canCloseFiscalYear(["KASSIER"], readOnly), true);
+  // Schreibrecht ohne das Einzelrecht genügt nicht
+  const noFlag = resolveMatrix({ levels: { AKTUAR: { ledger: "write" } } });
+  assert.equal(canAccess(["AKTUAR"], "ledger", "write", noFlag), true);
+  assert.equal(perms.canCloseFiscalYear(["AKTUAR"], noFlag), false);
+  // Zwei Rollen: Recht aus der einen, Kasse aus der anderen
+  assert.equal(perms.canCloseFiscalYear(["AKTUAR", "REVISOR"], resolveMatrix({ flags: { AKTUAR: { fiscalYearClose: true } } })), true);
+});
+
+test("fiscalYearClose: Vorschau und Rollenerklärung folgen dem Recht", () => {
+  assert.equal(perms.describeAccess(["KASSIER"]).fiscalYearClose, true);
+  assert.equal(perms.describeAccess(["REVISOR"]).fiscalYearClose, false);
+  assert.match(perms.roleHint("KASSIER"), /Geschäftsjahr abschliessen und wieder öffnen/);
+  assert.doesNotMatch(perms.roleHint("REVISOR"), /Geschäftsjahr abschliessen/);
+  const m = resolveMatrix({ flags: { KASSIER: { fiscalYearClose: false } }, levels: { VIZEPRAESIDENT: { ledger: "none" } } });
+  assert.doesNotMatch(perms.roleHint("KASSIER", m), /Geschäftsjahr abschliessen/);
+  assert.equal(perms.describeAccess(["KASSIER"], m).fiscalYearClose, false);
+  // Recht an, aber keine Kasse: in Vorschau und Erklärung nicht als erlaubt gezeigt
+  const m2 = resolveMatrix({ levels: { KASSIER: { ledger: "none" } } });
+  assert.equal(perms.describeAccess(["KASSIER"], m2).fiscalYearClose, false);
+  assert.doesNotMatch(perms.roleHint("KASSIER", m2), /Geschäftsjahr abschliessen/);
+  assert.ok(perms.ROLE_FLAG_LABEL.fiscalYearClose && perms.ROLE_FLAG_HINT.fiscalYearClose);
 });

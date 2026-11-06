@@ -549,7 +549,7 @@ export async function commitPaymentImport(
         },
         { rejectDuplicate: true }, // gleichzeitige Importe derselben Datei erzeugen keine doppelten Zahlungen
       );
-      out.push({ line: row.line, ok: true, message: `Gebucht auf ${result.invoice.number}${r.booking.status === "PENDING" ? " (noch nicht in der Kassa gebucht)" : ""}.`, result: r });
+      out.push({ line: row.line, ok: true, message: `Gebucht auf ${result.invoice.number}${r.booking.status === "PENDING" ? " (noch nicht in der Kasse gebucht)" : ""}.`, result: r });
     } catch (e) {
       out.push({ line: row.line, ok: false, message: e instanceof ApiError ? e.message : "Fehler beim Erfassen." });
     }

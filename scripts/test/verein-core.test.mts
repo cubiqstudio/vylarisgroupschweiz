@@ -347,11 +347,11 @@ test("permissions: Pfad → Modul, Methode → Stufe", () => {
 
 test("permissions: Navigation wird nach Rolle gefiltert", () => {
   const groups = [
-    { title: "Verein", items: [{ href: "/admin/members", label: "Mitglieder", module: "members" as const }, { href: "/admin/ledger", label: "Kassa", module: "ledger" as const }] },
+    { title: "Verein", items: [{ href: "/admin/members", label: "Mitglieder", module: "members" as const }, { href: "/admin/ledger", label: "Kasse", module: "ledger" as const }] },
     { title: "Website", items: [{ href: "/admin/blog", label: "Blog", module: "website" as const }] },
   ];
   const rev = perms.filterNav(groups, ["REVISOR"]);
-  assert.deepEqual(rev.map((g) => [g.title, g.items.map((i) => i.label)]), [["Verein", ["Kassa"]]]);
+  assert.deepEqual(rev.map((g) => [g.title, g.items.map((i) => i.label)]), [["Verein", ["Kasse"]]]);
   assert.equal(perms.filterNav(groups, []).length, 0);
   assert.equal(perms.filterNav(groups, ["ADMIN"]).length, 2);
   assert.ok(perms.visibleModules(["REVISOR"]).includes("ledger"));

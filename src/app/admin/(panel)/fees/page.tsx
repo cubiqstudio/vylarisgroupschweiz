@@ -72,7 +72,7 @@ export default async function AdminFeesPage({ searchParams }: Props) {
         <StatCard label="Offen" value={`CHF ${formatChf(kpis.openRappen)}`} detail={`${kpis.openCount} ${kpis.openCount === 1 ? "Rechnung" : "Rechnungen"}`} href="/admin/fees?tab=offene" />
         <StatCard label="Überfällig" value={`CHF ${formatChf(kpis.overdueRappen)}`} detail={`${kpis.overdueCount} ${kpis.overdueCount === 1 ? "Rechnung" : "Rechnungen"}`} accent={kpis.overdueCount > 0 ? "text-rose-300" : "text-white"} href="/admin/fees?tab=mahnungen" />
         <StatCard label="Entwürfe" value={kpis.draftCount} detail="noch nicht versendet" href="/admin/fees?tab=rechnungen&status=ENTWURF" />
-        <StatCard label="Nicht gebucht" value={kpis.unbookedPayments} detail="Zahlungen ohne Kassa-Buchung" accent={kpis.unbookedPayments > 0 ? "text-amber-300" : "text-white"} href="/admin/fees?tab=zahlungen" />
+        <StatCard label="Nicht gebucht" value={kpis.unbookedPayments} detail="Zahlungen ohne Kassen-Buchung" accent={kpis.unbookedPayments > 0 ? "text-amber-300" : "text-white"} href="/admin/fees?tab=zahlungen" />
       </div>
 
       <MissingSettingsNotice title="Für Rechnungen fehlen noch Angaben in den Vereinseinstellungen:" missing={missingInvoicing} canEdit={canEditSettings} />
@@ -265,7 +265,7 @@ async function PaymentsTab({ sp, canWrite, canBook }: { sp: Record<string, strin
                     <th className={`${TH} text-right`}>Betrag</th>
                     <th className={TH}>Rechnung / Mitglied</th>
                     <th className={TH}>Art</th>
-                    <th className={TH}>Kassa</th>
+                    <th className={TH}>Kasse</th>
                     <th className={TH}>
                       <span className="sr-only">Aktionen</span>
                     </th>

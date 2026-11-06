@@ -21,7 +21,7 @@ type Result = {
   booking: { status: "BOOKED"; voucherNo: string } | { status: "PENDING"; reason: string };
 };
 
-/** Zahlungseingang erfassen: zu einer Rechnung (Teil- und Überzahlung möglich) oder allgemein. Bucht in der Kassa, wenn Konten gewählt sind. */
+/** Zahlungseingang erfassen: zu einer Rechnung (Teil- und Überzahlung möglich) oder allgemein. Bucht in der Kasse, wenn Konten gewählt sind. */
 export function PaymentDialog({
   open,
   onClose,
@@ -87,7 +87,7 @@ function PaymentForm({ invoice, accounts, members, onClose }: { invoice?: Paymen
       return;
     }
     const r = res.data;
-    const booking = r.booking.status === "BOOKED" ? ` Gebucht als ${r.booking.voucherNo}.` : " Noch nicht in der Kassa gebucht (nachbuchen unter «Zahlungen»).";
+    const booking = r.booking.status === "BOOKED" ? ` Gebucht als ${r.booking.voucherNo}.` : " Noch nicht in der Kasse gebucht (nachbuchen unter «Zahlungen»).";
     if (r.invoice?.status === "BEZAHLT") toast.success(`Zahlung erfasst, Rechnung ${r.invoice.number} ist bezahlt.${r.invoice.overpaidRappen > 0 ? ` Überzahlung ${formatChfWithCurrency(r.invoice.overpaidRappen)}.` : ""}${booking}`);
     else toast.success(`Zahlung erfasst.${r.invoice ? ` Noch offen: ${formatChfWithCurrency(r.invoice.openRappen)}.` : ""}${booking}`);
     onClose();
@@ -138,9 +138,9 @@ function PaymentForm({ invoice, accounts, members, onClose }: { invoice?: Paymen
       </Field>
 
       <fieldset className="space-y-3 rounded-lg border border-zinc-800 p-3">
-        <legend className="px-1 text-sm font-medium text-zinc-300">Buchung in der Kassa</legend>
+        <legend className="px-1 text-sm font-medium text-zinc-300">Buchung in der Kasse</legend>
         {accounts.assets.length === 0 ? (
-          <p className="text-sm text-zinc-400">In der Kassa sind noch keine Vermögenskonten (Bank, Kasse) angelegt. Die Zahlung wird erfasst und kann später nachgebucht werden.</p>
+          <p className="text-sm text-zinc-400">In der Kasse sind noch keine Vermögenskonten (Bank, Kasse) angelegt. Die Zahlung wird erfasst und kann später nachgebucht werden.</p>
         ) : (
           <>
             <Field label="Eingegangen auf" htmlFor={`${uid}-asset`} error={fields.assetAccountId}>

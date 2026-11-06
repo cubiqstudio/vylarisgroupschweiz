@@ -28,6 +28,8 @@ const data = await import("../../src/lib/verein/permissions-data.ts");
 const save = await import("../../src/lib/verein/permissions-save.ts");
 const docsData = await import("../../src/lib/verein/documents-data.ts");
 const docsLib = await import("../../src/lib/verein/documents-lib.ts");
+const ledgerData = await import("../../src/lib/verein/ledger-data.ts");
+const ledgerLib = await import("../../src/lib/verein/ledger-lib.ts");
 
 after(async () => {
   await db.$disconnect();
@@ -206,4 +208,51 @@ test("Vorstandsnotizen: Einzelrecht folgt der Einstellung", async () => {
   assert.equal(perms.hasBoardRole((await actor(["AKTUAR"])).roles), false);
   await save.saveRolePermissions(await actor(["ADMIN"]), input({}));
   assert.equal(perms.canSeeBoardNotes((await actor(["AKTUAR"])).roles), true);
+});
+
+test("Geschäftsjahr abschliessen: Einzelrecht über die echte Speicherfunktion, serverseitig erzwungen, im Änderungsprotokoll", async () => {
+  data.invalidatePermissionsCache();
+  await save.saveRolePermissions(await actor(["ADMIN"]), input({}));
+  const lock = { action: "lock" as const, note: "", confirmUnbooked: false };
+  const closeCount = async () => db.auditLog.count({ where: { action: "permissions.update" } });
+  const before = await closeCount();
+
+  // Voreinstellung: Kassier und Präsident dürfen, Vize, Aktuar, Revisor nicht
+  for (const r of ["KASSIER", "PRAESIDENT", "OWNER", "ADMIN"]) assert.equal(ledgerLib.canCloseFiscalYear((await actor([r])).roles), true, r);
+  for (const r of ["VIZEPRAESIDENT", "AKTUAR", "REVISOR", "EDITOR"]) assert.equal(ledgerLib.canCloseFiscalYear((await actor([r])).roles), false, r);
+
+  // Präsident und Kassier das Recht wegnehmen; Revisor bekommt es (ohne Kasse-Schreibrecht, mit Leserecht)
+  const res = await save.saveRolePermissions(await actor(["ADMIN"]), input({ flags: { PRAESIDENT: { fiscalYearClose: false }, KASSIER: { fiscalYearClose: false }, VIZEPRAESIDENT: { fiscalYearClose: true } } }));
+  assert.equal(res.changed, true);
+  assert.deepEqual(JSON.parse((await stored()) ?? "{}"), { flags: { PRAESIDENT: { fiscalYearClose: false }, KASSIER: { fiscalYearClose: false }, VIZEPRAESIDENT: { fiscalYearClose: true } } });
+
+  const praes = await actor(["PRAESIDENT"]);
+  const kassier = await actor(["KASSIER"]);
+  assert.equal(ledgerLib.canCloseFiscalYear(praes.roles), false);
+  assert.equal(ledgerLib.canCloseFiscalYear(kassier.roles), false);
+  assert.equal(ledgerLib.canCloseFiscalYear((await actor(["VIZEPRAESIDENT"])).roles), true);
+  assert.equal(perms.canAccess(kassier.roles, "ledger", "write"), true, "Buchen bleibt am Schreibrecht");
+
+  // Serverseitig: der Abschluss wird vor jedem Datenzugriff mit 403 abgelehnt
+  await rejects403(ledgerData.applyFiscalAction(praes, 2020, lock));
+  await rejects403(ledgerData.applyFiscalAction(kassier, 2020, lock));
+  await rejects403(ledgerData.applyFiscalAction(kassier, 2020, { action: "unlock", note: "Korrektur", confirmUnbooked: false }));
+  await rejects403(ledgerData.applyFiscalAction(await actor(["REVISOR"]), 2020, lock));
+
+  // Änderungsprotokoll mit Vorher/Nachher
+  const log = (await db.auditLog.findMany({ where: { action: "permissions.update" }, orderBy: { createdAt: "desc" }, take: 1 }))[0];
+  assert.equal(await closeCount(), before + 1);
+  assert.deepEqual(JSON.parse(log.before ?? "{}"), { "PRAESIDENT.fiscalYearClose": true, "KASSIER.fiscalYearClose": true, "VIZEPRAESIDENT.fiscalYearClose": false });
+  assert.deepEqual(JSON.parse(log.after ?? "{}"), { "PRAESIDENT.fiscalYearClose": false, "KASSIER.fiscalYearClose": false, "VIZEPRAESIDENT.fiscalYearClose": true });
+
+  // Recht an, aber Kasse ganz weg: kein Abschluss
+  await save.saveRolePermissions(await actor(["ADMIN"]), input({ levels: { KASSIER: { ledger: "none" } } }));
+  assert.equal(ledgerLib.canCloseFiscalYear((await actor(["KASSIER"])).roles), false);
+
+  // Zurücksetzen: Voreinstellung gilt wieder
+  await save.saveRolePermissions(await actor(["OWNER"]), input({}));
+  assert.equal(await stored(), null);
+  assert.equal(ledgerLib.canCloseFiscalYear((await actor(["PRAESIDENT"])).roles), true);
+  assert.equal(ledgerLib.canCloseFiscalYear((await actor(["KASSIER"])).roles), true);
+  assert.equal(ledgerLib.canCloseFiscalYear((await actor(["VIZEPRAESIDENT"])).roles), false);
 });

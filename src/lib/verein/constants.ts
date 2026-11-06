@@ -65,7 +65,7 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
 export const MAX_REMINDER_LEVEL = 3;
 export const REMINDER_LEVEL_LABEL: Record<number, string> = { 0: "Nicht gemahnt", 1: "1. Mahnung", 2: "2. Mahnung", 3: "3. Mahnung" };
 
-// ---- Kassa -----------------------------------------------------------------------------------------------------
+// ---- Kasse -----------------------------------------------------------------------------------------------------
 export const ACCOUNT_KINDS = ["EINNAHMEN", "AUSGABEN", "VERMOEGEN"] as const;
 export type AccountKind = (typeof ACCOUNT_KINDS)[number];
 export const ACCOUNT_KIND_LABEL: Record<AccountKind, string> = { EINNAHMEN: "Einnahmen", AUSGABEN: "Ausgaben", VERMOEGEN: "Vermögen" };

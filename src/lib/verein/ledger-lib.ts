@@ -1,4 +1,4 @@
-// Fachlogik der Kassa (rein, ohne Seiteneffekte, ohne Datenbank): Salden, Jahresrechnung, Monatsbilanz, Budgetvergleich,
+// Fachlogik der Kasse (rein, ohne Seiteneffekte, ohne Datenbank): Salden, Jahresrechnung, Monatsbilanz, Budgetvergleich,
 // Buchungsregeln, Abschlussregeln und die Vorlage für den Kontenplan.
 //
 // Einfache Buchhaltung (Einnahmen-/Ausgabenrechnung mit Vermögensübersicht):
@@ -9,7 +9,7 @@
 //  - Eine Gegenbuchung (Storno) übernimmt Richtung und Konten der Originalbuchung, hebt aber jede Wirkung auf (Vorzeichen -1).
 //  - Das Ergebnis eines Geschäftsjahres ist Einnahmen minus Ausgaben und entspricht der Veränderung der Vermögenskonten, solange jede
 //    Einnahme und Ausgabe ein Vermögenskonto trägt.
-import { canAccess } from "./permissions";
+import { canAccess, canCloseFiscalYear as canCloseFiscalYearByRole } from "./permissions";
 import { fiscalYearRange, formatDateCh, zurichParts, type FiscalStart } from "./dates";
 
 // ---- Typen -------------------------------------------------------------------------------------------------------------
@@ -380,13 +380,11 @@ export function reversalText(original: { voucherNo: string; text: string }, reas
 export const canWriteLedger = (roles: readonly string[]): boolean => canAccess(roles, "ledger", "write");
 
 /**
- * Geschäftsjahr abschliessen, wieder öffnen oder genehmigen: wer in der Kassa schreiben darf. Voreinstellung: Kassier, Präsident sowie
- * Inhaber und Administration; Revisor, Vize-Präsident und übrige Rollen nur lesen. Die Rechte sind in der Verwaltung einstellbar
- * («Rollen und Rechte»), deshalb hängt das Recht allein am Schreibrecht für «ledger» (keine zweite, feste Liste).
+ * Geschäftsjahr abschliessen, wieder öffnen oder genehmigen: eigenes Einzelrecht «fiscalYearClose» (Rollen und Rechte), wirksam nur
+ * zusammen mit mindestens Leserecht auf die Kasse. Voreinstellung: Inhaber, Administration, Präsident/in und Kassier/in. Das normale
+ * Buchen bleibt am Schreibrecht (canWriteLedger). Die Regel selbst steht in permissions.ts; die Matrix hängt an `roles`.
  */
-export function canCloseFiscalYear(roles: readonly string[]): boolean {
-  return canWriteLedger(roles);
-}
+export const canCloseFiscalYear = (roles: readonly string[]): boolean => canCloseFiscalYearByRole(roles);
 
 // ---- Abschluss ---------------------------------------------------------------------------------------------------------------
 

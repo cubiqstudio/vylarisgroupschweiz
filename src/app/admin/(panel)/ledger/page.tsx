@@ -22,7 +22,7 @@ import { canAccess } from "@/lib/verein/permissions";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Kassa" };
+export const metadata: Metadata = { title: "Kasse" };
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -56,7 +56,7 @@ export default async function LedgerPage({ searchParams }: Props) {
 
   return (
     <div>
-      <PageTitle title="Kassa" description="Einfache Buchhaltung des Vereins: Einnahmen, Ausgaben und Vermögen. Fehlerhafte Buchungen werden storniert statt gelöscht.">
+      <PageTitle title="Kasse" description="Einfache Buchhaltung des Vereins: Einnahmen, Ausgaben und Vermögen. Fehlerhafte Buchungen werden storniert statt gelöscht.">
         <a href={exportHref} className={buttonClass("secondary", "md")} download>
           <Download className="h-4 w-4" aria-hidden />
           CSV-Export
@@ -74,7 +74,7 @@ export default async function LedgerPage({ searchParams }: Props) {
 
       {!hasAccounts && (
         <Notice variant="warning" className="mb-6">
-          <span className="font-medium">Es sind noch keine Konten angelegt.</span> Bevor du buchen kannst, braucht die Kassa Einnahmen- und Ausgabenkonten sowie ein Vermögenskonto (Bank, Kasse).{" "}
+          <span className="font-medium">Es sind noch keine Konten angelegt.</span> Bevor du buchen kannst, braucht die Kasse Einnahmen- und Ausgabenkonten sowie ein Vermögenskonto (Bank, Kasse).{" "}
           <Link href="/admin/ledger/accounts" className="font-medium underline underline-offset-2">
             {canWrite ? "Standardkonten anlegen" : "Zu den Konten"}
           </Link>

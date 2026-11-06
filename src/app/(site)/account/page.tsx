@@ -109,7 +109,7 @@ export default async function AccountOverviewPage() {
           {
             href: "/admin/members",
             title: "Mitglieder",
-            text: "Mitgliederverwaltung, Beiträge, Kassa und Versammlungen des Vereins.",
+            text: "Mitgliederverwaltung, Beiträge, Kasse und Versammlungen des Vereins.",
             icon: Building2,
           },
           {

@@ -7,7 +7,7 @@ import { adminOk, type IdContext } from "../../../../../_lib/http";
 
 export const dynamic = "force-dynamic";
 
-/** Bereits erfasste, aber noch nicht gebuchte Zahlung in der Kassa nachbuchen (braucht Schreibrecht für Beiträge und Kassa). */
+/** Bereits erfasste, aber noch nicht gebuchte Zahlung in der Kasse nachbuchen (braucht Schreibrecht für Beiträge und Kasse). */
 export const POST = handle(async (req: Request, { params }: IdContext) => {
   await requireAdmin(req);
   const admin = await requireAdminModule(req, "ledger", "write");

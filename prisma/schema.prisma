@@ -582,7 +582,7 @@ model Reminder {
   @@index([sentAt])
 }
 
-// ---- 3. Kassa ----------------------------------------------------------------------------------------------------
+// ---- 3. Kasse ----------------------------------------------------------------------------------------------------
 
 // Konto bzw. Kategorie: Einnahmen- und Ausgabenkonten (Erfolgsrechnung) sowie Vermögenskonten (Kasse, Bank, Post).
 model AccountCategory {

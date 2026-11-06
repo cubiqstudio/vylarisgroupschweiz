@@ -17,7 +17,7 @@ Alles läuft selbstgehostet: kein Cloud-Auth-Anbieter, keine externen Fonts/CDNs
 - **E-Mails:** Konto-Mails, Ticket-Mails, Lizenz-Mails und Newsletter, siehe [E-Mails](#e-mails).
 - **Newsletter:** Anmeldung mit Bestätigungsmail (Double-Opt-in), Kampagnen im Admin (Markdown), Versand gedrosselt im Hintergrund, Abmeldung mit einem Klick.
 - **Lizenzen:** Schlüssel, Webspace-Konten und Firmenkunden mit Freigabe durch das Team, Prüf-API `POST /api/licenses/verify`, siehe [Lizenzen & Prüf-API](#lizenzen--prüf-api).
-- **Vereinsverwaltung:** Mitglieder, Beiträge und Rechnungen, Kassa, Versammlungen, Anlässe, Dokumente und Aufgaben für einen Schweizer Verein (ZGB Art. 60 ff.), mit Rollen (Präsident, Vize-Präsident, Kassier, Aktuar, Revisor, Administrator), Änderungsprotokoll und Mitgliederportal unter `/account/verein`. Beträge, Fristen und Kontodaten trägt der Verein selbst unter **Admin → Vereinseinstellungen** ein. Aufbau, Rechte und Datenmodell: [`docs/verein-architektur.md`](docs/verein-architektur.md)
+- **Vereinsverwaltung:** Mitglieder, Beiträge und Rechnungen, Kasse, Versammlungen, Anlässe, Dokumente und Aufgaben für einen Schweizer Verein (ZGB Art. 60 ff.), mit Rollen (Präsident, Vize-Präsident, Kassier, Aktuar, Revisor, Administrator), Änderungsprotokoll und Mitgliederportal unter `/account/verein`. Beträge, Fristen und Kontodaten trägt der Verein selbst unter **Admin → Vereinseinstellungen** ein. Aufbau, Rechte und Datenmodell: [`docs/verein-architektur.md`](docs/verein-architektur.md)
 - **Admin-Dashboard:** `/admin` – Übersicht, Service- & Status-Manager (Status per Klick umschalten), Statusmeldungen/Wartungen, Blog-Editor (Markdown mit Live-Vorschau), Ticket-Inbox (Zuständigkeit, Antworten per Mail, Mail-Einstellungen für Tickets), Newsletter (Kampagnen, Abonnenten inkl. CSV-Export, Ein/Aus-Schalter), Lizenzen (Schlüssel, Webspace-Anträge, Produkte, API-Zugänge), Nutzerverwaltung (sperren, E-Mail manuell bestätigen, Bestätigungsmail erneut senden, Firmenkunden-Status, Team-Flag, löschen), **Einstellungen** (Impressum-Daten, E-Mail/SMTP inkl. Testmail, Registrierung ein/aus), Passwortwechsel
 - **REST-API:** `/api/...` (öffentlich lesend + Kontakt + Newsletter + Konto-Funktionen; `/api/admin/...` nur mit Admin-Sitzung)
 - **Datenbank:** Prisma ORM – SQLite lokal, PostgreSQL in Produktion
@@ -286,7 +286,7 @@ Das Schema ist bewusst provider-neutral (keine Enums, keine nativen Typen); zul�
 Einmal am Tag, um **03:15 Uhr Zeit Europe/Zurich** (Sommerzeit wird berücksichtigt), ruft der Dienst `cron` die App auf (`POST /api/cron/daily`). Der Lauf erledigt:
 
 1. **Fällige Austritte vollziehen:** Mitglieder mit gemeldetem Austritt, deren Austrittsdatum (letzter Tag der Mitgliedschaft) vorbei ist, werden auf «ausgetreten» gesetzt. Die Fristen nach Statuten sind schon beim Erfassen des Austritts geprüft worden; der Lauf vollzieht nur das eingetragene Datum. Im Änderungsprotokoll steht als Akteur «System».
-2. **Erinnerungen zu Anlässen** an die Angemeldeten senden (jede Anmeldung höchstens einmal).
+2. **Erinnerungen zu Anlässen** an die Angemeldeten senden (jede Anmeldung höchstens einmal). Ist **kein Mailserver eingerichtet**, ist das kein Fehler: Die Aufgabe gilt als übersprungen (Hinweis «Kein Mailserver eingerichtet, Erinnerungen wurden nicht verschickt.»), der Läufer wiederholt nichts, und es wird nichts als erinnert gespeichert. Nach der Einrichtung unter «Einstellungen > Mailserver» holt der nächste Lauf die Erinnerungen nach, solange der Anlass innerhalb von 36 Stunden beginnt. Ist ein Mailserver eingerichtet und der Versand scheitert (z. B. SMTP-Fehler), bleibt es ein Fehler wie bisher.
 3. **Unbestätigte Gast-Anmeldungen löschen**, deren Bestätigungsfrist von 48 Stunden abgelaufen ist (im täglichen Raster also spätestens drei Tage nach der Anmeldung).
 4. **Angaben von Gästen entfernen:** Name, E-Mail-Adresse und Bemerkung bestätigter Gast-Anmeldungen werden 30 Tage nach dem Ende des Anlasses geleert.
 
@@ -301,7 +301,7 @@ docker logs vylaris-schweiz-cron          # Zeitplan, Ergebnis je Aufgabe (nur N
 docker compose ps cron                    # läuft der Dienst?
 ```
 
-In der Verwaltung zeigt die **Übersicht** (für Rollen mit Recht «System» oder «Vereinseinstellungen») die Karte «Täglicher Lauf» mit dem Zeitpunkt des letzten Laufs. Ist länger als 36 Stunden nichts gelaufen oder war der Lauf nie, erscheint die Warnung, dass Austritte und Erinnerungen von Hand ausgelöst werden müssen. Das Ergebnis liegt in der Tabelle `SiteSetting` unter `cron.lastRun`.
+In der Verwaltung zeigt die **Übersicht** (für Rollen mit Recht «System» oder «Vereinseinstellungen») die Karte «Täglicher Lauf» mit dem Zeitpunkt des letzten Laufs. Ist länger als 36 Stunden nichts gelaufen oder war der Lauf nie, erscheint die Warnung, dass Austritte und Erinnerungen von Hand ausgelöst werden müssen. Fehlt der Mailserver, steht dort stattdessen ein neutraler Hinweis mit Verweis auf «Einstellungen > Mailserver» (keine rote Warnung). Das Ergebnis liegt in der Tabelle `SiteSetting` unter `cron.lastRun`.
 
 **Von Hand auslösen** (z. B. nach einer Störung):
 

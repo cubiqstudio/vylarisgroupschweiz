@@ -1,6 +1,6 @@
 // Datenzugriff und Befehle der Rechnungen und Zahlungen (Besitzer: Beiträge). Nur serverseitig.
 // Grundsätze: Nummern atomar in derselben Transaktion wie die Rechnung (ids.ts), Statusänderungen bedingt (updateMany mit Status),
-// jede Änderung mit Protokolleintrag in derselben Transaktion, Zahlungen mit Buchung in der Kassa (ledger-link.ts).
+// jede Änderung mit Protokolleintrag in derselben Transaktion, Zahlungen mit Buchung in der Kasse (ledger-link.ts).
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import type { Prisma } from "@prisma/client";

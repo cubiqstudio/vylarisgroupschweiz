@@ -12,7 +12,7 @@ import "server-only";
 import { ApiError, describeErrorForLog } from "@/lib/api";
 import { db } from "@/lib/db";
 import { SYSTEM_ACTOR } from "./audit";
-import { CRON_LAST_RUN_KEY, parseCronRun, type CronRun, type CronTaskResult } from "./cron-lib";
+import { CRON_LAST_RUN_KEY, MAIL_SKIPPED_NOTE, parseCronRun, type CronRun, type CronTaskResult } from "./cron-lib";
 import { purgeExpiredUnconfirmedRegistrations } from "./events-confirm";
 import { anonymizePastGuestRegistrations } from "./events-guests";
 import { sendEventReminders } from "./events-ops";
@@ -22,18 +22,20 @@ export type CronTask = {
   /** Technischer Name (Schlüssel im Ergebnis, Anzeigename in CRON_TASK_LABELS) */
   name: string;
   /** Führt die Aufgabe aus. Gibt die Anzahl der bearbeiteten Einträge zurück; ein Fehler wird als Ausnahme geworfen. */
-  run: () => Promise<number | { count: number; failed?: number }>;
+  run: () => Promise<number | { count: number; failed?: number; note?: string }>;
 };
 
 /** Die Tagesaufgaben in der Reihenfolge der Ausführung. */
 export const DAILY_TASKS: readonly CronTask[] = [
   // Austritte, deren letzter Tag der Mitgliedschaft vorbei ist (Frist wurde schon beim Erfassen geprüft), gleiche Fachlogik wie «Austritt vollziehen».
   { name: "exits-complete", run: async () => (await completeDueExitsAs(SYSTEM_ACTOR)).length },
-  // Erinnerungsmails für Anlässe, die bald beginnen (jede Anmeldung höchstens einmal).
+  // Erinnerungsmails für Anlässe, die bald beginnen (jede Anmeldung höchstens einmal). Ohne eingerichteten Mailserver wird übersprungen
+  // (kein Fehler, nichts als erinnert markiert); ein eingerichteter Mailserver, der den Versand ablehnt, bleibt ein Fehler.
   {
     name: "event-reminders",
     run: async () => {
       const s = await sendEventReminders({ actor: SYSTEM_ACTOR });
+      if (s.skipped > 0) return { count: s.mailed, failed: s.failed, note: MAIL_SKIPPED_NOTE };
       return { count: s.mailed, failed: s.failed };
     },
   },
@@ -55,7 +57,8 @@ async function runTask(task: CronTask): Promise<CronTaskResult> {
     const count = typeof out === "number" ? out : out.count;
     const failed = typeof out === "number" ? 0 : (out.failed ?? 0);
     if (failed > 0) return { name: task.name, ok: false, count, error: `${failed} ${failed === 1 ? "Eintrag" : "Einträge"} konnten nicht verarbeitet werden` };
-    return { name: task.name, ok: true, count };
+    const note = typeof out === "number" ? undefined : out.note;
+    return { name: task.name, ok: true, count, ...(note ? { note } : {}) };
   } catch (e) {
     // Nur Name der Aufgabe und Art des Fehlers ins Log: keine Meldungstexte, die Personendaten enthalten könnten.
     console.error(`[cron] Aufgabe «${task.name}» fehlgeschlagen:`, describeErrorForLog(e));

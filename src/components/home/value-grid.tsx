@@ -1,4 +1,5 @@
 import { Asterisk, Users, Wallet } from "lucide-react";
+import { BoardPhoto } from "@/components/ui/board-photo";
 import { Container } from "@/components/ui/section";
 import { getMessages } from "@/i18n/server";
 import { home } from "@/i18n/home";
@@ -26,6 +27,12 @@ export async function ValueGrid() {
             </li>
           ))}
         </ul>
+        <BoardPhoto
+          className="mx-auto mt-12 max-w-3xl"
+          alt={m.boardPhotoAlt}
+          caption={m.boardPhotoCaption}
+          sizes="(min-width: 832px) 768px, calc(100vw - 32px)"
+        />
       </Container>
     </section>
   );

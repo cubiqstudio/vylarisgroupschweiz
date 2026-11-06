@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { Notice } from "@/components/admin/core/notice";
 import { StatCard } from "@/components/admin/core/stat-card";
-import { cronHealth, cronTaskLabel } from "@/lib/verein/cron-lib";
+import { cronHealth, cronRunHasNotes, cronTaskLabel } from "@/lib/verein/cron-lib";
 import { MEETING_KIND_LABEL, MEETING_STATUS_LABEL, labelOf } from "@/lib/verein/constants";
 import { formatDateCh, formatDateTimeCh } from "@/lib/verein/dates";
 import { formatChfWithCurrency } from "@/lib/verein/money";
@@ -77,7 +77,7 @@ export function VereinKpis({ data }: { data: VereinDashboard }) {
     cards.push(
       <StatCard
         key="ledger"
-        label="Kassastand"
+        label="Kassenstand"
         value={ledger ? (ledger.hasAccounts ? formatChfWithCurrency(ledger.assetEndRappen) : "–") : "–"}
         detail={
           ledger
@@ -209,11 +209,20 @@ export function CronStatusCard({ data, now = new Date() }: { data: VereinDashboa
                 Mindestens eine Aufgabe ist beim letzten Lauf fehlgeschlagen. Der Lauf wiederholt sie beim nächsten Mal; Details stehen im Protokoll des Dienstes «cron».
               </Notice>
             )}
+            {cronRunHasNotes(run) && (
+              <Notice variant="info" className="mt-3">
+                {run.tasks.find((t) => t.ok && t.note)?.note}{" "}
+                <Link href="/admin/settings#email" className="font-medium underline underline-offset-2">
+                  Einstellungen &gt; Mailserver
+                </Link>
+                . Nach der Einrichtung werden fällige Erinnerungen beim nächsten Lauf nachgeholt.
+              </Notice>
+            )}
             <ul className="mt-3 space-y-1 text-sm text-zinc-400">
               {run.tasks.map((t) => (
                 <li key={t.name} className="flex flex-wrap justify-between gap-x-4">
                   <span>{cronTaskLabel(t.name)}</span>
-                  <span className={t.ok ? "text-zinc-300" : "text-rose-300"}>{t.ok ? `${t.count} erledigt` : (t.error ?? "Fehler")}</span>
+                  <span className={t.ok ? "text-zinc-300" : "text-rose-300"}>{t.ok ? (t.note ? "übersprungen" : `${t.count} erledigt`) : (t.error ?? "Fehler")}</span>
                 </li>
               ))}
             </ul>

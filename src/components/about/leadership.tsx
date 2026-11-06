@@ -1,3 +1,4 @@
+import { BoardPhoto } from "@/components/ui/board-photo";
 import { Card } from "@/components/ui/card";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { about } from "@/i18n/about";
@@ -28,7 +29,13 @@ export async function Leadership() {
           title={<span id="vorstand-heading">{m.title}</span>}
           description={m.description}
         />
-        <ul className="mt-12 grid gap-6 md:grid-cols-3">
+        <BoardPhoto
+          className="mt-12"
+          alt={m.photoAlt}
+          caption={m.photoCaption}
+          sizes="(min-width: 1152px) 1088px, calc(100vw - 32px)"
+        />
+        <ul className="mt-8 grid gap-6 md:grid-cols-3">
           {site.board.map((person) => (
             <li key={person.name} className="flex">
               <Card className="relative w-full overflow-hidden p-7 sm:p-8">

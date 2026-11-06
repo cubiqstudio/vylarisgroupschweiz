@@ -16,7 +16,7 @@ export default async function NewTransactionPage() {
   const accounts = await loadAccounts();
   return (
     <div>
-      <PageTitle title="Neue Buchung" description="Erfasse eine Einnahme, eine Ausgabe oder eine Umbuchung zwischen Bank und Kasse. Die Belegnummer vergibt die Kassa." />
+      <PageTitle title="Neue Buchung" description="Erfasse eine Einnahme, eine Ausgabe oder eine Umbuchung zwischen Bank und Kasse. Die Belegnummer vergibt die Kasse." />
       <LedgerNav />
       {accounts.length === 0 ? (
         <Notice variant="warning">Es sind noch keine Konten angelegt. Lege zuerst unter «Konten» Einnahmen-, Ausgaben- und Vermögenskonten an.</Notice>
