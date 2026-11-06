@@ -100,6 +100,7 @@ test("Dienst cron: geerbter Healthcheck der Web-App ist abgeschaltet, Dateisyste
   assert.ok(block.length > 50);
   assert.match(block, /healthcheck:\s*\n\s+disable:\s*true/);
   assert.match(block, /read_only:\s*true/);
+  assert.match(block, /pull_policy:\s*never/, "das lokal gebaute Image darf nicht aus einer Registry geholt werden");
   assert.match(block, /tmpfs:\s*\n\s+- \/tmp/);
   assert.match(block, /node.*scripts\/cron-runner\.mjs/);
   assert.match(compose, /openssl rand -hex 32/, "Schnellstart nennt, wie CRON_SECRET erzeugt wird");

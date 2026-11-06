@@ -92,6 +92,9 @@ services:
   # ohne Ports und ohne Schreibzugriff. Prüfen: docker logs vylaris-schweiz-cron
   cron:
     image: vylaris-schweiz-app:latest
+    # Dieses Image baut der Dienst «app» (gleicher Name). Es liegt nur lokal und ist in keiner Registry: Docker darf nicht versuchen,
+    # es herunterzuladen (sonst bricht «docker compose up» mit «pull access denied» ab, bevor gebaut wurde).
+    pull_policy: never
     container_name: vylaris-schweiz-cron
     restart: unless-stopped
     # Der Entrypoint der App (Datenbankschema, Seed) wird hier nicht gebraucht.
