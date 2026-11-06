@@ -192,6 +192,16 @@ async function main(): Promise<void> {
     await mark("seed.legal.v2");
   }
 
+  if (todo("seed.legal.v3")) {
+    // Der Verein ist nicht im Handelsregister eingetragen (Bestätigung des Vorstands). Das Impressum nennt das dann
+    // ausdrücklich. Nur setzen, wenn noch nichts gespeichert ist und der Installer keine Registerangabe liefert.
+    if (!process.env.LEGAL_REGISTER?.trim()) {
+      await db.siteSetting.upsert({ where: { key: "legal.noRegister" }, update: {}, create: { key: "legal.noRegister", value: "true" } });
+    }
+    console.log("Impressum: «nicht im Handelsregister eingetragen» als Anfangswert gesetzt");
+    await mark("seed.legal.v3");
+  }
+
   if (todo("seed.newsletter.v1")) {
     const exists = await db.newsletterCampaign.findFirst({ where: { subject: newsletterDraft.subject }, select: { id: true } });
     if (!exists) await db.newsletterCampaign.create({ data: { ...newsletterDraft, status: "DRAFT" } });
