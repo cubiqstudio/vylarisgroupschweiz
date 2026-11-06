@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarPlus, ExternalLink } from "lucide-react";
-import { formatDateCh, toDateTimeLocalValue } from "@/lib/verein/dates";
+import { formatDateCh, formatDateTimeCh, toDateTimeLocalValue } from "@/lib/verein/dates";
+import { purgeExpiredUnconfirmedRegistrations } from "@/lib/verein/events-confirm";
 import { getEventDetail } from "@/lib/verein/events-data";
-import { formatEventWhen, registrantName } from "@/lib/verein/events-lib";
+import { confirmExpiresAt, formatEventWhen, registrantName } from "@/lib/verein/events-lib";
 import { requireModulePage } from "@/lib/verein/guard";
 import { canAccess } from "@/lib/verein/permissions";
 import { PageTitle } from "@/components/admin/core/page-title";
@@ -23,6 +24,8 @@ type Props = { params: Promise<{ id: string }> };
 export default async function EventDetailPage({ params }: Props) {
   const admin = await requireModulePage("events");
   const { id } = await params;
+  // Unbestätigte Anmeldungen nach 48 Stunden löschen (der tägliche Lauf macht das auch; hier zusätzlich, damit es ohne Lauf aufräumt).
+  await purgeExpiredUnconfirmedRegistrations().catch(() => ({ deleted: 0 }));
   const event = await getEventDetail(id);
   if (!event) notFound();
 
@@ -45,8 +48,9 @@ export default async function EventDetailPage({ params }: Props) {
     attended: r.attendedAt !== null,
     promoted: r.promotedAt !== null,
     reminded: r.reminderSentAt !== null,
+    confirmBy: r.status === "UNBESTAETIGT" ? formatDateTimeCh(confirmExpiresAt(r.createdAt)) : null,
   }));
-  const activeCount = registrations.filter((r) => r.status !== "ABGESAGT").length;
+  const activeCount = registrations.filter((r) => r.status === "ANGEMELDET" || r.status === "WARTELISTE").length;
   const unreminded = event.registrations.filter((r) => r.status === "ANGEMELDET" && r.reminderSentAt === null).length;
 
   return (

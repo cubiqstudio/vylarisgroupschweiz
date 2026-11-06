@@ -82,9 +82,15 @@ export const memberActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("exit-complete") }),
   z.object({ action: z.literal("expel"), reason: z.string().trim().min(3, "Bitte die Begründung angeben (mindestens 3 Zeichen).").max(1000, "Maximal 1000 Zeichen."), effectiveAt: optionalDateOnlySchema }),
   z.object({ action: z.literal("deceased"), date: optionalDateOnlySchema }),
-  z.object({ action: z.literal("anonymize"), confirmNumber: z.number().int("Bitte die Mitgliedernummer eingeben.") }),
+  z.object({
+    action: z.literal("anonymize"),
+    confirmNumber: z.number().int("Bitte die Mitgliedernummer eingeben."),
+    /** Das verknüpfte Website-Konto (E-Mail-Adresse, Name) ebenfalls löschen */
+    deleteAccount: boolSchema.default(false),
+  }),
   z.object({ action: z.literal("link-user"), email: emailSchema }),
   z.object({ action: z.literal("unlink-user") }),
+  z.object({ action: z.literal("reissue-card") }),
 ]);
 export type MemberActionInput = z.infer<typeof memberActionSchema>;
 

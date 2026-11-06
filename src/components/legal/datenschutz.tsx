@@ -8,6 +8,7 @@ import { getMessages, getSite } from "@/i18n/server";
 import { formatPrivacyUpdatedAt, getLegal } from "@/lib/legal";
 import { formatSectionRefs, privacyPlan } from "@/lib/legal-toggles";
 import { SESSION_COOKIE } from "@/lib/session";
+import { GUEST_RETENTION_DAYS } from "@/lib/verein/events-lib";
 
 /** Schlüssel der Hell-/Dunkel-Wahl im lokalen Speicher (siehe src/components/theme/theme-switch.tsx). */
 const THEME_KEY = "vgs-theme";
@@ -528,14 +529,18 @@ export async function Datenschutz() {
           <h3>Empfänger und Zugriff</h3>
           <p>
             Zugriff auf Mitgliederdaten haben nur Personen mit einer entsprechenden Rolle im Verein (rollenbasierter
-            Zugriff). Mitgliederlisten und Exporte sind auf Rollen mit Leserecht beschränkt. Als Mitglied siehst du im
+            Zugriff). Mitgliederlisten und Exporte sind auf Rollen mit Leserecht beschränkt. Welche Rolle was sehen und
+            ändern darf, stellt der Verein ein; interne Notizen des Vorstands sehen nur Rollen, denen der Verein dieses
+            Recht ausdrücklich gegeben hat (Datenminimierung). Als Mitglied siehst du im
             Mitgliederportal ausschliesslich deine eigenen Daten. Eine Weitergabe an Dritte findet nicht statt, ausser wir
             sind dazu gesetzlich verpflichtet. Mitteilungen an dich versenden wir über den eingerichteten SMTP-Server
             {paren("mail")}.
           </p>
           <h3>Aufbewahrung und Löschung</h3>
           <p>
-            Wir speichern die Daten, solange du Mitglied bist. Nach einem Austritt, Ausschluss oder Todesfall bewahren wir
+            Wir speichern die Daten, solange du Mitglied bist. Ist ein Austritt gemeldet, setzt ein täglicher automatischer
+            Lauf den Status nach Ablauf des eingetragenen Austrittsdatums auf «ausgetreten»; dabei werden keine weiteren
+            Daten bearbeitet. Nach einem Austritt, Ausschluss oder Todesfall bewahren wir
             sie nur noch, soweit dies nötig ist, etwa für offene Forderungen, Buchhaltungsbelege, Protokolle und das
             Mitgliederverzeichnis der Vereinsgeschichte. Darüber hinaus entfernt der Vorstand die Personendaten
             (Kontaktdaten, Geburtsdatum, Notizen); Mitgliedernummer, Status sowie Eintritts- und Austrittsdatum bleiben
@@ -692,10 +697,17 @@ export async function Datenschutz() {
             <li>Anmeldung von Mitgliedern: die Zuordnung zum Mitglied, die Zahl der Plätze, eine allfällige Bemerkung und der Status (angemeldet, Warteliste, abgesagt) mit Zeitpunkten</li>
             <li>
               Anmeldung von Gästen: Name und E-Mail-Adresse, Zahl der Plätze (inklusive Begleitung), eine allfällige
-              Bemerkung sowie der Zeitpunkt deiner Einwilligung zur Datenbearbeitung
+              Bemerkung sowie der Zeitpunkt deiner Einwilligung zur Datenbearbeitung. Die Anmeldung gilt erst, wenn du
+              deine E-Mail-Adresse bestätigt hast (siehe unten); bis dahin ist sie «unbestätigt» und reserviert keinen Platz
             </li>
             <li>
-              Abmelde-Link: Er steht nur in der Bestätigungs-E-Mail; wir speichern davon nur einen Hash (Prüfwert)
+              Bestätigungs-Link: Er steht nur in der E-Mail, die wir nach deiner Anmeldung an die angegebene Adresse senden. Er
+              enthält eine Signatur und einen Ablaufzeitpunkt, aber keine Personendaten; gespeichert wird nur der Zeitpunkt des
+              letzten Versands
+            </li>
+            <li>
+              Abmelde-Link: Er steht nur in der Bestätigungs-E-Mail, die wir nach deiner Bestätigung senden; wir speichern davon
+              nur einen Hash (Prüfwert)
             </li>
           </ul>
           <h3>Zweck und Grundlage</h3>
@@ -703,6 +715,18 @@ export async function Datenschutz() {
             Wir bearbeiten die Daten, um den Anlass zu planen und durchzuführen, Plätze und die Warteliste zu verwalten und
             dir deine Anmeldung zu bestätigen. Grundlage ist deine Anmeldung; bei Gästen zusätzlich die Einwilligung, die
             du bei der Anmeldung erteilst und mit Wirkung für die Zukunft widerrufen kannst.
+          </p>
+          <h3>Bestätigung der E-Mail-Adresse (Gäste)</h3>
+          <p>
+            Damit niemand mit einer fremden Adresse Anmeldungen auslösen kann, prüfen wir bei Gästen die E-Mail-Adresse
+            («Double-Opt-In»): Nach dem Absenden des Formulars senden wir dir eine E-Mail mit einem Link. Erst wenn du auf
+            der Seite, die sich öffnet, die Schaltfläche «Anmeldung bestätigen» anklickst, gilt deine Anmeldung. Dann
+            erhältst du einen Platz oder, wenn der Anlass ausgebucht ist, einen Platz auf der Warteliste, und wir senden
+            dir die Bestätigung mit dem Link zum Abmelden. Der Link gilt 48 Stunden. Bestätigst du nicht innerhalb von 48
+            Stunden, verfällt die Anmeldung; wir löschen sie samt Name, E-Mail-Adresse und Bemerkung im täglichen
+            Aufräumlauf, spätestens drei Tage nach deiner Anmeldung. Wiederholst du die
+            Anmeldung mit derselben Adresse, senden wir höchstens alle paar Minuten eine neue E-Mail. Mitglieder, die im
+            Mitgliederportal angemeldet sind, müssen nichts bestätigen.
           </p>
           <h3>Empfänger und Zugriff</h3>
           <p>
@@ -712,8 +736,12 @@ export async function Datenschutz() {
           </p>
           <h3>Aufbewahrung und Löschung</h3>
           <p>
-            Angaben von Gästen bewahren wir nur für den Anlass auf und entfernen oder anonymisieren sie danach.
-            Anmeldungen von Mitgliedern gehören zu den Mitgliederdaten{paren("mitglieder")}. Mit dem Abmelde-Link kannst du
+            Unbestätigte Anmeldungen von Gästen verfallen nach 48 Stunden und werden im täglichen Aufräumlauf gelöscht,
+            spätestens drei Tage nach der Anmeldung. Bestätigte Angaben von Gästen (Name, E-Mail-Adresse, Bemerkung)
+            bewahren wir bis {GUEST_RETENTION_DAYS} Tage nach dem Anlass auf; danach werden sie im täglichen Aufräumlauf entfernt. Die
+            Anmeldung bleibt dann ohne Personenbezug als Zahl der Plätze bestehen. Auf Wunsch löschen wir deine Angaben
+            früher: Schreib uns die E-Mail-Adresse, mit der du dich angemeldet hast. Wir suchen alle Anmeldungen zu dieser
+            Adresse, geben dir Auskunft darüber und löschen sie auf Verlangen. Anmeldungen von Mitgliedern gehören zu den Mitgliederdaten{paren("mitglieder")}. Mit dem Abmelde-Link kannst du
             dich jederzeit abmelden.
           </p>
           {rights()}
@@ -749,7 +777,7 @@ export async function Datenschutz() {
           <p>
             Wer ein Dokument sehen darf, richtet sich nach seiner Sichtbarkeit: Öffentliche Dokumente (etwa die Statuten)
             kann jede Besucherin und jeder Besucher abrufen, Dokumente für Mitglieder nur Mitglieder nach der Anmeldung,
-            Dokumente für den Vorstand nur berechtigte Rollen.
+            Dokumente für den Vorstand nur Rollen, denen der Verein dieses Recht ausdrücklich gegeben hat.
           </p>
           <h3>Aufbewahrung und Löschung</h3>
           <p>
@@ -889,7 +917,7 @@ export async function Datenschutz() {
             </li>
           )}
           {has("versammlungen") && <li>Protokolle und Beschlüsse: solange der Verein sie braucht{paren("versammlungen")}.</li>}
-          {has("anlaesse") && <li>Anmeldungen von Gästen: nur für den Anlass{paren("anlaesse")}.</li>}
+          {has("anlaesse") && <li>Anmeldungen von Gästen: unbestätigte spätestens drei Tage, bestätigte bis {GUEST_RETENTION_DAYS} Tage nach dem Anlass{paren("anlaesse")}.</li>}
           {has("dokumente") && <li>Dokumente: solange der Verein sie braucht, frühere Fassungen bleiben erhalten{paren("dokumente")}.</li>}
           {has("audit") && <li>Änderungsprotokoll: Einträge bleiben bestehen und werden nicht nachträglich geändert{paren("audit")}.</li>}
         </ul>

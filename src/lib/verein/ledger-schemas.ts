@@ -1,4 +1,4 @@
-// Zod-Schemas und Filter der Kassa (rein, ohne Datenbank). Beträge kommen als Text («1'234.50») oder Rappen und werden zu Rappen.
+// Zod-Schemas und Filter der Kasse (rein, ohne Datenbank). Beträge kommen als Text («1'234.50») oder Rappen und werden zu Rappen.
 import { z } from "zod";
 import { ACCOUNT_KINDS, TRANSACTION_DIRECTIONS, TRANSACTION_SOURCES } from "./constants";
 import { MAX_RAPPEN, parseChf } from "./money";

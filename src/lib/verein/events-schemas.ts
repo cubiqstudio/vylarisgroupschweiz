@@ -1,7 +1,7 @@
 // Zod-Schemas des Moduls Anlässe (Verwaltung, Gast-Anmeldung, Mitglieder-Anmeldung). Reine Definitionen, auch im Browser nutzbar.
 import { z } from "zod";
 import { eventConsistencyErrors, MAX_SEATS_GUEST, MAX_SEATS_MEMBER } from "./events-lib";
-import { isPlausibleCancelToken } from "./events-token";
+import { isPlausibleCancelToken, isPlausibleConfirmToken } from "./events-token";
 import { boolSchema, dateTimeSchema, emailSchema, idSchema, longText, oneOf, optionalDateTimeSchema, optionalEmailSchema, optionalText, text } from "./validation";
 
 const capacitySchema = z
@@ -83,6 +83,11 @@ export const cancelTokenSchema = z.object({
   token: z.string().trim().refine(isPlausibleCancelToken, "Der Link ist ungültig oder unvollständig."),
 });
 
+/** Bestätigung der E-Mail-Adresse eines Gastes (Token aus der Mail). Die Signatur prüft die Datenschicht. */
+export const confirmTokenSchema = z.object({
+  token: z.string().trim().refine(isPlausibleConfirmToken, "Der Link ist ungültig oder unvollständig."),
+});
+
 /** Vorstand fügt eine Person von Hand hinzu: Mitglied (memberId) oder Gast (Name, E-Mail optional). */
 export const adminRegistrationSchema = z
   .object({
@@ -99,10 +104,15 @@ export const adminRegistrationSchema = z
   });
 export type AdminRegistrationInput = z.infer<typeof adminRegistrationSchema>;
 
+/** Auskunft und Löschung für Gäste: die E-Mail-Adresse, mit der sich die Person angemeldet hat. */
+export const guestEmailSchema = z.object({ email: emailSchema });
+export type GuestEmailInput = z.infer<typeof guestEmailSchema>;
+
 export const registrationActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("cancel"), sendMail: boolSchema.default(true) }),
   z.object({ action: z.literal("promote"), force: boolSchema.default(false), sendMail: boolSchema.default(true) }),
   z.object({ action: z.literal("restore"), force: boolSchema.default(false) }),
+  z.object({ action: z.literal("confirm"), force: boolSchema.default(false), sendMail: boolSchema.default(true) }),
   z.object({ action: z.literal("attendance"), attended: boolSchema }),
   z.object({ action: z.literal("update"), seats: seats(50).optional(), note: optionalText(300).optional() }),
 ]);

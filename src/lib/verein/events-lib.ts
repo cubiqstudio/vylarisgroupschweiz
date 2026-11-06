@@ -12,11 +12,56 @@ export const MAX_SEATS_GUEST = 5;
 /** Erinnerungen gehen an Anlässe, die innerhalb dieser Stunden beginnen (siehe isReminderDue). */
 export const REMINDER_WINDOW_HOURS = 36;
 
+/** Gäste müssen ihre E-Mail-Adresse bestätigen: Der Link gilt so viele Stunden; danach wird die unbestätigte Anmeldung gelöscht. */
+export const CONFIRM_TTL_HOURS = 48;
+/**
+ * Der Aufräumlauf läuft einmal täglich (cron.ts). Eine abgelaufene unbestätigte Anmeldung ist deshalb spätestens nach 48 Stunden plus
+ * einem Tag gelöscht: Diese Zahl (in Tagen) darf in Texten für Gäste stehen (Mail, Datenschutzerklärung).
+ */
+export const CONFIRM_PURGE_MAX_DAYS = 3;
+/**
+ * Bestätigte Gast-Anmeldungen: Name, E-Mail-Adresse und Bemerkung werden so viele Tage nach dem Ende des Anlasses entfernt
+ * (Datenschutzerklärung, Abschnitt «Anlässe»). Auf Wunsch geht es früher (Gäste-Auskunft und -Löschung in der Verwaltung).
+ */
+export const GUEST_RETENTION_DAYS = 30;
+/** Frühestens nach so vielen Minuten geht für dieselbe Anmeldung erneut eine Bestätigungsmail hinaus (Drosselung). */
+export const CONFIRM_RESEND_MINUTES = 5;
+
 export const EVENT_VIEWS = ["kommend", "vergangen", "entwurf", "abgesagt", "alle"] as const;
 export type EventView = (typeof EVENT_VIEWS)[number];
 export const EVENT_VIEW_LABEL: Record<EventView, string> = { kommend: "Kommende", vergangen: "Vergangene", entwurf: "Entwürfe", abgesagt: "Abgesagte", alle: "Alle" };
 
 // ---- Plätze und Warteliste -----------------------------------------------------------------------------------------
+
+// ---- Bestätigung der E-Mail-Adresse (Gäste) ------------------------------------------------------------------------------
+
+/** Bis wann eine unbestätigte Anmeldung gilt (ab Eingang). */
+export function confirmExpiresAt(createdAt: Date): Date {
+  return new Date(createdAt.getTime() + CONFIRM_TTL_HOURS * 3_600_000);
+}
+
+/** Ist die Frist zur Bestätigung abgelaufen? Genau zum Ablaufzeitpunkt gilt sie bereits als abgelaufen. */
+export function isConfirmationExpired(createdAt: Date, now: Date = new Date()): boolean {
+  return now.getTime() >= confirmExpiresAt(createdAt).getTime();
+}
+
+/** Darf die Bestätigungsmail schon wieder verschickt werden? (Drosselung; `null` = noch nie verschickt.) */
+export function canResendConfirmation(lastSentAt: Date | null, now: Date = new Date()): boolean {
+  return lastSentAt === null || now.getTime() - lastSentAt.getTime() >= CONFIRM_RESEND_MINUTES * 60_000;
+}
+
+/** Stichtag für das Aufräumen: Unbestätigte Anmeldungen, die vor diesem Zeitpunkt eingegangen sind, sind abgelaufen. */
+export function confirmPurgeCutoff(now: Date = new Date()): Date {
+  return new Date(now.getTime() - CONFIRM_TTL_HOURS * 3_600_000);
+}
+
+/** Stichtag für Gast-Angaben: Anlässe, die vor diesem Zeitpunkt zu Ende gingen, dürfen keine Personendaten von Gästen mehr tragen. */
+export function guestRetentionCutoff(now: Date = new Date()): Date {
+  return new Date(now.getTime() - GUEST_RETENTION_DAYS * 86_400_000);
+}
+
+/** Zusammenfassung in früheren Protokolleinträgen zu einer Gast-Anmeldung, nachdem deren Personendaten entfernt wurden. */
+export const GUEST_AUDIT_SCRUBBED_SUMMARY = "Anmeldung eines Gasts (Personendaten entfernt)";
 
 export type SeatRow = { status: string; seats: number };
 

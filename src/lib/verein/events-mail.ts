@@ -1,10 +1,10 @@
-// Mails zu Anlässen: Bestätigung, Warteliste, Nachrücken, Absage durch den Vorstand, Absage des Anlasses, Erinnerung.
+// Mails zu Anlässen: Bitte um Bestätigung der E-Mail-Adresse, Bestätigung, Warteliste, Nachrücken, Absage durch den Vorstand, Absage des Anlasses, Erinnerung.
 // Versand über sendVereinMail im Marken-Layout. Links entstehen ausschliesslich aus der festen Basis-URL (links.ts).
 // Abmelde-Links (mit Token) stehen nur in der Bestätigungsmail; die übrigen Mails verweisen darauf bzw. auf das Mitgliederportal.
 import "server-only";
 import type { SendResult } from "@/lib/mailer";
-import { formatEventWhen } from "./events-lib";
-import { eventCancelUrl, eventUrl, memberPortalUrl, publicUrl } from "./links";
+import { CONFIRM_PURGE_MAX_DAYS, CONFIRM_TTL_HOURS, formatEventWhen } from "./events-lib";
+import { eventCancelUrl, eventConfirmUrl, eventUrl, memberPortalUrl, publicUrl } from "./links";
 import { sendVereinMail } from "./mail";
 
 export type MailEvent = { id: string; title: string; location: string; startsAt: Date; endsAt: Date | null; isPublic: boolean };
@@ -33,6 +33,37 @@ const eventLink = (event: Pick<MailEvent, "id" | "isPublic">): string => (event.
 
 const guestFooter = "Du erhältst diese Mail, weil diese Adresse für den Anlass angemeldet wurde. Warst du das nicht, melde die Anmeldung über den Link ab.";
 const memberFooter = "Du erhältst diese Mitteilung als Mitglied des Vereins.";
+
+const confirmFooter = `Du erhältst diese Mail, weil diese Adresse für einen Anlass angemeldet wurde. Warst du das nicht, musst du nichts tun: Ohne Bestätigung verfällt die Anmeldung nach ${CONFIRM_TTL_HOURS} Stunden und wird spätestens ${CONFIRM_PURGE_MAX_DAYS} Tage nach der Anmeldung gelöscht.`;
+
+/**
+ * Gäste: Bitte um Bestätigung der E-Mail-Adresse (Double-Opt-In). Erst der Klick auf den Link macht die Anmeldung gültig;
+ * bis dahin ist kein Platz reserviert. Der Link führt auf eine Seite mit Schaltfläche (der Aufruf allein bestätigt nichts).
+ */
+export function sendConfirmRequestMail(opts: { recipient: Recipient; event: MailEvent; seats: number; token: string; registeredName?: string; note?: string }): Promise<SendResult> {
+  const { recipient, event, seats, token } = opts;
+  // Name und Bemerkung so, wie sie in der Anmeldung stehen: Wer die Adresse besitzt, soll erkennen, was sie oder er bestätigt
+  // (eine fremde, noch offene Anmeldung für diese Adresse bleibt unverändert und gehört einer anderen Person).
+  const registeredName = (opts.registeredName ?? recipient.name).trim();
+  const note = (opts.note ?? "").trim();
+  const rows = details(event, seats);
+  if (registeredName) rows.push(["Angemeldet als", registeredName]);
+  if (note) rows.push(["Bemerkung", note]);
+  return sendVereinMail({
+    to: recipient.to,
+    subject: `Bitte bestätige deine Anmeldung: ${event.title}`,
+    heading: "Bitte bestätige deine E-Mail-Adresse",
+    preheader: formatEventWhen(event.startsAt, event.endsAt),
+    paragraphs: [
+      hello(recipient.name),
+      `Diese E-Mail-Adresse wurde für den Anlass «${event.title}» angemeldet. Damit die Anmeldung gilt, bestätige bitte deine E-Mail-Adresse über die Schaltfläche unten. Stimmen Name oder Personenzahl unten nicht mit deinen Angaben überein, bestätige bitte nicht: Die Anmeldung verfällt dann von selbst.`,
+      `Erst nach der Bestätigung bekommst du einen Platz oder, wenn der Anlass ausgebucht ist, einen Platz auf der Warteliste. Der Link gilt ${CONFIRM_TTL_HOURS} Stunden. Danach verfällt die unbestätigte Anmeldung; wir löschen sie samt deinen Angaben im täglichen Aufräumlauf, spätestens ${CONFIRM_PURGE_MAX_DAYS} Tage nach der Anmeldung.`,
+    ],
+    details: rows,
+    cta: { label: "Anmeldung bestätigen", url: eventConfirmUrl(token) },
+    footerNote: confirmFooter,
+  });
+}
 
 /** Bestätigung einer Anmeldung bzw. Hinweis, dass die Person auf der Warteliste steht. `token` nur bei neuen oder erneuerten Abmelde-Links. */
 export function sendRegistrationMail(opts: { recipient: Recipient; event: MailEvent; status: "ANGEMELDET" | "WARTELISTE"; seats: number; token?: string }): Promise<SendResult> {

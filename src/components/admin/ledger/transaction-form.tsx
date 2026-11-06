@@ -182,7 +182,7 @@ export function TransactionForm({
         </Field>
       </div>
 
-      <Field label="Buchungstext" htmlFor={`${uid}-text`} error={fields.text} hint="Wofür oder von wem? Erscheint in der Kassa und im Kassabericht.">
+      <Field label="Buchungstext" htmlFor={`${uid}-text`} error={fields.text} hint="Wofür oder von wem? Erscheint in der Kasse und im Kassenbericht.">
         <Input id={`${uid}-text`} value={v.text} onChange={(e) => set("text", e.target.value)} maxLength={200} required disabled={busy} aria-invalid={Boolean(fields.text)} />
       </Field>
       <Field label="Beleg-Referenz (optional)" htmlFor={`${uid}-ref`} error={fields.voucherRef} hint="Zum Beispiel die Rechnungsnummer der Lieferantin oder des Lieferanten.">

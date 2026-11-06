@@ -4,8 +4,8 @@
 /** Typografischer Apostroph als Tausendertrenner. */
 export const THOUSANDS_SEPARATOR = "’";
 
-/** Grösster zulässiger Betrag in Rappen (CHF 999’999’999.99): schützt vor Überlauf und Tippfehlern. */
-export const MAX_RAPPEN = 99_999_999_999;
+/** Grösster zulässiger Betrag in Rappen (CHF 20’000’000.00): passt in eine 32-Bit-Ganzzahl der Datenbank (PostgreSQL) und schützt vor Tippfehlern. */
+export const MAX_RAPPEN = 2_000_000_000;
 
 /** Ist der Wert ein sicherer Rappen-Betrag (ganze Zahl, höchstens MAX_RAPPEN)? */
 export function isRappen(value: unknown): value is number {

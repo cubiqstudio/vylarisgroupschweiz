@@ -10,6 +10,7 @@ import { getMessages, getSite } from "@/i18n/server";
 import { account } from "@/i18n/account";
 import { licenses } from "@/i18n/licenses";
 import { getCurrentAdmin, getViewer } from "@/lib/auth";
+import { getCurrentMember } from "@/lib/verein/guard";
 import { formatDate } from "@/lib/utils";
 import { db } from "@/lib/db";
 import { canAccess, moduleForPath } from "@/lib/verein/permissions";
@@ -75,6 +76,8 @@ export default async function AccountOverviewPage() {
   if (!viewer) redirect("/login?next=/account");
   const isAdmin = viewer.kind === "admin";
 
+  const linkedMember = await getCurrentMember().catch(() => null);
+  const userRole = linkedMember && linkedMember.status === "AKTIV" ? m.area.roleMember(linkedMember.memberNumber) : m.area.roleUser;
   let memberSince: Date | null = null;
   let verified = true;
   let adminRole = "";
@@ -106,7 +109,7 @@ export default async function AccountOverviewPage() {
           {
             href: "/admin/members",
             title: "Mitglieder",
-            text: "Mitgliederverwaltung, Beiträge, Kassa und Versammlungen des Vereins.",
+            text: "Mitgliederverwaltung, Beiträge, Kasse und Versammlungen des Vereins.",
             icon: Building2,
           },
           {
@@ -238,7 +241,7 @@ export default async function AccountOverviewPage() {
           <div>
             <dt className="text-xs text-zinc-500">{m.overview.role}</dt>
             <dd className="mt-1 font-medium text-zinc-100">
-              {isAdmin ? `${m.area.roleAdmin}${adminRole ? ` (${adminRole})` : ""}` : viewer.isTeam ? m.area.roleTeam : m.area.roleUser}
+              {isAdmin ? `${m.area.roleAdmin}${adminRole ? ` (${adminRole})` : ""}` : viewer.isTeam ? m.area.roleTeam : userRole}
             </dd>
           </div>
           <div>

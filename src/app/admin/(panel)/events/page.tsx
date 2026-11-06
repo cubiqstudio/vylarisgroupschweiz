@@ -39,6 +39,9 @@ export default async function AdminEventsPage({ searchParams }: Props) {
   return (
     <div>
       <PageTitle title="Anlässe" description="Anlässe planen und veröffentlichen, Anmeldungen und Warteliste verwalten, Teilnehmerlisten exportieren.">
+        <Link href="/admin/events/gaeste" className={buttonClass("ghost", "md")}>
+          Gäste: Auskunft und Löschung
+        </Link>
         {canWrite && (
           <Link href="/admin/events/new" className={buttonClass("primary", "md")}>
             <CalendarPlus className="h-4 w-4" aria-hidden />
@@ -141,7 +144,7 @@ export default async function AdminEventsPage({ searchParams }: Props) {
                         </td>
                         <td className="px-4 py-3 tabular-nums text-zinc-300">
                           {e.registrations === 0 ? (
-                            <span className="text-zinc-600">–</span>
+                            e.unconfirmed === 0 && <span className="text-zinc-600">–</span>
                           ) : (
                             <>
                               <span className={cn(full && "text-amber-300")}>{e.capacity === null ? `${e.seats.taken}` : `${e.seats.taken} / ${e.capacity}`}</span>
@@ -149,6 +152,7 @@ export default async function AdminEventsPage({ searchParams }: Props) {
                               {e.seats.waiting > 0 && <div className="text-xs text-amber-300">+ {e.seats.waiting} auf der Warteliste</div>}
                             </>
                           )}
+                          {e.unconfirmed > 0 && <div className="text-xs text-sky-300">{e.unconfirmed} E-Mail noch nicht bestätigt</div>}
                         </td>
                       </tr>
                     );

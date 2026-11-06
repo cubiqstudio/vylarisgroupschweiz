@@ -1,4 +1,4 @@
-// Datenzugriff und Befehle der Kassa (nur auf dem Server): Konten, Buchungen, Gegenbuchungen, Belege, Budget, Geschäftsjahre und
+// Datenzugriff und Befehle der Kasse (nur auf dem Server): Konten, Buchungen, Gegenbuchungen, Belege, Budget, Geschäftsjahre und
 // Auswertungen. Grundsätze: Belegnummern atomar in derselben Transaktion wie die Buchung (ids.ts), jede Änderung mit Protokolleintrag in
 // derselben Transaktion, abgeschlossene Geschäftsjahre bleiben unverändert (Korrektur nur mit Gegenbuchung im offenen Jahr).
 import "server-only";
@@ -757,7 +757,7 @@ async function earlierOpenYears(tx: Tx, year: number): Promise<number[]> {
 }
 
 export async function applyFiscalAction(admin: LedgerRoleActor, year: number, input: FiscalActionInput): Promise<void> {
-  if (!canCloseFiscalYear(admin.roles)) throw new ApiError(403, "FORBIDDEN", "Geschäftsjahre schliessen oder öffnen dürfen nur der Kassier und der Präsident.");
+  if (!canCloseFiscalYear(admin.roles)) throw new ApiError(403, "FORBIDDEN", "Geschäftsjahre abschliessen oder wieder öffnen dürfen nur Rollen mit dem Recht «Geschäftsjahr abschliessen und wieder öffnen» und Zugriff auf die Kasse (Voreinstellung: Präsident/in und Kassier/in).");
   const fiscal = await getFiscalStart();
   const range = fiscalYearRange(year, fiscal);
   const today = todayZurich();
@@ -765,7 +765,7 @@ export async function applyFiscalAction(admin: LedgerRoleActor, year: number, in
   if (input.action === "lock") {
     const pending = await unbookedPaymentCount(range);
     if (pending > 0 && !input.confirmUnbooked) {
-      throw new ApiError(409, "UNBOOKED_PAYMENTS", `${pending === 1 ? "Eine Zahlung ist" : `${pending} Zahlungen sind`} in diesem Geschäftsjahr noch nicht in der Kassa gebucht. Buche sie unter «Beiträge» nach oder bestätige den Abschluss trotzdem.`);
+      throw new ApiError(409, "UNBOOKED_PAYMENTS", `${pending === 1 ? "Eine Zahlung ist" : `${pending} Zahlungen sind`} in diesem Geschäftsjahr noch nicht in der Kasse gebucht. Buche sie unter «Beiträge» nach oder bestätige den Abschluss trotzdem.`);
     }
     await db.$transaction(async (tx) => {
       const row = await tx.fiscalYear.findUnique({ where: { year }, select: { lockedAt: true } });

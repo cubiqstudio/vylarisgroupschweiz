@@ -102,7 +102,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                   <p className="font-medium text-zinc-100">
                     {i + 1}. {a.title}
                   </p>
-                  {a.description.trim() && <Markdown className="mt-1 text-sm">{a.description}</Markdown>}
+                  {a.description.trim() && <Markdown size="sm" className="mt-1">{a.description}</Markdown>}
                   {a.motion.trim() && (
                     <p className="mt-1 text-sm text-zinc-300">
                       <span className="font-medium">{m.detail.motion}:</span> {a.motion}

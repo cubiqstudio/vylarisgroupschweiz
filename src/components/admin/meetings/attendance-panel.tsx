@@ -140,13 +140,13 @@ export function AttendancePanel({ meetingId, rows, quorumMin, canWrite, locked }
                         {r.name} <span className="text-xs text-zinc-500">Nr. {r.memberNumber}</span>
                       </td>
                       <td className="px-4 py-2">
-                        <RsvpPill rsvp={r.rsvp} />
+                        <RsvpPill rsvp={r.rsvp} className="whitespace-nowrap" />
                       </td>
                       <td className="px-4 py-2">
                         <label className="sr-only" htmlFor={`st-${r.memberId}`}>
                           Status von {r.name}
                         </label>
-                        <Select id={`st-${r.memberId}`} value={r.status} disabled={!editable} className="h-9 w-40" onChange={(e) => patch(r.memberId, { status: e.target.value })}>
+                        <Select id={`st-${r.memberId}`} value={r.status} disabled={!editable} className="h-9 min-w-[9.5rem]" onChange={(e) => patch(r.memberId, { status: e.target.value })}>
                           {ATTENDANCE_STATUSES.map((s) => (
                             <option key={s} value={s}>
                               {ATTENDANCE_STATUS_LABEL[s]}

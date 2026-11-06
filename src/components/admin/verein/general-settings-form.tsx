@@ -184,7 +184,7 @@ export function GeneralSettingsForm({
         </p>
       </SettingsSection>
 
-      <SettingsSection id="geschaeftsjahr" title="Geschäftsjahr" description="Beginn des Geschäftsjahres für Kassa, Beitragsjahre und Austrittstermine. Bitte vor der ersten Buchung festlegen: Eine spätere Änderung ordnet bestehende Buchungen nicht neu zu.">
+      <SettingsSection id="geschaeftsjahr" title="Geschäftsjahr" description="Beginn des Geschäftsjahres für Kasse, Beitragsjahre und Austrittstermine. Bitte vor der ersten Buchung festlegen: Eine spätere Änderung ordnet bestehende Buchungen nicht neu zu.">
         <div className="mb-4">
           <StatutesBadge text="Voreinstellung: Kalenderjahr, gemäss Statuten anpassen" />
         </div>

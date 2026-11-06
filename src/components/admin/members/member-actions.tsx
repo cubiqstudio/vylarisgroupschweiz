@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, CalendarX2, CheckCircle2, DoorOpen, Link2, Link2Off, RotateCcw, ShieldOff, UserCheck, UserX, XCircle } from "lucide-react";
+import { Ban, CalendarX2, CheckCircle2, DoorOpen, IdCard, Link2, Link2Off, RotateCcw, ShieldOff, UserCheck, UserX, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { api, ApiClientError } from "@/lib/api-client";
@@ -15,7 +15,7 @@ import { useToast } from "@/components/admin/core/toast";
 import { describeError } from "@/components/admin/settings/form-utils";
 import type { TypeOption } from "./member-form";
 
-type Dialog = MemberAction | "link-user" | "unlink-user" | null;
+type Dialog = MemberAction | "link-user" | "unlink-user" | "reissue-card" | null;
 
 type MailReport = { sent: boolean; error?: string; skipped?: string } | null;
 type ActionResponse = { status: string; linked: boolean; mail: MailReport; plan: { effective: string } | null };
@@ -32,6 +32,8 @@ export type MemberActionsProps = {
     leftAt: string | null;
     anonymized: boolean;
     hasUser: boolean;
+    /** Adresse aus dem Beitrittsantrag, nicht bestätigt */
+    emailUnconfirmed: boolean;
   };
   types: TypeOption[];
   canWrite: boolean;
@@ -85,6 +87,7 @@ export function MemberActions({ member, types, canWrite, rule, fiscal, exitDue, 
   const [sendMail, setSendMail] = useState(true);
   const [allowEarlier, setAllowEarlier] = useState(false);
   const [confirmNumber, setConfirmNumber] = useState("");
+  const [deleteAccount, setDeleteAccount] = useState(false);
   const [linkEmail, setLinkEmail] = useState("");
 
   const actions = availableActions({ status: member.status, exitNoticeAt: member.exitNoticeAt ? new Date(member.exitNoticeAt) : null, anonymizedAt: member.anonymized ? new Date() : null });
@@ -146,6 +149,7 @@ export function MemberActions({ member, types, canWrite, rule, fiscal, exitDue, 
   const anonymizable = has("anonymize");
   const canLink = canWrite && !member.anonymized && !member.hasUser && member.status === "AKTIV";
   const canUnlink = canWrite && !member.anonymized && member.hasUser;
+  const canReissueCard = canWrite && !member.anonymized && member.status === "AKTIV";
 
   return (
     <>
@@ -210,6 +214,12 @@ export function MemberActions({ member, types, canWrite, rule, fiscal, exitDue, 
             Verknüpfung lösen
           </Button>
         )}
+        {canReissueCard && (
+          <Button type="button" variant="secondary" onClick={() => open("reissue-card")}>
+            <IdCard className="h-4 w-4" aria-hidden />
+            Ausweis neu ausstellen
+          </Button>
+        )}
         {anonymizable && (
           <Button type="button" variant="danger" onClick={() => open("anonymize")}>
             <ShieldOff className="h-4 w-4" aria-hidden />
@@ -238,6 +248,12 @@ export function MemberActions({ member, types, canWrite, rule, fiscal, exitDue, 
           <Check id="a-mail" checked={sendMail} onChange={setSendMail}>
             Willkommensmail an die Person senden
           </Check>
+          {member.emailUnconfirmed && (
+            <Notice variant="info">
+              Die E-Mail-Adresse stammt aus dem Beitrittsantrag und wurde nicht bestätigt. Darum wird die Person bei der Aufnahme nicht automatisch mit einem
+              Website-Konto gleicher Adresse verknüpft. Prüfe die Adresse und verknüpfe das Konto bei Bedarf danach von Hand («Website-Konto verknüpfen»).
+            </Notice>
+          )}
           <Footer onCancel={close} busy={busy} label="Aufnehmen" />
         </form>
       </Modal>
@@ -367,14 +383,29 @@ export function MemberActions({ member, types, canWrite, rule, fiscal, exitDue, 
         onCancel={close}
       />
 
+      <ConfirmDialog
+        open={dialog === "reissue-card"}
+        title="Ausweis neu ausstellen?"
+        description="Der bisherige QR-Code des digitalen Ausweises (auch ein ausgedruckter) ist danach nicht mehr gültig. Das Mitglied findet den neuen Ausweis im Mitgliederbereich."
+        confirmLabel="Neu ausstellen"
+        busy={busy}
+        onConfirm={() => run({ action: "reissue-card" }, "Der Ausweis wurde neu ausgestellt.")}
+        onCancel={close}
+      />
+
       {/* Personendaten entfernen */}
-      <Modal open={dialog === "anonymize"} onClose={close} title="Personendaten entfernen" description={`Name, Anschrift, Kontaktdaten, Geburtsdatum und Notizen von ${member.name} werden unwiderruflich gelöscht. Mitgliedernummer, Status sowie Eintritts- und Austrittsdatum bleiben erhalten; Rechnungen und Buchungen bleiben unverändert (Aufbewahrungspflicht).`} size="md" dismissible={!busy}>
-        <form onSubmit={submit(() => run({ action: "anonymize", confirmNumber: Number(confirmNumber) || 0 }, "Die Personendaten wurden entfernt."))} noValidate className="space-y-4">
+      <Modal open={dialog === "anonymize"} onClose={close} title="Personendaten entfernen" description={`Name, Anschrift, Kontaktdaten, Geburtsdatum und Notizen von ${member.name} werden unwiderruflich gelöscht, ebenso Namen im Versandprotokoll der Einladungen, Bemerkungen zu Anlass-Anmeldungen und Namen in früheren Einträgen des Änderungsprotokolls. Mitgliedernummer, Status sowie Eintritts- und Austrittsdatum bleiben erhalten; Rechnungen und Buchungen bleiben unverändert (Aufbewahrungspflicht).`} size="md" dismissible={!busy}>
+        <form onSubmit={submit(() => run({ action: "anonymize", confirmNumber: Number(confirmNumber) || 0, deleteAccount: member.hasUser && deleteAccount }, "Die Personendaten wurden entfernt."))} noValidate className="space-y-4">
           {claimsText && <Notice variant="warning">{claimsText}</Notice>}
           {formError && !errors.confirmNumber && <Notice variant="error">{formError}</Notice>}
           <Field label={`Zur Bestätigung die Mitgliedernummer ${member.memberNumber} eingeben`} htmlFor="n-number" error={errors.confirmNumber}>
             <Input id="n-number" inputMode="numeric" autoComplete="off" value={confirmNumber} onChange={(e) => setConfirmNumber(e.target.value.replace(/\D/g, ""))} disabled={busy} />
           </Field>
+          {member.hasUser && (
+            <Check id="n-account" checked={deleteAccount} onChange={setDeleteAccount}>
+              Das verknüpfte Website-Konto (E-Mail-Adresse, Name) ebenfalls löschen. Ohne Häkchen wird nur die Verknüpfung gelöst und das Konto bleibt bestehen.
+            </Check>
+          )}
           <Footer onCancel={close} busy={busy} label="Endgültig entfernen" danger disabled={Number(confirmNumber) !== member.memberNumber || Boolean(claimsText)} />
         </form>
       </Modal>

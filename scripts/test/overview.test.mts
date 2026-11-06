@@ -263,7 +263,7 @@ const SECRET = "ein-geheimnis-fuer-den-test-mindestens-32-zeichen";
 test("Ausweis: Token signieren, prüfen, Fälschungen ablehnen", () => {
   const token = card.signCardToken(SECRET, "cm1abc2def");
   assert.match(token, /^cm1abc2def\.[A-Za-z0-9_-]{43}$/);
-  assert.equal(card.verifyCardToken(SECRET, token), "cm1abc2def");
+  assert.deepEqual(card.verifyCardToken(SECRET, token), { memberId: "cm1abc2def", version: 0 });
   assert.equal(card.verifyCardToken("anderes-geheimnis", token), null);
   assert.equal(card.verifyCardToken(SECRET, token.replace("cm1abc2def", "cm1abc2deg")), null, "fremde Mitglieds-ID mit alter Signatur");
   assert.equal(card.verifyCardToken(SECRET, token.slice(0, -1) + (token.endsWith("A") ? "B" : "A")), null);

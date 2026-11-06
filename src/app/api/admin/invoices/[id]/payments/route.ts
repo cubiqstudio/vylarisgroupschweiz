@@ -6,7 +6,7 @@ import { adminOk, type IdContext } from "../../../../_lib/http";
 
 export const dynamic = "force-dynamic";
 
-/** Zahlungseingang zu dieser Rechnung erfassen (Teilzahlung und Überzahlung möglich) und in der Kassa buchen. */
+/** Zahlungseingang zu dieser Rechnung erfassen (Teilzahlung und Überzahlung möglich) und in der Kasse buchen. */
 export const POST = handle(async (req: Request, { params }: IdContext) => {
   const admin = await requireAdmin(req);
   const invoiceId = idSchema.parse((await params).id);

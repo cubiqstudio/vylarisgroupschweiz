@@ -11,27 +11,39 @@ import { formatDateCh } from "./dates";
 const ID = /^[A-Za-z0-9_-]{1,40}$/;
 const SIG = /^[A-Za-z0-9_-]{43}$/;
 
-function sign(secret: string, memberId: string): string {
-  return createHmac("sha256", secret).update(`ausweis\u0000${memberId}`).digest("base64url");
+function sign(secret: string, memberId: string, version: number): string {
+  // Version 0 signiert wie bisher (ausgegebene Ausweise bleiben gültig), höhere Versionen fliessen in die Signatur ein.
+  const payload = version === 0 ? `ausweis\u0000${memberId}` : `ausweis\u0000${memberId}\u0000v${version}`;
+  return createHmac("sha256", secret).update(payload).digest("base64url");
 }
 
-/** Token für den Prüf-Link des Ausweises. */
-export function signCardToken(secret: string, memberId: string): string {
+/**
+ * Token für den Prüf-Link des Ausweises: «<Mitglieds-ID>.<Signatur>» (Version 0) bzw. «<Mitglieds-ID>.<Version>.<Signatur>».
+ * «Ausweis neu ausstellen» erhöht Member.cardVersion; Tokens früherer Versionen sind dann nicht mehr gültig.
+ */
+export function signCardToken(secret: string, memberId: string, version = 0): string {
   if (!ID.test(memberId)) throw new RangeError("Ungültige ID.");
-  return `${memberId}.${sign(secret, memberId)}`;
+  if (!Number.isInteger(version) || version < 0 || version > 1_000_000) throw new RangeError("Ungültige Version.");
+  return version === 0 ? `${memberId}.${sign(secret, memberId, 0)}` : `${memberId}.${version}.${sign(secret, memberId, version)}`;
 }
 
-/** Prüft ein Token; liefert die Mitglieds-ID oder null (falsch aufgebaut, falsche Signatur). */
-export function verifyCardToken(secret: string, token: string): string | null {
-  if (typeof token !== "string" || token.length > 120) return null;
+/** Prüft ein Token; liefert Mitglieds-ID und Version oder null (falsch aufgebaut, falsche Signatur). Ob die Version aktuell ist, prüft der Aufrufer. */
+export function verifyCardToken(secret: string, token: string): { memberId: string; version: number } | null {
+  if (typeof token !== "string" || token.length > 140) return null;
   const parts = token.split(".");
-  if (parts.length !== 2) return null;
-  const [memberId, sig] = parts as [string, string];
+  if (parts.length !== 2 && parts.length !== 3) return null;
+  const memberId = parts[0]!;
+  const sig = parts[parts.length - 1]!;
+  let version = 0;
+  if (parts.length === 3) {
+    if (!/^[1-9][0-9]{0,6}$/.test(parts[1]!)) return null;
+    version = Number(parts[1]);
+  }
   if (!ID.test(memberId) || !SIG.test(sig)) return null;
-  const expected = Buffer.from(sign(secret, memberId));
+  const expected = Buffer.from(sign(secret, memberId, version));
   const given = Buffer.from(sig);
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
-  return memberId;
+  return { memberId, version };
 }
 
 /** «Anna M.»: Vorname und Initiale des Nachnamens, mehr zeigt die öffentliche Prüfseite nie. */

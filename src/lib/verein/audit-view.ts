@@ -27,6 +27,10 @@ export const AUDIT_OBJECT_LABEL: Record<string, string> = {
   VereinProfile: "Vereinsstammdaten",
   AdminUser: "Zugang",
   NewsletterCampaign: "Newsletter",
+  NewsletterSubscriber: "Newsletter-Abonnent",
+  SiteSetting: "Systemeinstellung",
+  User: "Website-Konto",
+  MinutesRevision: "Protokollfassung",
 };
 
 /** Bezeichnung des Objekttyps (unbekannte Typen erscheinen unverändert). */
@@ -54,9 +58,11 @@ const PREFIX_LABEL: Record<string, string> = {
   task: "Aufgabe",
   settings: "Einstellungen",
   role: "Rolle",
+  permissions: "Rollen und Rechte",
   access: "Zugang",
   export: "Export",
   newsletter: "Newsletter",
+  user: "Website-Konto",
 };
 
 const VERB_LABEL: Record<string, string> = {
@@ -92,7 +98,16 @@ const VERB_LABEL: Record<string, string> = {
 /** Ausdrücklich benannte Aktionen, die sich nicht aus Objekt und Verb zusammensetzen lassen. */
 const ACTION_LABEL: Record<string, string> = {
   "settings.update": "Einstellungen geändert",
+  "settings.mail": "Mailserver-Einstellungen geändert",
+  "settings.legal": "Rechtliches geändert",
+  "settings.registration": "Registrierung ein- oder ausgeschaltet",
+  "user.update": "Website-Konto geändert",
+  "user.verify": "Website-Konto von Hand bestätigt",
+  "user.delete": "Website-Konto gelöscht",
+  "export.newsletter": "Newsletter-Abonnenten exportiert",
+  "member.card.reissue": "Ausweis neu ausgestellt",
   "role.change": "Rolle geändert",
+  "permissions.update": "Rollen und Rechte geändert",
   "access.create": "Zugang angelegt",
   "access.update": "Zugang geändert",
   "access.delete": "Zugang gelöscht",
@@ -103,9 +118,14 @@ const ACTION_LABEL: Record<string, string> = {
   "meeting.minutes.amend": "Protokoll nachträglich geändert",
   "export.members": "Mitgliederliste exportiert",
   "export.disclosure": "Auskunft über eigene Daten bezogen",
-  "export.ledger": "Kassa exportiert",
+  "export.ledger": "Kasse exportiert",
   "export.invoices": "Rechnungen exportiert",
   "export.registrations": "Anmeldungen exportiert",
+  "registration.confirm": "Anmeldung: E-Mail-Adresse von Hand bestätigt",
+  "registration.purge": "Anmeldung: unbestätigte, abgelaufene gelöscht",
+  "registration.anonymize": "Anmeldungen: Angaben von Gästen nach dem Anlass entfernt",
+  "registration.guest-delete": "Anmeldung eines Gasts auf Anfrage gelöscht",
+  "export.guest-disclosure": "Auskunft über Gast-Anmeldungen bezogen",
   "export.audit": "Änderungsprotokoll exportiert",
   "invoice.run": "Rechnungslauf durchgeführt",
   "invoice.paid": "Rechnung als bezahlt erfasst",

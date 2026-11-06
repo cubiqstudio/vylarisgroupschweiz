@@ -3,17 +3,23 @@
 // sperrt (UPDATE auf die Zeile): so können zwei gleichzeitige Anmeldungen den letzten Platz nicht doppelt belegen.
 // Sensible Änderungen schreiben in derselben Transaktion einen Eintrag ins Änderungsprotokoll.
 import "server-only";
+import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { runInBackground } from "@/lib/account";
 import { ApiError } from "@/lib/api";
 import type { CurrentAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isMailConfigured } from "@/lib/mailer";
+import { authSecretString } from "@/lib/session";
 import { auditActor, diffForAudit, logAudit, SYSTEM_ACTOR, type AuditActor } from "./audit";
 import { formatDateTimeCh } from "./dates";
 import {
   canCancelRegistration,
+  canResendConfirmation,
+  confirmExpiresAt,
   decideRegistration,
   eventConsistencyErrors,
+  isConfirmationExpired,
   isReminderDue,
   planCopy,
   planPromotions,
@@ -23,6 +29,7 @@ import {
   type RegistrationBlock,
 } from "./events-lib";
 import {
+  sendConfirmRequestMail,
   sendEventCancelledMail,
   sendEventChangedMail,
   sendPromotionMail,
@@ -33,14 +40,17 @@ import {
   type Recipient,
 } from "./events-mail";
 import type { AdminRegistrationInput, EventCreateInput, EventPatchInput, RegistrationActionInput } from "./events-schemas";
-import { generateCancelToken, hashCancelToken } from "./events-token";
+import { generateCancelToken, hashCancelToken, signConfirmToken } from "./events-token";
 import { emailSchema } from "./validation";
 
-type Tx = Prisma.TransactionClient;
+export type Tx = Prisma.TransactionClient;
+
+/** Geheimnis für die Bestätigungs-Links der Gäste (abgeleitet aus AUTH_SECRET, getrennt von allen anderen Verwendungen). */
+export const confirmSecret = (): string => createHash("sha256").update(`vgs-event-confirm-v1:${authSecretString()}`).digest("hex");
 
 /** Bei vielen gleichzeitigen Anmeldungen (Ansturm nach einer Einladung) warten wartende Transaktionen länger als die Vorgabe von 2 Sekunden. */
 const TX_OPTIONS = { maxWait: 15_000, timeout: 20_000 } as const;
-const lockedTx = <T>(fn: (tx: Tx) => Promise<T>): Promise<T> => db.$transaction(fn, TX_OPTIONS);
+export const lockedTx = <T>(fn: (tx: Tx) => Promise<T>): Promise<T> => db.$transaction(fn, TX_OPTIONS);
 
 const LOCK_SELECT = {
   id: true,
@@ -55,9 +65,9 @@ const LOCK_SELECT = {
   membersOnly: true,
 } as const satisfies Prisma.EventSelect;
 
-type LockedEvent = Prisma.EventGetPayload<{ select: typeof LOCK_SELECT }>;
+export type LockedEvent = Prisma.EventGetPayload<{ select: typeof LOCK_SELECT }>;
 
-const mailEventOf = (e: Pick<LockedEvent, "id" | "title" | "location" | "startsAt" | "endsAt" | "isPublic">): MailEvent => ({
+export const mailEventOf = (e: Pick<LockedEvent, "id" | "title" | "location" | "startsAt" | "endsAt" | "isPublic">): MailEvent => ({
   id: e.id,
   title: e.title,
   location: e.location,
@@ -67,7 +77,7 @@ const mailEventOf = (e: Pick<LockedEvent, "id" | "title" | "location" | "startsA
 });
 
 /** Sperrt den Anlass für die Dauer der Transaktion (UPDATE ohne Wirkung) und liefert seinen aktuellen Stand. */
-async function lockEvent(tx: Tx, id: string): Promise<LockedEvent> {
+export async function lockEvent(tx: Tx, id: string): Promise<LockedEvent> {
   try {
     return await tx.event.update({ where: { id }, data: { sequence: { increment: 0 } }, select: LOCK_SELECT });
   } catch (e) {
@@ -76,7 +86,7 @@ async function lockEvent(tx: Tx, id: string): Promise<LockedEvent> {
   }
 }
 
-async function takenSeats(tx: Tx, eventId: string, excludeId?: string): Promise<number> {
+export async function takenSeats(tx: Tx, eventId: string, excludeId?: string): Promise<number> {
   const r = await tx.eventRegistration.aggregate({ where: { eventId, status: "ANGEMELDET", ...(excludeId ? { id: { not: excludeId } } : {}) }, _sum: { seats: true } });
   return r._sum.seats ?? 0;
 }
@@ -84,20 +94,20 @@ async function takenSeats(tx: Tx, eventId: string, excludeId?: string): Promise<
 type RegContact = { guestName: string; guestEmail: string; member: { firstName: string; lastName: string; email: string; anonymizedAt: Date | null } | null };
 
 /** Empfänger einer Mail zur Anmeldung; null, wenn keine gültige Adresse vorliegt. */
-function contactOf(r: RegContact): Recipient | null {
+export function contactOf(r: RegContact): Recipient | null {
   const email = r.member ? (r.member.anonymizedAt ? "" : r.member.email) : r.guestEmail;
   if (!email || !emailSchema.safeParse(email).success) return null;
   return { to: email.trim().toLowerCase(), name: registrantName(r), isMember: r.member !== null };
 }
 
-const contactSelect = { guestName: true, guestEmail: true, member: { select: { firstName: true, lastName: true, email: true, anonymizedAt: true } } } as const;
+export const contactSelect = { guestName: true, guestEmail: true, member: { select: { firstName: true, lastName: true, email: true, anonymizedAt: true } } } as const;
 
 // ---- Warteliste ---------------------------------------------------------------------------------------------------------
 
 export type Promoted = { id: string; seats: number; recipient: Recipient | null };
 
 /** Lässt von der Warteliste nachrücken, wer in die freien Plätze passt (nur bei veröffentlichten Anlässen). Aufruf innerhalb der Transaktion nach lockEvent. */
-async function promoteWaitlist(tx: Tx, event: Pick<LockedEvent, "id" | "capacity" | "status">, now: Date): Promise<Promoted[]> {
+export async function promoteWaitlist(tx: Tx, event: Pick<LockedEvent, "id" | "capacity" | "status">, now: Date): Promise<Promoted[]> {
   if (event.status !== "VEROEFFENTLICHT") return [];
   const waiting = await tx.eventRegistration.findMany({
     where: { eventId: event.id, status: "WARTELISTE" },
@@ -117,7 +127,7 @@ async function promoteWaitlist(tx: Tx, event: Pick<LockedEvent, "id" | "capacity
 }
 
 /** Informiert die Nachgerückten (im Hintergrund, Fehler werden nur protokolliert). */
-function mailPromoted(event: MailEvent, promoted: readonly Promoted[]): void {
+export function mailPromoted(event: MailEvent, promoted: readonly Promoted[]): void {
   const todo = promoted.filter((p): p is Promoted & { recipient: Recipient } => p.recipient !== null);
   if (todo.length === 0) return;
   runInBackground(() => Promise.allSettled(todo.map((p) => sendPromotionMail({ recipient: p.recipient, event, seats: p.seats }))));
@@ -131,7 +141,8 @@ export type Registrant =
 
 export type RegisterOutcome = {
   registrationId: string;
-  status: "ANGEMELDET" | "WARTELISTE";
+  /** «UNBESTAETIGT»: Gast, die E-Mail-Adresse ist noch nicht bestätigt (kein Platz reserviert) */
+  status: "UNBESTAETIGT" | "ANGEMELDET" | "WARTELISTE";
   seats: number;
   /** false, wenn die Person schon angemeldet war (nichts doppelt gebucht) */
   created: boolean;
@@ -143,6 +154,9 @@ const blockError = (b: RegistrationBlock) => new ApiError(409, "REGISTRATION_CLO
  * Meldet ein Mitglied oder einen Gast an. Ohne freien Platz kommt die Anmeldung auf die Warteliste.
  * `admin`: der Vorstand trägt ein (ignoriert Anmeldeschluss und Zugangsbeschränkung; `force` überschreitet die Kapazität).
  * Die Bestätigungsmail geht im Hintergrund an die angegebene Adresse (ausser `sendMail: false`).
+ * Gäste (ohne `admin`) sind zunächst «unbestätigt»: Sie belegen keinen Platz und stehen nicht auf der Warteliste, bis sie den Link in
+ * der Mail bestätigen (siehe events-confirm.ts). Dieselbe Adresse erneut: keine Dublette, die Bestätigungsmail geht höchstens alle
+ * paar Minuten erneut hinaus. Das Ergebnis lässt sich nach aussen nicht von einer neuen Anmeldung unterscheiden (die Route antwortet gleich).
  */
 export async function registerForEvent(opts: {
   eventId: string;
@@ -170,25 +184,49 @@ export async function registerForEvent(opts: {
       }
     }
 
-    const existing =
+    let existing =
       who.kind === "member"
-        ? await tx.eventRegistration.findUnique({ where: { eventId_memberId: { eventId: ev.id, memberId: who.member.id } }, select: { id: true, status: true, seats: true } })
-        : await tx.eventRegistration.findFirst({ where: { eventId: ev.id, memberId: null, guestEmail: who.email, status: { not: "ABGESAGT" } }, select: { id: true, status: true, seats: true } });
+        ? await tx.eventRegistration.findUnique({ where: { eventId_memberId: { eventId: ev.id, memberId: who.member.id } }, select: { id: true, status: true, seats: true, guestName: true, note: true, createdAt: true, confirmSentAt: true } })
+        : who.email === ""
+          ? null
+          : await tx.eventRegistration.findFirst({ where: { eventId: ev.id, memberId: null, guestEmail: who.email, status: { not: "ABGESAGT" } }, select: { id: true, status: true, seats: true, guestName: true, note: true, createdAt: true, confirmSentAt: true } });
 
-    // Schon angemeldet: nichts doppelt buchen. Gäste bekommen einen neuen Abmelde-Link (der alte ist nur als Hash gespeichert).
-    if (existing && existing.status !== "ABGESAGT") {
-      let token: string | undefined;
-      if (who.kind === "guest") {
-        const t = generateCancelToken();
-        await tx.eventRegistration.update({ where: { id: existing.id }, data: { cancelTokenHash: t.hash } });
-        token = t.token;
+    // Gast mit noch unbestätigter Anmeldung: Ist die Frist um oder trägt der Vorstand die Person von Hand ein, ersetzt die neue Anmeldung die alte.
+    // Sonst bleibt die alte unverändert (niemand kann fremde, noch offene Angaben überschreiben); die Bestätigungsmail geht höchstens alle paar Minuten erneut hinaus.
+    if (existing && existing.status === "UNBESTAETIGT") {
+      if (opts.admin || isConfirmationExpired(existing.createdAt, now)) {
+        await tx.eventRegistration.delete({ where: { id: existing.id } });
+        existing = null;
+      } else {
+        const resend = canResendConfirmation(existing.confirmSentAt, now);
+        if (resend) await tx.eventRegistration.update({ where: { id: existing.id }, data: { confirmSentAt: now } });
+        return {
+          ev,
+          outcome: { registrationId: existing.id, status: "UNBESTAETIGT" as const, seats: existing.seats, created: false },
+          token: undefined,
+          confirm: resend ? { registrationId: existing.id, createdAt: existing.createdAt, name: existing.guestName, note: existing.note } : undefined,
+        };
       }
-      return { ev, outcome: { registrationId: existing.id, status: existing.status as "ANGEMELDET" | "WARTELISTE", seats: existing.seats, created: false }, token };
+    }
+
+    // Schon angemeldet: nichts doppelt buchen. Der Abmelde-Link wird NICHT erneuert (sonst könnte jede Person mit einer fremden Adresse den
+    // Link der angemeldeten Person entwerten); die Mail an die Adresse geht ohne Link hinaus.
+    if (existing && existing.status !== "ABGESAGT") {
+      return {
+        ev,
+        outcome: { registrationId: existing.id, status: existing.status as "ANGEMELDET" | "WARTELISTE", seats: existing.seats, created: false },
+        token: undefined,
+        confirm: undefined,
+      };
     }
 
     const decision = decideRegistration({ capacity: ev.capacity, taken: await takenSeats(tx, ev.id), seats });
     if (!decision.ok) throw new ApiError(422, "TOO_LARGE", "Für diese Gruppengrösse hat es insgesamt zu wenig Plätze.", { seats: "Mehr Personen, als der Anlass insgesamt Plätze hat." });
-    const status = opts.admin?.force ? "ANGEMELDET" : decision.status;
+
+    // Gäste bestätigen zuerst ihre E-Mail-Adresse: bis dahin kein Platz und kein Platz auf der Warteliste.
+    // Der Abmelde-Link entsteht erst bei der Bestätigung; bis dahin steht ein Prüfwert ohne zugehöriges Token in der Zeile (nur wegen UNIQUE).
+    const pending = who.kind === "guest" && !opts.admin;
+    const status: RegisterOutcome["status"] = pending ? "UNBESTAETIGT" : opts.admin?.force ? "ANGEMELDET" : decision.status;
 
     const t = generateCancelToken();
     const base = {
@@ -200,6 +238,7 @@ export async function registerForEvent(opts: {
       promotedAt: null,
       attendedAt: null,
       reminderSentAt: null,
+      confirmSentAt: pending ? now : null,
       createdAt: now,
     };
     let registrationId: string;
@@ -224,24 +263,56 @@ export async function registerForEvent(opts: {
         action: "registration.add",
         objectType: "EventRegistration",
         objectId: registrationId,
-        summary: `Anmeldung von ${who.kind === "member" ? `${who.member.firstName} ${who.member.lastName}` : who.name} für «${ev.title}» erfasst (${status === "ANGEMELDET" ? "angemeldet" : "Warteliste"})`,
+        summary: `Anmeldung eines ${who.kind === "member" ? "Mitglieds" : "Gasts"} für «${ev.title}» erfasst (${status === "ANGEMELDET" ? "angemeldet" : "Warteliste"})`,
         after: { personen: seats, status },
       });
     }
-    return { ev, outcome: { registrationId, status, seats, created: true }, token: t.token };
+    return {
+      ev,
+      outcome: { registrationId, status, seats, created: true },
+      token: pending ? undefined : t.token,
+      confirm: pending ? { registrationId, createdAt: now, name: who.kind === "guest" ? who.name : "", note: opts.note } : undefined,
+    };
   });
 
-  if (opts.sendMail !== false && result.token !== undefined) {
-    const recipient: Recipient | null =
-      who.kind === "member"
-        ? contactOf({ guestName: "", guestEmail: "", member: { ...who.member, anonymizedAt: null } })
-        : { to: who.email, name: who.name, isMember: false };
-    if (recipient) {
-      const { ev, outcome, token } = result;
-      runInBackground(() => sendRegistrationMail({ recipient, event: mailEventOf(ev), status: outcome.status, seats: outcome.seats, token }));
+  if (opts.sendMail !== false) {
+    const { ev, outcome, token, confirm } = result;
+    if (confirm && who.kind === "guest") {
+      // Double-Opt-In: Link zur Bestätigung der Adresse (der Aufruf allein bestätigt nichts, erst die Schaltfläche auf der Seite).
+      const confirmToken = signConfirmToken(confirmSecret(), confirm.registrationId, confirmExpiresAt(confirm.createdAt));
+      const recipient: Recipient = { to: who.email, name: who.name, isMember: false };
+      runInBackground(() => sendConfirmRequestMail({ recipient, event: mailEventOf(ev), seats: outcome.seats, token: confirmToken, registeredName: confirm.name, note: confirm.note }));
+    } else if (outcome.status !== "UNBESTAETIGT" && (token !== undefined || (!outcome.created && who.kind === "guest"))) {
+      const recipient: Recipient | null =
+        who.kind === "member"
+          ? contactOf({ guestName: "", guestEmail: "", member: { ...who.member, anonymizedAt: null } })
+          : { to: who.email, name: who.name, isMember: false };
+      if (recipient) {
+        runInBackground(() => sendRegistrationMail({ recipient, event: mailEventOf(ev), status: outcome.status as "ANGEMELDET" | "WARTELISTE", seats: outcome.seats, token }));
+      }
     }
   }
   return result.outcome;
+}
+
+// ---- Bestätigung der E-Mail-Adresse (Gäste) ------------------------------------------------------------------------------
+
+/**
+ * Macht eine unbestätigte Gast-Anmeldung gültig: Platz zuteilen oder auf die Warteliste setzen (mit `force` immer angemeldet) und einen
+ * neuen Abmelde-Link erzeugen. Die Reihenfolge der Warteliste richtet sich nach dem Zeitpunkt der Bestätigung (`createdAt` wird neu gesetzt).
+ * Aufruf innerhalb der Transaktion nach lockEvent; die Anmeldung muss in derselben Transaktion gelesen worden sein und «unbestätigt» sein.
+ */
+export async function activateUnconfirmed(tx: Tx, ev: Pick<LockedEvent, "id" | "capacity">, reg: { id: string; seats: number }, now: Date, force = false): Promise<{ status: "ANGEMELDET" | "WARTELISTE"; token: string }> {
+  const decision = decideRegistration({ capacity: ev.capacity, taken: await takenSeats(tx, ev.id), seats: reg.seats });
+  // Eine Gruppe, die inzwischen grösser ist als die ganze Kapazität (Kapazität nachträglich gesenkt), kommt auf die Warteliste; der Vorstand entscheidet.
+  const status = force ? "ANGEMELDET" : decision.ok ? decision.status : "WARTELISTE";
+  const t = generateCancelToken();
+  const res = await tx.eventRegistration.updateMany({
+    where: { id: reg.id, status: "UNBESTAETIGT" },
+    data: { status, cancelTokenHash: t.hash, createdAt: now, promotedAt: null, attendedAt: null, reminderSentAt: null },
+  });
+  if (res.count !== 1) throw new ApiError(409, "CONFLICT", "Die Anmeldung ist bereits bestätigt.");
+  return { status, token: t.token };
 }
 
 // ---- Abmelden ------------------------------------------------------------------------------------------------------------
@@ -353,6 +424,8 @@ type ActionResult = {
   removed: Recipient | null;
   /** Mail «Platz frei» an die Person selbst (manuell nachgerückt) */
   promotedSelf: { recipient: Recipient; seats: number } | null;
+  /** Mail «Anmeldung bestätigt» samt neuem Abmelde-Link (Adresse von Hand bestätigt) */
+  confirmed?: { recipient: Recipient; status: "ANGEMELDET" | "WARTELISTE"; seats: number; token: string } | null;
 };
 
 export async function adminRegistrationAction(admin: CurrentAdmin, eventId: string, regId: string, input: RegistrationActionInput, now: Date = new Date()): Promise<{ status: string }> {
@@ -379,6 +452,14 @@ export async function adminRegistrationAction(admin: CurrentAdmin, eventId: stri
         await audit("registration.promote", "Von der Warteliste angemeldet", { personen: reg.seats });
         const self = input.sendMail ? contactOf(reg) : null;
         return { ev, status: "ANGEMELDET", promoted: [], removed: null, promotedSelf: self ? { recipient: self, seats: reg.seats } : null };
+      }
+      case "confirm": {
+        if (reg.status !== "UNBESTAETIGT") throw new ApiError(409, "CONFLICT", "Nur Anmeldungen mit unbestätigter E-Mail-Adresse lassen sich von Hand bestätigen.");
+        if (ev.status === "ABGESAGT") throw blockError("CANCELLED");
+        const act = await activateUnconfirmed(tx, ev, reg, now, input.force);
+        await audit("registration.confirm", "E-Mail-Adresse von Hand bestätigt", { status: act.status, personen: reg.seats });
+        const recipient = input.sendMail ? contactOf(reg) : null;
+        return { ev, status: act.status, promoted: [], removed: null, promotedSelf: null, confirmed: recipient ? { recipient, status: act.status, seats: reg.seats, token: act.token } : null };
       }
       case "restore": {
         if (reg.status !== "ABGESAGT") throw new ApiError(409, "CONFLICT", "Nur beendete Anmeldungen lassen sich wiederherstellen.");
@@ -418,6 +499,10 @@ export async function adminRegistrationAction(admin: CurrentAdmin, eventId: stri
   if (res.promotedSelf) {
     const { recipient, seats } = res.promotedSelf;
     runInBackground(() => sendPromotionMail({ recipient, event, seats }));
+  }
+  if (res.confirmed) {
+    const { recipient, status, seats, token } = res.confirmed;
+    runInBackground(() => sendRegistrationMail({ recipient, event, status, seats, token }));
   }
   return { status: res.status };
 }
@@ -601,7 +686,8 @@ export async function deleteEvent(admin: CurrentAdmin, id: string, now: Date = n
 
 // ---- Erinnerungen --------------------------------------------------------------------------------------------------------
 
-export type ReminderSummary = { events: number; mailed: number; failed: number; noEmail: number };
+/** `skipped`: Anmeldungen, die eine Erinnerung bekommen hätten, aber nicht, weil kein Mailserver eingerichtet ist (nichts als erinnert markiert). */
+export type ReminderSummary = { events: number; mailed: number; failed: number; noEmail: number; skipped: number };
 
 const REMINDER_BATCH = 500;
 
@@ -609,6 +695,10 @@ const REMINDER_BATCH = 500;
  * Verschickt Erinnerungen an alle angemeldeten Personen (jede Anmeldung höchstens einmal).
  *  - mit `eventId`: von Hand für diesen Anlass (veröffentlicht, noch nicht begonnen), unabhängig vom Zeitfenster
  *  - ohne `eventId`: für alle veröffentlichten Anlässe, die innerhalb des Zeitfensters beginnen (für einen täglichen Cron-Aufruf)
+ *
+ * Ohne eingerichteten Mailserver wird nichts versendet und nichts als erinnert gespeichert (`reminderSentAt` bleibt leer): Der tägliche
+ * Lauf zählt solche Anmeldungen in `skipped` (kein Fehler) und holt sie nach der Einrichtung nach, solange der Anlass im Zeitfenster
+ * liegt. Von Hand (`eventId`) gibt es stattdessen die Meldung 409. Schlägt der Versand bei eingerichtetem Mailserver fehl, zählt `failed`.
  */
 export async function sendEventReminders(opts: { eventId?: string; actor?: AuditActor; now?: Date } = {}): Promise<ReminderSummary> {
   const now = opts.now ?? new Date();
@@ -621,7 +711,12 @@ export async function sendEventReminders(opts: { eventId?: string; actor?: Audit
   const events = candidates.filter((e) => e.status === "VEROEFFENTLICHT" && e.startsAt.getTime() > now.getTime() && (opts.eventId ? true : isReminderDue(e.startsAt, now)));
   if (opts.eventId && events.length === 0) throw new ApiError(409, "CONFLICT", "Erinnerungen gibt es nur für veröffentlichte Anlässe, die noch nicht begonnen haben.");
 
-  const summary: ReminderSummary = { events: 0, mailed: 0, failed: 0, noEmail: 0 };
+  if (opts.eventId && !(await isMailConfigured())) {
+    throw new ApiError(409, "MAIL_NOT_CONFIGURED", "Es ist kein Mailserver eingerichtet. Erinnerungen werden per E-Mail verschickt; richte zuerst den Mailserver ein (Einstellungen > Mailserver).");
+  }
+
+  const summary: ReminderSummary = { events: 0, mailed: 0, failed: 0, noEmail: 0, skipped: 0 };
+  let mailReady: boolean | null = opts.eventId ? true : null;
   let budget = REMINDER_BATCH;
   for (const e of events) {
     if (budget <= 0) break;
@@ -634,11 +729,17 @@ export async function sendEventReminders(opts: { eventId?: string; actor?: Audit
     if (regs.length === 0) continue;
     summary.events += 1;
     budget -= regs.length;
+    mailReady ??= await isMailConfigured();
     const event = mailEventOf(e);
     for (const r of regs) {
       const recipient = contactOf(r);
       if (!recipient) {
         summary.noEmail += 1;
+        continue;
+      }
+      if (!mailReady) {
+        // Kein Mailserver: überspringen, ohne etwas als erinnert zu markieren.
+        summary.skipped += 1;
         continue;
       }
       try {
@@ -652,7 +753,7 @@ export async function sendEventReminders(opts: { eventId?: string; actor?: Audit
       }
     }
   }
-  if (summary.events > 0) {
+  if (summary.events > 0 && mailReady) {
     await logAudit(db, {
       actor: opts.actor ?? SYSTEM_ACTOR,
       action: "event.reminders",

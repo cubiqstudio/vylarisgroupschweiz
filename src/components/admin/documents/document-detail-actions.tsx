@@ -22,10 +22,12 @@ export type DocumentDetailActionsProps = {
   doc: { id: string; title: string; description: string; category: string; visibility: string; meetingId: string | null; archived: boolean; currentVersion: number };
   meetings: MeetingChoice[];
   canWrite: boolean;
+  /** Die Person darf «Nur Vorstand» wählen (Einzelrecht je Rolle). */
+  allowBoard?: boolean;
 };
 
 /** Aktionen auf einem Dokument: Download, Angaben bearbeiten, neue Version, Archivieren, Löschen (mit Bestätigung). */
-export function DocumentDetailActions({ doc, meetings, canWrite }: DocumentDetailActionsProps) {
+export function DocumentDetailActions({ doc, meetings, canWrite, allowBoard = true }: DocumentDetailActionsProps) {
   const router = useRouter();
   const toast = useToast();
   const [dialog, setDialog] = useState<Dialog>(null);
@@ -171,7 +173,7 @@ export function DocumentDetailActions({ doc, meetings, canWrite }: DocumentDetai
             </Field>
             <Field label="Sichtbarkeit" htmlFor="e-vis" error={errors.visibility}>
               <Select id="e-vis" value={visibility} onChange={(e) => setVisibility(e.target.value as DocumentVisibility)} disabled={busy}>
-                {DOCUMENT_VISIBILITIES.map((v) => (
+                {DOCUMENT_VISIBILITIES.filter((v) => allowBoard || v !== "VORSTAND").map((v) => (
                   <option key={v} value={v}>
                     {DOCUMENT_VISIBILITY_LABEL[v]}
                   </option>

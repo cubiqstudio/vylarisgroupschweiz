@@ -24,7 +24,7 @@ export function GuestRegistrationForm({ eventId, maxSeats, seatsLeft }: { eventI
   const [errors, setErrors] = useState<Partial<Record<keyof Values, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState<{ status: string; email: string } | null>(null);
+  const [done, setDone] = useState<{ email: string } | null>(null);
 
   useEffect(() => {
     if (done) successRef.current?.focus();
@@ -42,8 +42,8 @@ export function GuestRegistrationForm({ eventId, maxSeats, seatsLeft }: { eventI
     setFormError(null);
     setErrors({});
     try {
-      const res = await api<{ status: string }>(`/api/events/${encodeURIComponent(eventId)}/guest`, { method: "POST", body: { ...v, email: v.email.trim() } });
-      setDone({ status: res.status, email: v.email.trim() });
+      await api<{ received: true }>(`/api/events/${encodeURIComponent(eventId)}/guest`, { method: "POST", body: { ...v, email: v.email.trim() } });
+      setDone({ email: v.email.trim() });
     } catch (err) {
       if (err instanceof ApiClientError) {
         const first = FIELD_ORDER.find((f) => err.fields?.[f]);
@@ -66,7 +66,7 @@ export function GuestRegistrationForm({ eventId, maxSeats, seatsLeft }: { eventI
       <div ref={successRef} tabIndex={-1} role="status" className="space-y-3 outline-none">
         <CheckCircle2 className="size-8 text-emerald-400" aria-hidden />
         <h3 className="text-lg font-semibold text-white">{m.successTitle}</h3>
-        <p className="text-sm leading-relaxed text-zinc-300">{done.status === "WARTELISTE" ? m.successWaitlist(done.email) : m.successRegistered(done.email)}</p>
+        <p className="text-sm leading-relaxed text-zinc-300">{m.successReceived(done.email)}</p>
         <p className="text-sm leading-relaxed text-zinc-400">{m.successSpam}</p>
       </div>
     );

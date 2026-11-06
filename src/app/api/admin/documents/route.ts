@@ -1,5 +1,5 @@
 import { handle, requireAdmin } from "@/lib/api";
-import { createDocument, listDocuments } from "@/lib/verein/documents-data";
+import { adminSeesBoardDocuments, createDocument, listDocuments } from "@/lib/verein/documents-data";
 import { parseDocumentFilters } from "@/lib/verein/documents-lib";
 import { documentCreateSchema } from "@/lib/verein/documents-schemas";
 import { readDocumentForm } from "@/lib/verein/documents-upload";
@@ -10,11 +10,11 @@ export const dynamic = "force-dynamic";
 
 /** Dokumentliste (ohne Dateiinhalt) mit Suche und Filtern. */
 export const GET = handle(async (req: Request) => {
-  await requireAdmin(req);
+  const admin = await requireAdmin(req);
   const sp = new URL(req.url).searchParams;
   const filters = parseDocumentFilters((k) => sp.get(k) ?? "");
   const { page, pageSize, skip } = listParams(sp);
-  const { rows, total } = await listDocuments(filters, skip, pageSize);
+  const { rows, total } = await listDocuments(filters, skip, pageSize, adminSeesBoardDocuments(admin));
   return adminOk({
     items: rows.map((d) => ({ ...d, versions: undefined, file: d.versions[0] ?? null })),
     meta: pageMeta(total, page, pageSize),

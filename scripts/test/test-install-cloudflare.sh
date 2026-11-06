@@ -9,6 +9,7 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 MOCK="$HERE/mock-cloudflare.py"
 TOK="test-token-not-real"
 REAL_CURL="$(command -v curl)"
+REAL_DOCKER="$(command -v docker || true)"
 
 [ "$(id -u)" -eq 0 ] || { echo "Bitte als root ausführen (install.sh verlangt das)." >&2; exit 2; }
 for c in python3 jq curl openssl; do command -v "$c" >/dev/null || { echo "Benötigt: $c" >&2; exit 2; }; done
@@ -79,6 +80,18 @@ envget() { grep -E "^$1=" "$PROJ/.env" | tail -n1 | cut -d= -f2-; }
 out_has() { printf '%s' "$OUT" | grep -qF -- "$1"; }
 docker_has() { grep -qF -- "$1" "$DOCKER_LOG"; }
 docker_lacks() { ! grep -qF -- "$1" "$DOCKER_LOG"; }
+# Der Wert von CRON_SECRET (täglicher Lauf) darf nie in der Ausgabe stehen.
+cron_secret_hidden() { local v; v=$(envget CRON_SECRET); [ -n "$v" ] && ! printf '%s' "$OUT" | grep -qF -- "$v"; }
+cron_secret_valid() { local v; v=$(envget CRON_SECRET); [[ "$v" =~ ^[0-9a-f]{64}$ ]]; }
+# Mit der echten docker-CLI (ohne Daemon): kommt der Dienst "cron" im zusammengesetzten Compose-File vor?
+compose_services() { (cd "$PROJ" && "$REAL_DOCKER" compose config --services 2>/dev/null); }
+compose_cron_ok() {
+  [ -n "$REAL_DOCKER" ] && "$REAL_DOCKER" compose version >/dev/null 2>&1 || return 0 # ohne docker compose: nicht prüfbar
+  # Der Dienst cron nutzt das App-Image, in dem nichts auf Port 3000 lauscht: Er muss den geerbten HEALTHCHECK abschalten (sonst dauerhaft "unhealthy").
+  local cfg; cfg=$(cd "$PROJ" && "$REAL_DOCKER" compose config 2>/dev/null)
+  compose_services | grep -qx cron && grep -q 'scripts/cron-runner.mjs' <<<"$cfg" \
+    && awk '/^  cron:/{f=1;next} /^  [a-z]/{f=0} f' <<<"$cfg" | grep -q 'disable: true'
+}
 secrets_absent() { ! printf '%s' "$OUT" | grep -qF -e "$TOK" -e "$(envget CLOUDFLARE_TUNNEL_TOKEN)" && ! grep -qF -- "$TOK" "$PROJ/.env"; }
 
 echo "A. Installation im Cloudflare-Modus"
@@ -96,6 +109,11 @@ check "Mock: 2 DNS-Einträge (vylaris.ch, www), 1 Tunnel" bash -c "curl -s --nop
 check "Zusammenfassung nennt die Adresse" out_has "https://vylaris.ch"
 check "keine Caddy-/DNS-/Port-Prüfung" bash -c "! printf '%s' \"\$1\" | grep -qE 'DNS-Einstellung|Ports 80 und 443'" _ "$OUT"
 check "Token weder in Ausgabe noch in .env" secrets_absent
+check "CRON_SECRET erzeugt (64 Hex-Zeichen)" cron_secret_valid
+check "CRON_SECRET steht nicht in der Ausgabe" cron_secret_hidden
+check "Meldung «Täglicher Lauf eingerichtet»" out_has "Täglicher Lauf eingerichtet"
+check "Dienst cron im zusammengesetzten Compose-File (Cloudflare)" compose_cron_ok
+CRON_A=$(envget CRON_SECRET)
 check "kein Rest einer Mehrfach-Domain-Konfiguration in der .env" bash -c "! grep -qE 'CLOUDFLARE_DOMAINS|NET_CONTACT_EMAIL' '$PROJ/.env'"
 check "Hinweise nennen den Installer-Pfad statt \$0 (sudo …/install.sh update)" out_has "sudo $PROJ/install.sh update"
 check "kein falscher Hinweis, /admin gebe es nur auf der Hauptdomain" bash -c "! printf '%s' \"\$1\" | grep -q 'gibt es nur auf'" _ "$OUT"
@@ -106,6 +124,9 @@ check "Exit-Code 0" test "$RC" -eq 0
 check "Container neu gestartet (Cloudflare-Overlay bleibt)" docker_has "compose up -d --build --remove-orphans"
 check "keine neue API-Abfrage nötig (kein Token verlangt)" bash -c "! printf '%s' \"\$1\" | grep -q 'Cloudflare-API-Token'" _ "$OUT"
 check "COMPOSE_FILE unverändert" test "$(envget COMPOSE_FILE)" = "docker-compose.yml:docker-compose.cloudflare.yml"
+check "CRON_SECRET bleibt beim Update gleich" test "$(envget CRON_SECRET)" = "$CRON_A"
+check "CRON_SECRET steht nicht in der Ausgabe (Update)" cron_secret_hidden
+check ".env hat weiterhin Rechte 600" test "$(stat -c %a "$PROJ/.env")" = 600
 
 echo "C. Zweiter Aufruf von 'install.sh cloudflare' (idempotent)"
 W1=$(state | jq '.writes')
@@ -113,6 +134,7 @@ inst cloudflare
 check "Exit-Code 0" test "$RC" -eq 0
 check "keine Schreibzugriffe an der API" test "$(state | jq '.writes')" = "$W1"
 check "Token nicht in der Ausgabe" secrets_absent
+check "CRON_SECRET bleibt gleich" test "$(envget CRON_SECRET)" = "$CRON_A"
 
 echo "D. Caddy-Modus unverändert (Neuinstallation)"
 rm -f "$PROJ/.env"
@@ -122,12 +144,19 @@ check "COMPOSE_FILE = Basis + HTTPS-Overlay" test "$(envget COMPOSE_FILE)" = "do
 check "ACME_EMAIL und DOMAIN gesetzt (www wird abgeschnitten)" bash -c "[ \"$(envget ACME_EMAIL)\" = admin@example.org ] && [ \"$(envget DOMAIN)\" = example.org ]"
 check "Start ohne --remove-orphans" docker_lacks "remove-orphans"
 check "Ports werden geprüft" out_has "Ports 80 und 443 sind frei"
+check "CRON_SECRET erzeugt (64 Hex-Zeichen)" cron_secret_valid
+check "CRON_SECRET steht nicht in der Ausgabe" cron_secret_hidden
+check "CRON_SECRET: Rechte der .env 600" test "$(stat -c %a "$PROJ/.env")" = 600
+check "Meldung «Täglicher Lauf eingerichtet»" out_has "Täglicher Lauf eingerichtet"
+check "Dienst cron im zusammengesetzten Compose-File (Caddy)" compose_cron_ok
+CRON_D=$(envget CRON_SECRET)
 check "kein Cloudflare-Token verlangt" bash -c "! printf '%s' \"\$1\" | grep -qi 'Cloudflare-API-Token'" _ "$OUT"
 
 echo "E. Update im Caddy-Modus unverändert"
 inst update
 check "Exit-Code 0" test "$RC" -eq 0
 check "Start ohne --remove-orphans" docker_lacks "remove-orphans"
+check "CRON_SECRET bleibt beim Update gleich" test "$(envget CRON_SECRET)" = "$CRON_D"
 
 echo "F. Umstellen von Caddy auf Cloudflare per 'install.sh cloudflare'"
 start_mock
@@ -155,6 +184,46 @@ rm -f "$PROJ/.env"
 TEST_API_TOKEN="" inst --yes --mode cloudflare --admin-email admin@vylaris.ch
 check "Abbruch mit klarer Meldung" bash -c "[ $RC -ne 0 ] && printf '%s' \"\$1\" | grep -q 'CLOUDFLARE_API_TOKEN'" _ "$OUT"
 check "Container nicht gestartet" docker_lacks "compose up"
+
+echo "I. Update einer bestehenden Installation ohne CRON_SECRET (Caddy-Modus)"
+rm -f "$PROJ/.env"
+inst --yes --mode caddy --domain example.org --email admin@example.org --admin-email admin@example.org --skip-dns-check --staging
+sed -i '/^CRON_SECRET=/d' "$PROJ/.env"          # so sieht eine Installation von vor dem täglichen Lauf aus
+AUTH_I=$(envget AUTH_SECRET); PG_I=$(envget POSTGRES_PASSWORD)
+check "Ausgangslage: kein CRON_SECRET" test -z "$(envget CRON_SECRET)"
+inst update
+check "Exit-Code 0" test "$RC" -eq 0
+check "CRON_SECRET wird beim Update erzeugt" cron_secret_valid
+check "CRON_SECRET steht nicht in der Ausgabe" cron_secret_hidden
+check "übrige Geheimnisse unverändert" bash -c "[ \"$(envget AUTH_SECRET)\" = \"$AUTH_I\" ] && [ \"$(envget POSTGRES_PASSWORD)\" = \"$PG_I\" ]"
+check "Rechte der .env 600" test "$(stat -c %a "$PROJ/.env")" = 600
+check "neuer Dienst wird gestartet, Caddy-Update weiter ohne --remove-orphans" bash -c "grep -qF 'compose up -d --build' '$DOCKER_LOG' && ! grep -qF 'remove-orphans' '$DOCKER_LOG'"
+check "Dienst cron im zusammengesetzten Compose-File" compose_cron_ok
+CRON_I=$(envget CRON_SECRET)
+inst update
+check "zweites Update lässt das Geheimnis gleich" test "$(envget CRON_SECRET)" = "$CRON_I"
+sed -i 's/^CRON_SECRET=.*/CRON_SECRET=zu-kurz/' "$PROJ/.env"
+inst update
+check "zu kurzes CRON_SECRET wird ersetzt" cron_secret_valid
+check "Warnung nennt den zu kurzen Wert nicht" bash -c "! printf '%s' \"\$1\" | grep -qF 'zu-kurz'" _ "$OUT"
+check "Warnung weist darauf hin, dass eigene Aufrufer neu einzurichten sind" out_has "müssen danach mit dem neuen Wert"
+sed -i 's/^CRON_SECRET=.*/CRON_SECRET=ein-eigenes-geheimnis-mit-30-zeichen/' "$PROJ/.env"
+inst update
+check "eigenes, ausreichend langes Geheimnis wird nie überschrieben" test "$(envget CRON_SECRET)" = "ein-eigenes-geheimnis-mit-30-zeichen"
+check "eigenes Geheimnis steht nicht in der Ausgabe" cron_secret_hidden
+
+echo "J. Update einer bestehenden Cloudflare-Installation ohne CRON_SECRET"
+start_mock
+rm -f "$PROJ/.env"
+inst --yes --mode cloudflare --admin-email admin@vylaris.ch
+sed -i '/^CRON_SECRET=/d' "$PROJ/.env"
+inst update
+check "Exit-Code 0" test "$RC" -eq 0
+check "CRON_SECRET wird beim Update erzeugt" cron_secret_valid
+check "CRON_SECRET steht nicht in der Ausgabe" cron_secret_hidden
+check "Start mit --remove-orphans wie bisher" docker_has "compose up -d --build --remove-orphans"
+check "Dienst cron im zusammengesetzten Compose-File (Cloudflare)" compose_cron_ok
+check "Token weder in Ausgabe noch in .env" secrets_absent
 
 echo
 echo "Ergebnis: $PASS bestanden, $FAIL fehlgeschlagen"

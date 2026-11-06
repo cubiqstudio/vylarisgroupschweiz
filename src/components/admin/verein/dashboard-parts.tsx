@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { Notice } from "@/components/admin/core/notice";
 import { StatCard } from "@/components/admin/core/stat-card";
+import { cronHealth, cronRunHasNotes, cronTaskLabel } from "@/lib/verein/cron-lib";
 import { MEETING_KIND_LABEL, MEETING_STATUS_LABEL, labelOf } from "@/lib/verein/constants";
 import { formatDateCh, formatDateTimeCh } from "@/lib/verein/dates";
 import { formatChfWithCurrency } from "@/lib/verein/money";
@@ -76,7 +77,7 @@ export function VereinKpis({ data }: { data: VereinDashboard }) {
     cards.push(
       <StatCard
         key="ledger"
-        label="Kassastand"
+        label="Kassenstand"
         value={ledger ? (ledger.hasAccounts ? formatChfWithCurrency(ledger.assetEndRappen) : "–") : "–"}
         detail={
           ledger
@@ -177,6 +178,61 @@ export function SetupHelp({ groups }: { groups: SetupGroup[] }) {
   );
 }
 
+/** Betriebsanzeige: wann der tägliche Lauf (Austritte, Erinnerungen, Aufräumen) zuletzt lief. Nur lesend. */
+export function CronStatusCard({ data, now = new Date() }: { data: VereinDashboard; now?: Date }) {
+  if (!data.sections.cron || !data.cron) return null;
+  const run = data.cron.run;
+  const health = cronHealth(run, now);
+  return (
+    <section aria-labelledby="cron-heading" className="mb-6">
+      <Card className="p-5">
+        <h2 id="cron-heading" className="text-sm font-semibold uppercase tracking-[0.14em] text-zinc-500">
+          Täglicher Lauf
+        </h2>
+        {health === "never" || !run ? (
+          <Notice variant="warning" className="mt-3">
+            Der tägliche Lauf ist nicht eingerichtet. Austritte und Erinnerungen müssen dann von Hand ausgelöst werden.
+          </Notice>
+        ) : (
+          <>
+            <p className="mt-2 text-sm text-zinc-300">
+              Zuletzt gelaufen am <span className="font-medium text-zinc-100">{formatDateTimeCh(new Date(run.finishedAt))}</span>
+              {health === "ok" ? ": ohne Fehler." : health === "failed" ? ": mit Fehlern." : "."}
+            </p>
+            {health === "stale" && (
+              <Notice variant="warning" className="mt-3">
+                Der tägliche Lauf hat seit mehr als 36 Stunden nicht stattgefunden. Austritte und Erinnerungen müssen dann von Hand ausgelöst werden. Prüfe den Dienst «cron» (docker logs vylaris-schweiz-cron).
+              </Notice>
+            )}
+            {health === "failed" && (
+              <Notice variant="error" className="mt-3">
+                Mindestens eine Aufgabe ist beim letzten Lauf fehlgeschlagen. Der Lauf wiederholt sie beim nächsten Mal; Details stehen im Protokoll des Dienstes «cron».
+              </Notice>
+            )}
+            {cronRunHasNotes(run) && (
+              <Notice variant="info" className="mt-3">
+                {run.tasks.find((t) => t.ok && t.note)?.note}{" "}
+                <Link href="/admin/settings#email" className="font-medium underline underline-offset-2">
+                  Einstellungen &gt; Mailserver
+                </Link>
+                . Nach der Einrichtung werden fällige Erinnerungen beim nächsten Lauf nachgeholt.
+              </Notice>
+            )}
+            <ul className="mt-3 space-y-1 text-sm text-zinc-400">
+              {run.tasks.map((t) => (
+                <li key={t.name} className="flex flex-wrap justify-between gap-x-4">
+                  <span>{cronTaskLabel(t.name)}</span>
+                  <span className={t.ok ? "text-zinc-300" : "text-rose-300"}>{t.ok ? (t.note ? "übersprungen" : `${t.count} erledigt`) : (t.error ?? "Fehler")}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </Card>
+    </section>
+  );
+}
+
 /** Nächste Termine: Versammlung und Anlässe. */
 export function NextDatesCard({ data }: { data: VereinDashboard }) {
   const { sections, meeting, events } = data;
@@ -224,13 +280,13 @@ export function NextDatesCard({ data }: { data: VereinDashboard }) {
         <ul className="divide-y divide-zinc-800">
           {rows.map((r) => (
             <li key={r.key}>
-              <Link href={r.href} className="flex items-start gap-3 px-5 py-3.5 transition-colors hover:bg-zinc-900">
+              <Link href={r.href} className="flex flex-wrap items-start gap-x-3 gap-y-1 px-5 py-3.5 transition-colors hover:bg-zinc-900">
                 <span className="mt-0.5 text-zinc-500">{r.icon}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-zinc-100">{r.title}</span>
                   <span className="block truncate text-xs text-zinc-500">{r.meta}</span>
                 </span>
-                <time dateTime={r.when.toISOString()} className="shrink-0 text-xs tabular-nums text-zinc-400">
+                <time dateTime={r.when.toISOString()} className="w-full pl-7 text-xs tabular-nums text-zinc-400 sm:w-auto sm:shrink-0 sm:pl-0">
                   {formatDateTimeCh(r.when)}
                 </time>
               </Link>

@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 type YearContext = { params: Promise<{ year: string }> };
 
 /**
- * Geschäftsjahr abschliessen, wieder öffnen oder die Genehmigung vermerken. Lesezugriff genügt für den Wächter hier; die Rolle
- * (Kassier oder Präsident) prüft applyFiscalAction. Jede Aktion steht im Änderungsprotokoll.
+ * Geschäftsjahr abschliessen, wieder öffnen oder die Genehmigung vermerken. Lesezugriff genügt für den Wächter hier; das Recht
+ * «Geschäftsjahr abschliessen» (fiscalYearClose, zusammen mit Leserecht auf die Kasse) prüft applyFiscalAction. Jede Aktion steht im Änderungsprotokoll.
  */
 export const POST = handle(async (req: Request, { params }: YearContext) => {
   const admin = await requireAdminModule(req, "ledger", "read");

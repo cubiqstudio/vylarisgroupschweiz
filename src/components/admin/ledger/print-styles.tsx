@@ -1,5 +1,5 @@
 /**
- * Druckregeln für den Kassabericht: A4, die Verwaltungsoberfläche (Menü, Kopfzeile) bleibt beim Drucken weg und der Hintergrund wird weiss.
+ * Druckregeln für den Kassenbericht: A4, die Verwaltungsoberfläche (Menü, Kopfzeile) bleibt beim Drucken weg und der Hintergrund wird weiss.
  * Gilt nur für Seiten, die diese Komponente einbinden.
  */
 export function PrintStyles() {

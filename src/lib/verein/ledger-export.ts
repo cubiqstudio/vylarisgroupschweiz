@@ -1,4 +1,4 @@
-// CSV-Zeilen der Kassa (rein). Texte laufen später durch csv.ts (Schutz vor Formel-Injektion), Beträge nur über csvMoney.
+// CSV-Zeilen der Kasse (rein). Texte laufen später durch csv.ts (Schutz vor Formel-Injektion), Beträge nur über csvMoney.
 import { csvMoney, type CsvCell } from "./csv";
 import { TRANSACTION_DIRECTION_LABEL, TRANSACTION_SOURCE_LABEL, ACCOUNT_KIND_LABEL, type TransactionDirection, type TransactionSource } from "./constants";
 import { entrySign, type AnnualStatement, type BudgetComparison } from "./ledger-lib";
@@ -81,5 +81,5 @@ export function budgetCsvRows(b: BudgetComparison): CsvCell[][] {
   return [...one(ACCOUNT_KIND_LABEL.EINNAHMEN, b.income), ...one(ACCOUNT_KIND_LABEL.AUSGABEN, b.expense)];
 }
 
-/** Dateiname ohne Endung, z. B. «Kassa-Buchungen-2026». */
-export const ledgerExportName = (what: string, year: number | null): string => (year ? `Kassa-${what}-${year}` : `Kassa-${what}`);
+/** Dateiname ohne Endung, z. B. «Kassen-Buchungen-2026». */
+export const ledgerExportName = (what: string, year: number | null): string => (year ? `Kassen-${what}-${year}` : `Kassen-${what}`);

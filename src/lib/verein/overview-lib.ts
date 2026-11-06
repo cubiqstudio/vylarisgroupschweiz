@@ -19,6 +19,8 @@ export type DashboardSections = {
   /** Link zu den Vereins-/Finanzeinstellungen darf angezeigt werden */
   verein: boolean;
   finance: boolean;
+  /** Betriebsanzeige «Täglicher Lauf» (Rechte «system» oder «verein_settings», nur lesend) */
+  cron: boolean;
 };
 
 export function dashboardSections(roles: readonly string[]): DashboardSections {
@@ -35,6 +37,7 @@ export function dashboardSections(roles: readonly string[]): DashboardSections {
     setup: verein || finance,
     verein,
     finance,
+    cron: canAccess(roles, "system", "read") || verein,
   };
 }
 

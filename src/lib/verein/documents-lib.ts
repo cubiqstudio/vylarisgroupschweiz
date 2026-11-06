@@ -84,21 +84,32 @@ export function parseVersionParam(value: string | null | undefined): number | nu
 
 // ---- Sichtbarkeit -------------------------------------------------------------------------------------------------
 
-/** Wer ein Dokument sieht: Besucher (nicht angemeldet), Mitglied (aktuell, Status AKTIV), Vorstand/Verwaltung (Admin mit Leserecht). */
-export type DocumentAudience = "PUBLIC" | "MEMBER" | "BOARD";
+/**
+ * Wer ein Dokument sieht: Besucher (nicht angemeldet), Mitglied (aktuell, Status AKTIV), Verwaltung ohne das Einzelrecht
+ * «Dokumente „Nur Vorstand“ sehen» (STAFF) sowie Vorstand/Verwaltung mit diesem Recht (BOARD). STAFF und BOARD sehen auch
+ * archivierte Dokumente und frühere Versionen.
+ */
+export type DocumentAudience = "PUBLIC" | "MEMBER" | "STAFF" | "BOARD";
 
 const VISIBLE: Record<DocumentAudience, readonly DocumentVisibility[]> = {
   PUBLIC: ["OEFFENTLICH"],
   MEMBER: ["OEFFENTLICH", "MITGLIEDER"],
+  STAFF: ["OEFFENTLICH", "MITGLIEDER"],
   BOARD: ["OEFFENTLICH", "MITGLIEDER", "VORSTAND"],
 };
+
+/** Gehört das Publikum zur Verwaltung (sieht archivierte Dokumente und frühere Versionen)? */
+export const isStaffAudience = (audience: DocumentAudience): boolean => audience === "BOARD" || audience === "STAFF";
+
+/** Publikum einer Person mit Leserecht auf «Dokumente»: mit dem Einzelrecht «Nur Vorstand» sehen BOARD, sonst STAFF. */
+export const adminAudience = (canSeeBoardDocuments: boolean): DocumentAudience => (canSeeBoardDocuments ? "BOARD" : "STAFF");
 
 /** Sichtbarkeitsstufen, die ein Publikum sehen darf (für Datenbankfilter). */
 export const visibilitiesFor = (audience: DocumentAudience): readonly DocumentVisibility[] => VISIBLE[audience];
 
 /** Darf dieses Publikum ein Dokument dieser Sichtbarkeit sehen? Unbekannte Werte sind nie sichtbar. */
 export function canView(audience: DocumentAudience, visibility: string, archivedAt: Date | null = null): boolean {
-  if (archivedAt && audience !== "BOARD") return false; // archivierte Dokumente sieht nur die Verwaltung
+  if (archivedAt && !isStaffAudience(audience)) return false; // archivierte Dokumente sieht nur die Verwaltung
   return (VISIBLE[audience] as readonly string[]).includes(visibility);
 }
 
@@ -106,6 +117,33 @@ export function canView(audience: DocumentAudience, visibility: string, archived
 export function isPublicStatute(doc: { category: string; visibility: string; archivedAt: Date | null }): boolean {
   return doc.category === "STATUTEN" && doc.visibility === "OEFFENTLICH" && doc.archivedAt === null;
 }
+
+// ---- Änderungsprotokoll --------------------------------------------------------------------------------------------
+
+/** Gilt das Dokument (vorher oder nachher) als «Nur Vorstand»? Dann darf das Änderungsprotokoll keine Inhalte davon verraten. */
+export const isBoardOnlyAudit = (...visibilities: ReadonlyArray<string | null | undefined>): boolean => visibilities.some((v) => v === "VORSTAND");
+
+/** Neutrale Bezeichnung für Einträge des Änderungsprotokolls zu Vorstandsdokumenten: ohne Titel, Kategorie und Dateiname. */
+export const BOARD_DOCUMENT_AUDIT_LABEL = "Dokument (Nur Vorstand)";
+
+/**
+ * Angaben für das Änderungsprotokoll bei Dokumenten «Nur Vorstand»: Das Modul «Änderungsprotokoll» ist unabhängig vom Einzelrecht
+ * «Dokumente „Nur Vorstand“ sehen». Deshalb stehen bei solchen Dokumenten weder Titel noch Beschreibung, Kategorie oder Dateiname
+ * im Protokoll, nur der Vorgang, die Grösse und die Sichtbarkeit. Bleibt `values` ohne Treffer, wird es unverändert zurückgegeben.
+ */
+export function redactBoardAuditValues(values: Record<string, unknown>, keep: readonly string[] = ["visibility", "archivedAt", "version", "groesse", "sichtbarkeit", "versionen"]): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const hidden: string[] = [];
+  for (const [k, v] of Object.entries(values)) {
+    if (keep.includes(k)) out[k] = v;
+    else hidden.push(k);
+  }
+  if (hidden.length > 0) out.weitereFelder = hidden.length;
+  return out;
+}
+
+/** Sichtbarkeit, die in alten Einträgen (vor der neutralen Schreibweise) mit Titel im Klartext stand: «Titel» (Kategorie, Nur Vorstand). */
+export const LEGACY_BOARD_SUMMARY_MARKER = ", Nur Vorstand)";
 
 // ---- Anzeige ------------------------------------------------------------------------------------------------------
 

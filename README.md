@@ -17,7 +17,7 @@ Alles läuft selbstgehostet: kein Cloud-Auth-Anbieter, keine externen Fonts/CDNs
 - **E-Mails:** Konto-Mails, Ticket-Mails, Lizenz-Mails und Newsletter, siehe [E-Mails](#e-mails).
 - **Newsletter:** Anmeldung mit Bestätigungsmail (Double-Opt-in), Kampagnen im Admin (Markdown), Versand gedrosselt im Hintergrund, Abmeldung mit einem Klick.
 - **Lizenzen:** Schlüssel, Webspace-Konten und Firmenkunden mit Freigabe durch das Team, Prüf-API `POST /api/licenses/verify`, siehe [Lizenzen & Prüf-API](#lizenzen--prüf-api).
-- **Vereinsverwaltung:** Mitglieder, Beiträge und Rechnungen, Kassa, Versammlungen, Anlässe, Dokumente und Aufgaben für einen Schweizer Verein (ZGB Art. 60 ff.), mit Rollen (Präsident, Vize-Präsident, Kassier, Aktuar, Revisor, Administrator), Änderungsprotokoll und Mitgliederportal unter `/account/verein`. Beträge, Fristen und Kontodaten trägt der Verein selbst unter **Admin → Vereinseinstellungen** ein. Aufbau, Rechte und Datenmodell: [`docs/verein-architektur.md`](docs/verein-architektur.md)
+- **Vereinsverwaltung:** Mitglieder, Beiträge und Rechnungen, Kasse, Versammlungen, Anlässe, Dokumente und Aufgaben für einen Schweizer Verein (ZGB Art. 60 ff.), mit Rollen (Präsident, Vize-Präsident, Kassier, Aktuar, Revisor, Administrator), Änderungsprotokoll und Mitgliederportal unter `/account/verein`. Beträge, Fristen und Kontodaten trägt der Verein selbst unter **Admin → Vereinseinstellungen** ein. Aufbau, Rechte und Datenmodell: [`docs/verein-architektur.md`](docs/verein-architektur.md)
 - **Admin-Dashboard:** `/admin` – Übersicht, Service- & Status-Manager (Status per Klick umschalten), Statusmeldungen/Wartungen, Blog-Editor (Markdown mit Live-Vorschau), Ticket-Inbox (Zuständigkeit, Antworten per Mail, Mail-Einstellungen für Tickets), Newsletter (Kampagnen, Abonnenten inkl. CSV-Export, Ein/Aus-Schalter), Lizenzen (Schlüssel, Webspace-Anträge, Produkte, API-Zugänge), Nutzerverwaltung (sperren, E-Mail manuell bestätigen, Bestätigungsmail erneut senden, Firmenkunden-Status, Team-Flag, löschen), **Einstellungen** (Impressum-Daten, E-Mail/SMTP inkl. Testmail, Registrierung ein/aus), Passwortwechsel
 - **REST-API:** `/api/...` (öffentlich lesend + Kontakt + Newsletter + Konto-Funktionen; `/api/admin/...` nur mit Admin-Sitzung)
 - **Datenbank:** Prisma ORM – SQLite lokal, PostgreSQL in Produktion
@@ -111,7 +111,11 @@ Vorlagen: `.env.example` (Entwicklung) und `.env.production.example` (Docker/Pro
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Seed | Zugangsdaten des ersten Admins (Default der E-Mail: `admin@vylaris.example`) |
 | `SEED_ON_START` | Docker | `true` = Seed beim Containerstart. Der Seed legt die Basisinhalte (Blogbeitrag, Anbieterangaben, Newsletter-Entwurf) **nur beim ersten Start** an; Änderungen aus dem Admin werden nie überschrieben. |
 | `TRUST_PROXY` | Docker | Woher die App die Client-IP für Rate-Limits nimmt: `cloudflare` = Header `CF-Connecting-IP` (Tunnel-Betrieb), `caddy` oder leer = `X-Forwarded-For` (Caddy bzw. Direktbetrieb hinter einem Proxy, der den Header selbst setzt). `docker-compose.cloudflare.yml` setzt `cloudflare`, `docker-compose.https.yml` setzt `caddy`; manuell nur nötig, wenn du die Overlays nicht verwendest. |
+| `TRUST_PROXY_HOPS` | Docker | Anzahl vertrauenswürdiger Proxys vor der App (Standard `1`). Die Client-IP ist der Eintrag in `X-Forwarded-For`, der von rechts so viele Stellen entfernt steht; vom Client vorne eingefügte Werte zählen nicht. Der Proxy muss die Adresse seines Gegenübers **anhängen oder den Header ersetzen**, nicht ungeprüft durchreichen. Bei zwei Proxys hintereinander (z. B. Traefik vor nginx) `2` setzen. |
 | `SITE_URL` | – | Öffentliche Basis-URL (Metadaten, Links in Mails). Ohne Angabe: in Produktion `https://vylaris.ch`, sonst `http://localhost:3000`. Sie wird nie aus dem Host-Header einer Anfrage gebildet. |
+| `CRON_SECRET` | Docker | Geheimnis (mind. 24 Zeichen) für den [täglichen Lauf](#täglicher-lauf-betrieb). `install.sh` erzeugt es automatisch (`openssl rand -hex 32`); ein vorhandenes, genügend langes Geheimnis überschreibt es nie, ein zu kurzes ersetzt es (eigene Aufrufer mit demselben Wert müssen dann neu eingerichtet werden). Ohne Wert ist der Lauf nicht eingerichtet. |
+| `CRON_URL` | – | Adresse der App für den Läufer (Dienst `cron`); Standard `http://app:3000`. |
+| `EVENTS_CRON_SECRET` | – | Optional, nur für bestehende Einrichtungen: bisheriges Geheimnis für `POST /api/events/reminders`. Die Route akzeptiert auch `CRON_SECRET`. |
 | `CLOUDFLARE_TUNNEL_TOKEN` | Tunnel-Modus | Token des Cloudflare Tunnels (von `scripts/cloudflare-setup.sh` in die `.env` geschrieben, ein Geheimnis). Siehe [Cloudflare Tunnel](#betrieb-über-cloudflare-tunnel). Der Cloudflare-**API**-Token wird nie gespeichert. |
 | `CONTACT_EMAIL` | – | **Anfangswert** der Kontakt-Mailadresse für Impressum/Datenschutz (Vorgabe des Vereins: `support@vylaris.ch`) |
 | `LEGAL_STREET`, `LEGAL_ZIP_CITY`, `LEGAL_COUNTRY`, `LEGAL_PHONE`, `LEGAL_REGISTER`, `LEGAL_VAT_ID` | vor Go-Live | **Anfangswerte** der Pflichtangaben für das Impressum (der Installer fragt sie ab, mit den Angaben des Vereins als Vorgabe). Was im Admin unter **Einstellungen → Rechtliches** gespeichert wird, hat Vorrang; leere Admin-Felder fallen auf diese Werte zurück. Fehlende Pflichtangaben erscheinen im Impressum als «Angabe ergänzen»; im Admin (**Einstellungen → Rechtliches**) weist ein Hinweis darauf hin, solange Strasse, PLZ/Ort oder Kontakt-E-Mail fehlen. |
@@ -277,6 +281,60 @@ Das Schema ist bewusst provider-neutral (keine Enums, keine nativen Typen); zul�
 
 ---
 
+## Täglicher Lauf (Betrieb)
+
+Einmal am Tag, um **03:15 Uhr Zeit Europe/Zurich** (Sommerzeit wird berücksichtigt), ruft der Dienst `cron` die App auf (`POST /api/cron/daily`). Der Lauf erledigt:
+
+1. **Fällige Austritte vollziehen:** Mitglieder mit gemeldetem Austritt, deren Austrittsdatum (letzter Tag der Mitgliedschaft) vorbei ist, werden auf «ausgetreten» gesetzt. Die Fristen nach Statuten sind schon beim Erfassen des Austritts geprüft worden; der Lauf vollzieht nur das eingetragene Datum. Im Änderungsprotokoll steht als Akteur «System».
+2. **Erinnerungen zu Anlässen** an die Angemeldeten senden (jede Anmeldung höchstens einmal). Ist **kein Mailserver eingerichtet**, ist das kein Fehler: Die Aufgabe gilt als übersprungen (Hinweis «Kein Mailserver eingerichtet, Erinnerungen wurden nicht verschickt.»), der Läufer wiederholt nichts, und es wird nichts als erinnert gespeichert. Nach der Einrichtung unter «Einstellungen > Mailserver» holt der nächste Lauf die Erinnerungen nach, solange der Anlass innerhalb von 36 Stunden beginnt. Ist ein Mailserver eingerichtet und der Versand scheitert (z. B. SMTP-Fehler), bleibt es ein Fehler wie bisher.
+3. **Unbestätigte Gast-Anmeldungen löschen**, deren Bestätigungsfrist von 48 Stunden abgelaufen ist (im täglichen Raster also spätestens drei Tage nach der Anmeldung).
+4. **Angaben von Gästen entfernen:** Name, E-Mail-Adresse und Bemerkung bestätigter Gast-Anmeldungen werden 30 Tage nach dem Ende des Anlasses geleert.
+
+Jede Aufgabe läuft für sich: Ein Fehler in einer stoppt die anderen nicht. Schlägt der Aufruf fehl, versucht der Läufer es bis zu dreimal im Abstand von fünf Minuten. Beim Start läuft er nicht sofort, ausser der Server meldet, dass noch nie oder seit mehr als 36 Stunden kein Lauf stattfand; dafür wartet er bis zu 20 Minuten auf die App (Datenbankschema, Migration). Der Dienst `cron` hat keinen eigenen Healthcheck (der des Images prüft die Web-App und würde dauerhaft «unhealthy» melden); Zeitplan und Ergebnis stehen im Log. Der Pfad `/api/cron/*` ist über Caddy und den Cloudflare-Tunnel von aussen gesperrt (404); der Läufer ruft die App direkt im internen Netz auf. Abgewiesene Aufrufe (falsches Token, zu viele Anfragen) erscheinen im App-Log, höchstens einmal pro Minute, ohne Token und IP-Adresse. Wer den Tunnel schon eingerichtet hat, führt `scripts/cloudflare-setup.sh` einmal erneut aus, damit die Sperre auch dort gilt.
+
+**Einrichtung:** `install.sh` erzeugt `CRON_SECRET` bei Installation und Update automatisch und startet den Dienst `cron` mit (gleiches Image wie die App, ohne Ports, nur lesender Dateizugriff). Wer ohne den Installer arbeitet, setzt `CRON_SECRET` in der `.env` (`openssl rand -hex 32`); ohne Wert (oder bei einem zu kurzen) meldet der Läufer das im Log (`docker logs vylaris-schweiz-cron`) und wartet, statt sich zu beenden; nach dem Eintragen genügt `docker compose up -d cron`.
+
+**Prüfen:**
+
+```bash
+docker logs vylaris-schweiz-cron          # Zeitplan, Ergebnis je Aufgabe (nur Namen und Anzahl, keine Personendaten)
+docker compose ps cron                    # läuft der Dienst?
+```
+
+In der Verwaltung zeigt die **Übersicht** (für Rollen mit Recht «System» oder «Vereinseinstellungen») die Karte «Täglicher Lauf» mit dem Zeitpunkt des letzten Laufs. Ist länger als 36 Stunden nichts gelaufen oder war der Lauf nie, erscheint die Warnung, dass Austritte und Erinnerungen von Hand ausgelöst werden müssen. Fehlt der Mailserver, steht dort stattdessen ein neutraler Hinweis mit Verweis auf «Einstellungen > Mailserver» (keine rote Warnung). Das Ergebnis liegt in der Tabelle `SiteSetting` unter `cron.lastRun`.
+
+**Von Hand auslösen** (z. B. nach einer Störung):
+
+```bash
+docker compose exec cron node -e 'fetch("http://app:3000/api/cron/daily",{method:"POST",headers:{Authorization:"Bearer "+process.env.CRON_SECRET}}).then(async r=>console.log(r.status,await r.text()))'
+```
+
+**Betrieb ohne Docker** (Node-Server direkt): Den Aufruf mit einem Zeitplan des Betriebssystems auslösen, mit demselben `CRON_SECRET` wie in der Umgebung der App.
+
+```cron
+# crontab -e   (Server in Zeit Europe/Zurich; sonst CRON_TZ=Europe/Zurich voranstellen, wenn der Cron-Dienst das kennt)
+15 3 * * * curl -fsS -X POST -H "Authorization: Bearer $(cat /etc/vylaris/cron-secret)" http://127.0.0.1:3000/api/cron/daily >/dev/null
+```
+
+```ini
+# /etc/systemd/system/vylaris-cron.service
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/vylaris/cron.env        # enthält CRON_SECRET=…
+ExecStart=/usr/bin/curl -fsS -X POST -H "Authorization: Bearer ${CRON_SECRET}" http://127.0.0.1:3000/api/cron/daily
+
+# /etc/systemd/system/vylaris-cron.timer   (danach: systemctl enable --now vylaris-cron.timer)
+[Timer]
+OnCalendar=*-*-* 03:15:00 Europe/Zurich
+Persistent=true
+[Install]
+WantedBy=timers.target
+```
+
+Alternativ kann `node scripts/cron-runner.mjs` mit `CRON_SECRET` und `CRON_URL` als eigener Dienst laufen.
+
+Die Route antwortet ohne gesetztes `CRON_SECRET` (mind. 24 Zeichen) mit 404, mit falschem Token mit 401. `POST /api/events/reminders` bleibt für eigene Aufrufe bestehen (Geheimnis `CRON_SECRET` oder weiterhin `EVENTS_CRON_SECRET`).
+
 ## Architektur
 
 ```
@@ -383,6 +441,7 @@ Entscheidungen im Admin (Schlüssel freigegeben/abgelehnt/gesperrt, Webspace-Kon
 6. Login prüfen: `/admin` ohne Anmeldung muss 404 liefern, `/login` funktioniert für Admin und Nutzer.
 7. `https://www.vylaris.ch` muss auf `https://vylaris.ch` umleiten.
 8. Backups für das Postgres-Volume einrichten.
+9. Täglichen Lauf prüfen: `docker logs vylaris-schweiz-cron` und die Karte «Täglicher Lauf» in der Übersicht (siehe [Täglicher Lauf](#täglicher-lauf-betrieb)).
 
 ## Lizenz & Mitwirkung
 

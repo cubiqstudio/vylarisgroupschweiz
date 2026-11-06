@@ -38,9 +38,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const facts: Array<[string, React.ReactNode]> = [
     ["Rechnungsdatum", formatDateCh(inv.issueDate)],
     ["Fällig am", formatDateCh(inv.dueDate)],
-    ["Betrag", <Chf key="t" rappen={inv.totalRappen} />],
-    ["Bezahlt", <Chf key="p" rappen={inv.paidRappen} />],
-    [overpaidRappen > 0 ? "Überzahlung" : "Noch offen", <Chf key="o" rappen={overpaidRappen > 0 ? overpaidRappen : openRappen} />],
+    ["Betrag", <Chf key="t" rappen={inv.totalRappen} withCurrency />],
+    ["Bezahlt", <Chf key="p" rappen={inv.paidRappen} withCurrency />],
+    [overpaidRappen > 0 ? "Überzahlung" : "Noch offen", <Chf key="o" rappen={overpaidRappen > 0 ? overpaidRappen : openRappen} withCurrency />],
     ["Referenz", bill?.ok ? (bill.display.reference ?? "–") : inv.paymentReference || "–"],
     ["Versendet", inv.sentAt ? formatDateTimeCh(inv.sentAt) : "noch nicht"],
     ["Beitragsjahr", inv.period ? String(inv.period.year) : "–"],
@@ -90,7 +90,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         </Notice>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="p-5 lg:col-span-2">
           <h2 className="text-sm font-semibold text-white">Eckdaten</h2>
           <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
@@ -117,7 +117,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             {inv.member.anonymizedAt ? " (Personendaten entfernt)" : ""}
           </p>
           {canAccess(admin.roles, "members", "read") && (
-            <Link href={`/admin/members?q=${encodeURIComponent(inv.recipientName)}`} className="mt-1 inline-block text-sm text-emerald-400 hover:underline">
+            <Link href={`/admin/members/${encodeURIComponent(inv.member.id)}`} className="mt-1 inline-block text-sm text-emerald-400 hover:underline">
               Mitglied ansehen
             </Link>
           )}
@@ -133,7 +133,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                 <th className={TH}>Beschreibung</th>
                 <th className={`${TH} text-right`}>Menge</th>
                 <th className={`${TH} text-right`}>Einzelpreis</th>
-                <th className={`${TH} text-right`}>Betrag</th>
+                <th className={`${TH} text-right`}>Betrag (CHF)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
@@ -172,9 +172,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               <thead>
                 <tr>
                   <th className={TH}>Eingang</th>
-                  <th className={`${TH} text-right`}>Betrag</th>
+                  <th className={`${TH} text-right`}>Betrag (CHF)</th>
                   <th className={TH}>Art</th>
-                  <th className={TH}>Kassa</th>
+                  <th className={TH}>Kasse</th>
                   <th className={TH}>
                     <span className="sr-only">Aktionen</span>
                   </th>

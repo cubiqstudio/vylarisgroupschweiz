@@ -714,8 +714,26 @@ run_cloudflare_setup() {
   chmod 600 "$ENV_FILE"
 }
 
+# Täglicher Lauf (Dienst "cron": fällige Austritte, Erinnerungen, Aufräumen): braucht CRON_SECRET in der .env.
+# Wird nur erzeugt, wenn es fehlt oder zu kurz ist (mindestens 24 Zeichen); ein vorhandenes, genügend langes Geheimnis bleibt immer
+# unverändert. Ein zu kurzes würde von der App ohnehin abgelehnt (die Schnittstelle bliebe abgeschaltet) und wird deshalb ersetzt.
+# Gilt für Neuinstallation und Updates in allen Betriebsarten. Das Geheimnis wird nie angezeigt.
+CRON_SECRET_MIN=24
+ensure_cron_secret() {
+  local cur; cur=$(env_get CRON_SECRET)
+  if [ "${#cur}" -ge "$CRON_SECRET_MIN" ]; then
+    ok "Täglicher Lauf eingerichtet"
+    return 0
+  fi
+  [ -z "$cur" ] || warn "CRON_SECRET in .env ist zu kurz (mindestens $CRON_SECRET_MIN Zeichen) und wird neu erzeugt. Eigene Aufrufer, die denselben Wert verwenden (z. B. ein Cron auf /api/events/reminders), müssen danach mit dem neuen Wert aus der .env eingerichtet werden."
+  env_set CRON_SECRET "$(rand_hex 32)"
+  chmod 600 "$ENV_FILE"
+  ok "Täglicher Lauf eingerichtet (Geheimnis erzeugt und in .env gespeichert)"
+}
+
 # --- Deploy ---------------------------------------------------------------------------
 deploy() {
+  ensure_cron_secret
   log "Baue und starte die Container (der erste Build dauert einige Minuten) …"
   if [ "$ACCESS_MODE" = "cloudflare" ] || docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx 'vylaris-schweiz-cloudflared'; then
     # --remove-orphans: beim Wechsel zwischen Caddy und Cloudflare Tunnel wird der nicht mehr benötigte
@@ -831,6 +849,7 @@ in der Datenbank (bei Änderung muss es im Admin neu eingegeben werden).
 
 Nützlich:
   Logs:      cd $PROJECT_DIR && docker compose logs -f
+  Täglicher Lauf (Austritte, Erinnerungen, Aufräumen; 03:15 Uhr): docker logs vylaris-schweiz-cron
   Update:    sudo $SELF update
   Cloudflare: sudo $SELF cloudflare   (Tunnel/DNS erneut einrichten, z. B. mit neuem Token)
   Stoppen:   cd $PROJECT_DIR && docker compose down      (Daten bleiben im Volume erhalten)

@@ -10,6 +10,7 @@ import { PageTitle } from "@/components/admin/core/page-title";
 import { AuditTable } from "@/components/admin/verein/audit-table";
 import { auditFacets, listAuditLog, parseAuditFilters } from "@/lib/verein/audit-data";
 import { auditActionLabel, auditObjectLabel } from "@/lib/verein/audit-view";
+import { canSeeBoardDocuments } from "@/lib/verein/permissions";
 import { requireModulePage } from "@/lib/verein/guard";
 import { listHref, listParams, pageMeta } from "@/lib/verein/pagination";
 
@@ -19,15 +20,16 @@ export const metadata: Metadata = { title: "Änderungsprotokoll" };
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function Page({ searchParams }: Props) {
-  await requireModulePage("audit");
+  const admin = await requireModulePage("audit");
+  const board = canSeeBoardDocuments(admin.roles);
   const sp = await searchParams;
   const filters = parseAuditFilters(sp);
   const { page, pageSize } = listParams(sp);
 
-  const first = await listAuditLog(filters, (page - 1) * pageSize, pageSize);
+  const first = await listAuditLog(filters, board, (page - 1) * pageSize, pageSize);
   const meta = pageMeta(first.total, page, pageSize);
   const [rows, facets] = await Promise.all([
-    meta.page === page ? first.rows : listAuditLog(filters, (meta.page - 1) * pageSize, pageSize).then((r) => r.rows),
+    meta.page === page ? first.rows : listAuditLog(filters, board, (meta.page - 1) * pageSize, pageSize).then((r) => r.rows),
     auditFacets(),
   ]);
 
@@ -50,8 +52,8 @@ export default async function Page({ searchParams }: Props) {
         Passwörter, Zugangsschlüssel und Prüfwerte erscheinen nie im Protokoll. Persönliche Angaben von Mitgliedern stehen nur als Vermerk «geändert» darin. Der CSV-Export enthält nur den Klartext und wird selbst protokolliert.
       </Notice>
 
-      <form method="get" action="/admin/verein/protokoll" role="search" className="mb-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_11rem_13rem_9rem_9rem_9rem_auto_auto]">
-        <div className="relative sm:col-span-2 lg:col-span-1">
+      <form method="get" action="/admin/verein/protokoll" role="search" className="mb-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-[11rem_13rem_9rem_9rem_9rem_auto_auto]">
+        <div className="relative sm:col-span-2 lg:col-span-full">
           <label htmlFor="audit-q" className="sr-only">
             Protokoll durchsuchen
           </label>

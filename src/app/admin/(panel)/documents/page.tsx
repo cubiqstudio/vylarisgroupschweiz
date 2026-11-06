@@ -7,7 +7,7 @@ import { Input, Select } from "@/components/ui/form";
 import { cn } from "@/lib/utils";
 import { DOCUMENT_CATEGORIES, DOCUMENT_CATEGORY_LABEL, DOCUMENT_VISIBILITIES, DOCUMENT_VISIBILITY_LABEL } from "@/lib/verein/constants";
 import { formatDateCh } from "@/lib/verein/dates";
-import { documentCounts, listDocuments, listMeetingOptions } from "@/lib/verein/documents-data";
+import { adminSeesBoardDocuments, documentCounts, listDocuments, listMeetingOptions } from "@/lib/verein/documents-data";
 import { parseDocumentFilters } from "@/lib/verein/documents-lib";
 import { formatFileSize } from "@/lib/verein/documents-meta";
 import { requireModulePage } from "@/lib/verein/guard";
@@ -28,15 +28,16 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 export default async function AdminDocumentsPage({ searchParams }: Props) {
   const admin = await requireModulePage("documents");
   const canWrite = canAccess(admin.roles, "documents", "write");
+  const seesBoard = adminSeesBoardDocuments(admin);
   const sp = await searchParams;
   const filters = parseDocumentFilters((k) => firstParam(sp, k));
   const { page, pageSize } = listParams(sp);
 
-  const first = await listDocuments(filters, (page - 1) * pageSize, pageSize);
+  const first = await listDocuments(filters, (page - 1) * pageSize, pageSize, seesBoard);
   const meta = pageMeta(first.total, page, pageSize);
   const [rows, counts, meetings] = await Promise.all([
-    meta.page === page ? first.rows : listDocuments(filters, (meta.page - 1) * pageSize, pageSize).then((r) => r.rows),
-    documentCounts(),
+    meta.page === page ? first.rows : listDocuments(filters, (meta.page - 1) * pageSize, pageSize, seesBoard).then((r) => r.rows),
+    documentCounts(seesBoard),
     canWrite ? listMeetingOptions() : Promise.resolve([]),
   ]);
 
@@ -47,7 +48,7 @@ export default async function AdminDocumentsPage({ searchParams }: Props) {
   return (
     <div>
       <PageTitle title="Dokumente" description="Statuten, Reglemente, Protokolle und weitere Unterlagen des Vereins. Neue Fassungen werden als Version abgelegt; frühere Fassungen bleiben abrufbar.">
-        {canWrite && <NewDocumentButton meetings={meetings.map((m) => ({ id: m.id, label: `${m.title} (${formatDateCh(m.startsAt)})` }))} />}
+        {canWrite && <NewDocumentButton allowBoard={seesBoard} meetings={meetings.map((m) => ({ id: m.id, label: `${m.title} (${formatDateCh(m.startsAt)})` }))} />}
       </PageTitle>
 
       <nav aria-label="Aktive und archivierte Dokumente" className="-mx-1 mb-4 overflow-x-auto px-1 pb-1">
@@ -104,7 +105,7 @@ export default async function AdminDocumentsPage({ searchParams }: Props) {
           </label>
           <Select id="doc-visibility" name="visibility" defaultValue={filters.visibility}>
             <option value="">Jede Sichtbarkeit</option>
-            {DOCUMENT_VISIBILITIES.map((v) => (
+            {DOCUMENT_VISIBILITIES.filter((v) => seesBoard || v !== "VORSTAND").map((v) => (
               <option key={v} value={v}>
                 {DOCUMENT_VISIBILITY_LABEL[v]}
               </option>

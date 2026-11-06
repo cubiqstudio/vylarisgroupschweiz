@@ -22,7 +22,7 @@ export const GET = handle(async (req: Request) => {
   if (what === "jahresrechnung" || what === "budget") {
     const year = parseYearParam(sp, current);
     const report = await getAnnualReport(year);
-    await logAudit(db, { actor: auditActor(admin), action: "export.ledger", objectType: "Transaction", summary: `Kassa-Export ${what} ${year}`, after: { art: what, jahr: year } });
+    await logAudit(db, { actor: auditActor(admin), action: "export.ledger", objectType: "Transaction", summary: `Kassen-Export ${what} ${year}`, after: { art: what, jahr: year } });
     if (what === "budget") return csvResponse(ledgerExportName("Budget", year), BUDGET_CSV_HEADERS, budgetCsvRows(report.budget));
     return csvResponse(ledgerExportName("Jahresrechnung", year), ANNUAL_CSV_HEADERS, annualCsvRows(report.statement));
   }
@@ -33,7 +33,7 @@ export const GET = handle(async (req: Request) => {
     actor: auditActor(admin),
     action: "export.ledger",
     objectType: "Transaction",
-    summary: `Kassa-Export Buchungen (${rows.length} ${rows.length === 1 ? "Eintrag" : "Einträge"})`,
+    summary: `Kassen-Export Buchungen (${rows.length} ${rows.length === 1 ? "Eintrag" : "Einträge"})`,
     after: { art: "buchungen", jahr: filters.year ?? "alle", anzahl: rows.length, suche: filters.q ? "ja" : "nein" },
   });
   return csvResponse(ledgerExportName("Buchungen", filters.year), TRANSACTION_CSV_HEADERS, transactionCsvRows(rows));

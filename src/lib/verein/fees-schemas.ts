@@ -89,7 +89,7 @@ export const paymentCreateSchema = z.object({
   method: oneOf(PAYMENT_METHODS).default("UEBERWEISUNG"),
   reference: optionalText(100),
   note: optionalText(300),
-  /** Vermögenskonto (Bank, Kasse) für die Buchung in der Kassa */
+  /** Vermögenskonto (Bank, Kasse) für die Buchung in der Kasse */
   assetAccountId: idSchema.nullable().optional(),
   /** Ertragskonto, falls die Rechnung keines vorgibt */
   incomeAccountId: idSchema.nullable().optional(),

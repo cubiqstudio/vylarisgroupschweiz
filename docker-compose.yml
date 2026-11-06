@@ -3,7 +3,8 @@
 #
 # Schnellstart:
 #   cp .env.production.example .env
-#   # Pflichtwerte in .env setzen (AUTH_SECRET, POSTGRES_PASSWORD, ADMIN_PASSWORD)
+#   # Pflichtwerte in .env setzen (AUTH_SECRET, POSTGRES_PASSWORD, ADMIN_PASSWORD) und für den täglichen Lauf
+#   # CRON_SECRET (erzeugen mit: openssl rand -hex 32; install.sh macht das selbst)
 #   docker compose up -d --build
 #
 # Die App lauscht standardmässig nur auf 127.0.0.1:${APP_PORT} und gehört hinter
@@ -37,7 +38,10 @@ services:
       # Optional: eigenes Geheimnis (mind. 32 Zeichen) für Lizenzschlüssel-Hashes und Signaturen, sonst gilt AUTH_SECRET.
       # Ein Wechsel macht bestehende Lizenzschlüssel ungültig.
       LICENSE_SECRET: ${LICENSE_SECRET:-}
-      # Optional: Geheimnis für den täglichen Aufruf der Anlass-Erinnerungen (docs/verein-anlaesse.md); leer = abgeschaltet.
+      # Geheimnis für den täglichen Lauf (Austritte, Erinnerungen, Aufräumen; Dienst "cron"). Mindestens 24 Zeichen,
+      # install.sh erzeugt es. Leer = Schnittstelle /api/cron/daily abgeschaltet (Austritte und Erinnerungen dann von Hand).
+      CRON_SECRET: ${CRON_SECRET:-}
+      # Optional und nur für bestehende Einrichtungen: bisheriges Geheimnis für POST /api/events/reminders (docs/verein-anlaesse.md).
       EVENTS_CRON_SECRET: ${EVENTS_CRON_SECRET:-}
       # Passwort ggf. URL-kodieren; am einfachsten ein Passwort ohne Sonderzeichen wählen
       # (z. B. openssl rand -hex 24).
@@ -59,6 +63,7 @@ services:
       # Reverse Proxy, der den Header selbst setzt), cloudflare = CF-Connecting-IP (Tunnel-Betrieb).
       # Die Overlay-Dateien setzen den passenden Wert.
       TRUST_PROXY: ${TRUST_PROXY:-}
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
       # Der Tunnel-Token gehört nur zu cloudflared. Die App liest die .env per env_file mit und
       # darf ihn nicht bekommen (auch nicht nach einem Wechsel von Cloudflare auf Caddy).
       CLOUDFLARE_TUNNEL_TOKEN: ""
@@ -81,6 +86,36 @@ services:
       - ALL
     # read_only wird bewusst nicht gesetzt: Next.js, Prisma-CLI und tsx schreiben
     # zur Laufzeit in Cache-/Temp-Verzeichnisse. Ohne Funktionsverlust nicht machbar.
+
+  # Täglicher Lauf: ruft um 03:15 Uhr (Europe/Zurich) POST /api/cron/daily der App auf (fällige Austritte vollziehen,
+  # Anlass-Erinnerungen senden, unbestätigte Gast-Anmeldungen aufräumen). Gleiches Image wie die App, aber ohne Datenbank,
+  # ohne Ports und ohne Schreibzugriff. Prüfen: docker logs vylaris-schweiz-cron
+  cron:
+    image: vylaris-schweiz-app:latest
+    container_name: vylaris-schweiz-cron
+    restart: unless-stopped
+    # Der Entrypoint der App (Datenbankschema, Seed) wird hier nicht gebraucht.
+    entrypoint: []
+    command: ["node", "scripts/cron-runner.mjs"]
+    # Das Image bringt eine Prüfung der Web-App mit (Port 3000). Im Dienst «cron» lauscht nichts, sie würde dauerhaft «unhealthy» melden.
+    # Ein Absturz des Läufers wird über restart: unless-stopped abgefangen; Zeitplan und Ergebnis stehen im Log (docker logs).
+    healthcheck:
+      disable: true
+    environment:
+      CRON_SECRET: ${CRON_SECRET:-}
+      CRON_URL: ${CRON_URL:-http://app:3000}
+      TZ: ${TZ:-Europe/Zurich}
+    depends_on:
+      - app
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
 
   db:
     image: postgres:16-alpine

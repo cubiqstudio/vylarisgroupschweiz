@@ -104,6 +104,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
+# 4) Läufer des täglichen Laufs (Dienst "cron" in docker-compose.yml): reines Node, keine Abhaengigkeiten.
+COPY --chown=nextjs:nodejs scripts/cron-runner.mjs ./scripts/cron-runner.mjs
+
 COPY --chown=nextjs:nodejs docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod 0755 /usr/local/bin/entrypoint.sh \
  && mkdir -p /app/.next/cache \

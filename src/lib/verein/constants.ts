@@ -65,7 +65,7 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
 export const MAX_REMINDER_LEVEL = 3;
 export const REMINDER_LEVEL_LABEL: Record<number, string> = { 0: "Nicht gemahnt", 1: "1. Mahnung", 2: "2. Mahnung", 3: "3. Mahnung" };
 
-// ---- Kassa -----------------------------------------------------------------------------------------------------
+// ---- Kasse -----------------------------------------------------------------------------------------------------
 export const ACCOUNT_KINDS = ["EINNAHMEN", "AUSGABEN", "VERMOEGEN"] as const;
 export type AccountKind = (typeof ACCOUNT_KINDS)[number];
 export const ACCOUNT_KIND_LABEL: Record<AccountKind, string> = { EINNAHMEN: "Einnahmen", AUSGABEN: "Ausgaben", VERMOEGEN: "Vermögen" };
@@ -109,9 +109,9 @@ export const EVENT_STATUSES = ["ENTWURF", "VEROEFFENTLICHT", "ABGESAGT"] as cons
 export type EventStatus = (typeof EVENT_STATUSES)[number];
 export const EVENT_STATUS_LABEL: Record<EventStatus, string> = { ENTWURF: "Entwurf", VEROEFFENTLICHT: "Veröffentlicht", ABGESAGT: "Abgesagt" };
 
-export const REGISTRATION_STATUSES = ["ANGEMELDET", "WARTELISTE", "ABGESAGT"] as const;
+export const REGISTRATION_STATUSES = ["UNBESTAETIGT", "ANGEMELDET", "WARTELISTE", "ABGESAGT"] as const;
 export type RegistrationStatus = (typeof REGISTRATION_STATUSES)[number];
-export const REGISTRATION_STATUS_LABEL: Record<RegistrationStatus, string> = { ANGEMELDET: "Angemeldet", WARTELISTE: "Warteliste", ABGESAGT: "Abgemeldet" };
+export const REGISTRATION_STATUS_LABEL: Record<RegistrationStatus, string> = { UNBESTAETIGT: "E-Mail noch nicht bestätigt", ANGEMELDET: "Angemeldet", WARTELISTE: "Warteliste", ABGESAGT: "Abgemeldet" };
 
 // ---- Dokumente und Aufgaben --------------------------------------------------------------------------------------
 export const DOCUMENT_CATEGORIES = ["STATUTEN", "REGLEMENT", "PROTOKOLL", "FINANZEN", "SONSTIGES"] as const;
@@ -176,7 +176,7 @@ export const MEMBER_STATUS_TONE: Record<MemberStatus, Tone> = {
 export const INVOICE_STATUS_TONE: Record<InvoiceStatus, Tone> = { ENTWURF: "zinc", OFFEN: "amber", BEZAHLT: "green", STORNIERT: "rose" };
 export const MEETING_STATUS_TONE: Record<MeetingStatus, Tone> = { GEPLANT: "indigo", EINGELADEN: "sky", DURCHGEFUEHRT: "green", ABGESAGT: "zinc" };
 export const EVENT_STATUS_TONE: Record<EventStatus, Tone> = { ENTWURF: "zinc", VEROEFFENTLICHT: "green", ABGESAGT: "rose" };
-export const REGISTRATION_STATUS_TONE: Record<RegistrationStatus, Tone> = { ANGEMELDET: "green", WARTELISTE: "amber", ABGESAGT: "zinc" };
+export const REGISTRATION_STATUS_TONE: Record<RegistrationStatus, Tone> = { UNBESTAETIGT: "sky", ANGEMELDET: "green", WARTELISTE: "amber", ABGESAGT: "zinc" };
 export const TASK_STATUS_TONE: Record<TaskStatus, Tone> = { OFFEN: "amber", IN_ARBEIT: "sky", ERLEDIGT: "green" };
 export const TASK_PRIORITY_TONE: Record<TaskPriority, Tone> = { NIEDRIG: "zinc", NORMAL: "sky", HOCH: "rose" };
 export const DOCUMENT_VISIBILITY_TONE: Record<DocumentVisibility, Tone> = { OEFFENTLICH: "green", MITGLIEDER: "sky", VORSTAND: "indigo" };

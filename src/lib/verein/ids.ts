@@ -21,7 +21,7 @@ export function formatInvoiceNumber(year: number, seq: number): string {
   return `${year}-${String(seq).padStart(4, "0")}`;
 }
 
-/** «B-2026-0001» (Belegnummer der Kassa) */
+/** «B-2026-0001» (Belegnummer der Kasse) */
 export function formatVoucherNumber(year: number, seq: number): string {
   return `B-${year}-${String(seq).padStart(4, "0")}`;
 }
@@ -69,7 +69,7 @@ export async function nextInvoiceNumber(client: CounterClient, year: number): Pr
   return { number: formatInvoiceNumber(year, seq), year, seq };
 }
 
-/** Nächste Belegnummer der Kassa im Jahr. */
+/** Nächste Belegnummer der Kasse im Jahr. */
 export async function nextVoucherNumber(client: CounterClient, year: number): Promise<{ number: string; year: number; seq: number }> {
   const seq = await nextSequence(client, voucherCounterKey(year));
   return { number: formatVoucherNumber(year, seq), year, seq };

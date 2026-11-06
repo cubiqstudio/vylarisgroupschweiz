@@ -3,6 +3,7 @@
 // Reine Berechnungen: ./overview-lib.ts.
 import "server-only";
 import { db } from "@/lib/db";
+import { parseCronRun, CRON_LAST_RUN_KEY, type CronRun } from "./cron-lib";
 import { startOfDayZurich } from "./dates";
 import { getLedgerSummary, type LedgerSummary } from "./ledger-data";
 import { dashboardSections, groupMissingSettings, summarizeInvoices, type DashboardSections, type InvoiceSummary, type SetupGroup } from "./overview-lib";
@@ -22,6 +23,8 @@ export type VereinDashboard = {
   events: UpcomingEvent[] | null;
   tasks: TaskStats | null;
   setup: SetupGroup[] | null;
+  /** Ergebnis des letzten täglichen Laufs: null = Anzeige nicht erlaubt oder nicht verfügbar, run null = nie gelaufen */
+  cron: { run: CronRun | null } | null;
 };
 
 /** Führt eine Abfrage aus und liefert bei einem Fehler null (der Fehler wird ohne Inhalte protokolliert). */
@@ -99,17 +102,23 @@ async function setupHints(): Promise<SetupGroup[]> {
   return groupMissingSettings(missingForInvoicing(s), missingForReminders(s), missingForInvitations(s));
 }
 
+async function cronStatus(): Promise<{ run: CronRun | null }> {
+  const row = await db.siteSetting.findUnique({ where: { key: CRON_LAST_RUN_KEY }, select: { value: true } });
+  return { run: parseCronRun(row?.value) };
+}
+
 /** Kennzahlen für die Übersicht der angemeldeten Person. Nur Bereiche, die ihre Rollen sehen dürfen, werden berechnet. */
 export async function loadVereinDashboard(admin: { id: string; roles: readonly string[]; memberId: string | null }): Promise<VereinDashboard> {
   const sections = dashboardSections(admin.roles);
-  const [members, fees, ledger, meeting, events, tasks, setup] = await Promise.all([
+  const [members, fees, ledger, meeting, events, tasks, setup, cron] = await Promise.all([
     sections.members ? safe("Mitglieder", memberStats) : null,
     sections.fees ? safe("Rechnungen", invoiceStats) : null,
-    sections.ledger ? safe("Kassa", getLedgerSummary) : null,
+    sections.ledger ? safe("Kasse", getLedgerSummary) : null,
     sections.meetings ? safe("Versammlungen", meetingStats) : null,
     sections.events ? safe("Anlässe", upcomingEvents) : null,
     sections.tasks ? safe("Aufgaben", () => taskStats({ adminId: admin.id, memberId: admin.memberId })) : null,
     sections.setup ? safe("Einrichtung", setupHints) : null,
+    sections.cron ? safe("Täglicher Lauf", cronStatus) : null,
   ]);
-  return { sections, members, fees, ledger, meeting, events, tasks, setup };
+  return { sections, members, fees, ledger, meeting, events, tasks, setup, cron };
 }

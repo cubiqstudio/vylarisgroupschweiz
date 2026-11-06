@@ -251,7 +251,11 @@ export function earliestExitDate(noticeDate: Date, rule: ExitRule = DEFAULT_EXIT
 
 // ---- Einladung zur Versammlung ---------------------------------------------------------------------------------------
 
-/** Spätester Versandtag der Einladung: Versandtag und Versammlungstag werden nicht mitgezählt. */
+/**
+ * Spätester Versandtag der Einladung: der Tag, dessen Differenz zum Versammlungstag genau `minDays` Kalendertage beträgt
+ * (Versammlung 30.11., Frist 14 Tage: 16.11.). Das sind `minDays - 1` volle Tage dazwischen. Ob der Versand oder der Zugang zählt und
+ * ob volle Tage verlangt sind, regeln die Statuten; wer sicher gehen will, versendet früher.
+ */
 export function latestInvitationDate(meetingStart: Date, minDays: number): Date {
   return addDays(toDateOnly(meetingStart), -minDays);
 }

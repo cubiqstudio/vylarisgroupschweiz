@@ -58,6 +58,16 @@ export type TallyOutcome = {
   note: string;
 };
 
+/** Hinweis beim absoluten Mehr: Bei Ausstand (Art. 68 ZGB) ist die Zahl der anwesenden Stimmberechtigten von Hand anzupassen. */
+export const ABSOLUTE_RECUSAL_HINT = "Bei Ausstand (Art. 68 ZGB) die Zahl der anwesenden Stimmberechtigten um die ausgetretenen Personen kürzen.";
+
+/**
+ * Hinweis zur Voreinstellung der Mehrheitsregel. Sie ist neutral gewählt und keine gesetzliche Regel: Ohne abweichende Statuten
+ * gilt nach Art. 67 Abs. 2 ZGB die Mehrheit der Stimmen der anwesenden Mitglieder. Statuten gehen vor.
+ */
+export const MAJORITY_DEFAULT_HINT =
+  "Neutrale Voreinstellung. Ohne abweichende Statuten gilt nach Art. 67 Abs. 2 ZGB die Mehrheit der Stimmen der anwesenden Mitglieder. Statuten gehen vor.";
+
 const isCount = (n: unknown): n is number => typeof n === "number" && Number.isInteger(n) && n >= 0;
 
 /**
@@ -84,7 +94,7 @@ export function tallyResolution(input: TallyInput): TallyOutcome {
       return { result: null, tie: false, cast, note: "Für das absolute Mehr fehlt die Zahl der anwesenden Stimmberechtigten." };
     }
     const ok = yes * 2 > input.presentVoters;
-    return { result: ok ? "ANGENOMMEN" : "ABGELEHNT", tie: false, cast, note: `Mehr als die Hälfte von ${input.presentVoters} anwesenden Stimmberechtigten verlangt (Ja: ${yes}).` };
+    return { result: ok ? "ANGENOMMEN" : "ABGELEHNT", tie: false, cast, note: `Mehr als die Hälfte von ${input.presentVoters} anwesenden Stimmberechtigten verlangt (Ja: ${yes}). ${ABSOLUTE_RECUSAL_HINT}` };
   }
   if (yes === no) return { result: "ABGELEHNT", tie: true, cast, note: "Stimmengleichheit. Ob ein Stichentscheid gilt, bestimmen die Statuten." };
   return { result: yes > no ? "ANGENOMMEN" : "ABGELEHNT", tie: false, cast, note: "Einfaches Mehr der abgegebenen Stimmen (Enthaltungen zählen nicht mit)." };
@@ -125,7 +135,7 @@ export function invitationTiming(opts: { start: Date; minDays: number | null; no
   }
   const latest = latestInvitationDate(opts.start, opts.minDays);
   if (isInvitationOnTime(now, opts.start, opts.minDays)) {
-    return { state: "ok", latest, daysToMeeting, daysShort: 0, text: `Rechtzeitig, wenn die Einladung bis ${formatDateCh(latest)} versendet wird (Frist: ${opts.minDays} Tage).` };
+    return { state: "ok", latest, daysToMeeting, daysShort: 0, text: `Rechtzeitig, wenn die Einladung bis ${formatDateCh(latest)} versendet wird (Frist: ${opts.minDays} Tage zwischen Versandtag und Versammlungstag). Ob Versand oder Zugang zählt, regeln die Statuten.` };
   }
   const daysShort = daysBetween(latest, todayZurich(now));
   return {
@@ -303,6 +313,24 @@ export function buildMinutesDraft(input: { meeting: DraftMeeting; agenda: readon
 /** Ein genehmigtes Protokoll ist gesperrt; Änderungen brauchen eine Begründung und stehen im Änderungsprotokoll. */
 export const isMinutesLocked = (m: { minutesApprovedAt: Date | null }): boolean => m.minutesApprovedAt !== null;
 
+/** Felder einer Sitzung, die auf ein genehmigtes Protokoll wirken (Datum, Titel, Leitung, Protokollführung, Quorum, Art). */
+export const MINUTES_BOUND_FIELDS = ["title", "startsAt", "leaderId", "recorderId", "quorumMin", "kind"] as const;
+
+type MinutesBound = { title: string; startsAt: Date; leaderId: string | null; recorderId: string | null; quorumMin: number | null; kind: string };
+
+/** Welche Felder würde `patch` ändern, obwohl sie zum genehmigten Protokoll gehören? Leer = zulässig. */
+export function changedMinutesBoundFields(before: MinutesBound, patch: Partial<MinutesBound>): Array<(typeof MINUTES_BOUND_FIELDS)[number]> {
+  const out: Array<(typeof MINUTES_BOUND_FIELDS)[number]> = [];
+  for (const f of MINUTES_BOUND_FIELDS) {
+    const next = patch[f];
+    if (next === undefined) continue;
+    const prev = before[f];
+    const same = next instanceof Date && prev instanceof Date ? next.getTime() === prev.getTime() : next === prev;
+    if (!same) out.push(f);
+  }
+  return out;
+}
+
 /** Vermerk, der nach einer nachträglichen Änderung an die Genehmigungsnotiz angehängt wird. */
 export function amendmentNote(existing: string, when: Date, reason: string): string {
   const line = `Nachträglich geändert am ${formatDateCh(toDateOnly(when))}: ${reason.trim().replace(/\s+/g, " ")}`;
@@ -335,8 +363,12 @@ export function meetingIcsEvent(m: {
     url: m.url,
     cancelled: m.status === "ABGESAGT",
     updatedAt: m.updatedAt,
+    sequence: meetingIcsSequence(m.updatedAt),
   };
 }
+
+/** Versionszähler für den Kalendereintrag (ICS SEQUENCE): Minuten seit 1970 der letzten Änderung, passt in 32 Bit und steigt mit jeder Änderung. */
+export const meetingIcsSequence = (updatedAt: Date): number => Math.max(0, Math.floor(updatedAt.getTime() / 60_000));
 
 // ---- Register-Export ----------------------------------------------------------------------------------------------------
 

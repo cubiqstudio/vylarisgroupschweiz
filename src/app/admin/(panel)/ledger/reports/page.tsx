@@ -19,7 +19,7 @@ import { formatChf } from "@/lib/verein/money";
 import { listHref } from "@/lib/verein/pagination";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Auswertungen der Kassa" };
+export const metadata: Metadata = { title: "Auswertungen der Kasse" };
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -36,10 +36,10 @@ export default async function ReportsPage({ searchParams }: Props) {
 
   return (
     <div>
-      <PageTitle title="Auswertungen" description={`Jahresrechnung, Monatsbilanz und Kassabericht für das Geschäftsjahr ${label} (${formatDateCh(info.startsOn)} bis ${formatDateCh(info.endsOn)}).`}>
+      <PageTitle title="Auswertungen" description={`Jahresrechnung, Monatsbilanz und Kassenbericht für das Geschäftsjahr ${label} (${formatDateCh(info.startsOn)} bis ${formatDateCh(info.endsOn)}).`}>
         <Link href={`/admin/ledger/reports/${year}/print`} className={buttonClass("primary", "md")}>
           <Printer className="h-4 w-4" aria-hidden />
-          Kassabericht drucken
+          Kassenbericht drucken
         </Link>
       </PageTitle>
       <LedgerNav />

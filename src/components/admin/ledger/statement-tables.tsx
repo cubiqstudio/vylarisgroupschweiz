@@ -89,12 +89,12 @@ export function ResultTables({ s, variant = "screen" }: { s: AnnualStatement; va
     </Wrap>
   );
   return (
-    <div className={variant === "screen" ? "grid gap-6 lg:grid-cols-2" : "grid grid-cols-2 gap-6"}>
-      <div>
+    <div className={variant === "screen" ? "grid grid-cols-1 gap-6 lg:grid-cols-2" : "grid grid-cols-2 gap-6"}>
+      <div className="min-w-0">
         <h3 className={cn("mb-2", c.h)}>Einnahmen</h3>
         {section("Einnahmen nach Konto", s.income, s.totalIncomeRappen, "Total Einnahmen")}
       </div>
-      <div>
+      <div className="min-w-0">
         <h3 className={cn("mb-2", c.h)}>Ausgaben</h3>
         {section("Ausgaben nach Konto", s.expense, s.totalExpenseRappen, "Total Ausgaben")}
       </div>
@@ -226,4 +226,4 @@ export function MonthTable({ months, variant = "screen" }: { months: MonthRow[];
 }
 
 export const ACCOUNTING_NOTE =
-  "Diese Kassa bildet eine einfache Buchhaltung ab: Einnahmen, Ausgaben und Vermögenslage (Art. 69a ZGB). Vereine, die im Handelsregister eingetragen sind oder bestimmte Grössen überschreiten, können weitergehenden Pflichten nach Art. 957 ff. OR unterliegen. Es gelten die Statuten; im Zweifel klärt der Verein dies mit seiner Revisionsstelle oder einer Treuhandstelle.";
+  "Diese Kasse bildet eine einfache Buchhaltung ab: Einnahmen, Ausgaben und Vermögenslage (Art. 69a ZGB). Vereine, die im Handelsregister eingetragen sind oder bestimmte Grössen überschreiten, können weitergehenden Pflichten nach Art. 957 ff. OR unterliegen. Es gelten die Statuten; im Zweifel klärt der Verein dies mit seiner Revisionsstelle oder einer Treuhandstelle.";

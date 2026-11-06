@@ -35,7 +35,7 @@ export function FiscalYearActions({
   today: string;
 }) {
   const [mode, setMode] = useState<Mode | null>(null);
-  if (!canClose) return <span className="text-xs text-zinc-500">Nur Kassier und Präsident</span>;
+  if (!canClose) return <span className="text-xs text-zinc-500">Dafür fehlt das Recht «Geschäftsjahr abschliessen»</span>;
   return (
     <>
       <div className="flex flex-wrap justify-end gap-1">
@@ -121,7 +121,7 @@ function FiscalDialog({ mode, year, label, unbookedPayments, today, onClose }: {
         {mode === "unlock" && <Notice variant="warning">Ein abgeschlossenes Jahr ist die Grundlage der Jahresrechnung und des Revisionsberichts. Öffne es nur, wenn es nötig ist, und halte den Grund fest.</Notice>}
         {needsConfirm && (
           <Notice variant="warning">
-            {unbookedPayments === 1 ? "Eine Zahlung ist" : `${unbookedPayments} Zahlungen sind`} in diesem Jahr noch nicht in der Kassa gebucht. Buche sie unter «Beiträge» nach, sonst fehlen sie in der Jahresrechnung.
+            {unbookedPayments === 1 ? "Eine Zahlung ist" : `${unbookedPayments} Zahlungen sind`} in diesem Jahr noch nicht in der Kasse gebucht. Buche sie unter «Beiträge» nach, sonst fehlen sie in der Jahresrechnung.
             <label className="mt-2 flex items-start gap-2">
               <input type="checkbox" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-zinc-600" />
               <span>Ich schliesse trotzdem ab.</span>

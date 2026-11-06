@@ -19,8 +19,8 @@ export function ReminderPill({ level }: { level: number }) {
 }
 
 /** Betrag rechtsbündig mit Tausendertrenner. */
-export function Chf({ rappen, className }: { rappen: number; className?: string }) {
-  return <span className={cn("tabular-nums whitespace-nowrap", className)}>{formatChf(rappen)}</span>;
+export function Chf({ rappen, className, withCurrency }: { rappen: number; className?: string; withCurrency?: boolean }) {
+  return <span className={cn("tabular-nums whitespace-nowrap", className)}>{withCurrency ? `CHF ${formatChf(rappen)}` : formatChf(rappen)}</span>;
 }
 
 /** Hinweis, wenn für Rechnungen oder Mahnungen Einstellungen fehlen. */

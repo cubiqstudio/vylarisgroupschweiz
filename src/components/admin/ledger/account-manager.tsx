@@ -272,7 +272,7 @@ export function AccountManager({ accounts, canWrite, openingLocked }: { accounts
         open={templateAsk}
         title="Standardkonten anlegen?"
         description="Es werden übliche Konten für einen kleinen Verein angelegt (Mitgliederbeiträge, Spenden, Hosting, Bankspesen, Bankkonto, Kasse usw.), ohne Beträge. Vorhandene Konten bleiben unberührt. Namen und Nummern kannst du danach anpassen."
-        confirmLabel="Konten anlegen"
+        confirmLabel="Standardkonten anlegen"
         busy={busy}
         onConfirm={template}
         onCancel={() => setTemplateAsk(false)}

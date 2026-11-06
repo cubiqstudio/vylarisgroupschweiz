@@ -30,6 +30,8 @@ export function MemberPicker({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [failed, setFailed] = useState(false);
+  // true, solange für die aktuelle Eingabe noch keine Antwort da ist (Verzögerung plus Anfrage)
+  const [loading, setLoading] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -41,8 +43,12 @@ export function MemberPicker({
         setItems(res.items);
         setActive(0);
         setFailed(false);
+        setLoading(false);
       } catch {
-        if (!ctrl.signal.aborted) setFailed(true);
+        if (!ctrl.signal.aborted) {
+          setFailed(true);
+          setLoading(false);
+        }
       }
     }, 200);
     return () => {
@@ -55,6 +61,7 @@ export function MemberPicker({
     onChange(m);
     setOpen(false);
     setQ("");
+    setLoading(false);
   };
 
   if (value) {
@@ -77,6 +84,9 @@ export function MemberPicker({
   }
 
   const listId = `${uid}-list`;
+  const optionId = (i: number) => `${uid}-opt-${i}`;
+  const showList = open && q.trim() !== "";
+  const status = failed ? "Die Suche ist fehlgeschlagen." : loading ? "Suche …" : showList ? (items.length === 0 ? "Kein aktives Mitglied gefunden." : `${items.length} Treffer gefunden.`) : "";
   return (
     <div className="relative space-y-1.5">
       <label htmlFor={`${uid}-q`} className="block text-sm font-medium text-zinc-300">
@@ -87,8 +97,9 @@ export function MemberPicker({
         <Input
           id={`${uid}-q`}
           role="combobox"
-          aria-expanded={open && items.length > 0}
+          aria-expanded={showList && items.length > 0}
           aria-controls={listId}
+          aria-activedescendant={showList && items[active] ? optionId(active) : undefined}
           aria-autocomplete="list"
           aria-invalid={error ? true : undefined}
           autoComplete="off"
@@ -100,7 +111,10 @@ export function MemberPicker({
           onChange={(e) => {
             setQ(e.target.value);
             setOpen(true);
-            if (e.target.value.trim() === "") setItems([]);
+            // Treffer der vorigen Eingabe nicht stehen lassen: bis die Antwort da ist, läuft die Suche.
+            setItems([]);
+            setFailed(false);
+            setLoading(e.target.value.trim() !== "");
           }}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
@@ -118,12 +132,16 @@ export function MemberPicker({
           }}
         />
       </div>
-      {open && q.trim() !== "" && (
+      <p className="sr-only" role="status" aria-live="polite">
+        {status}
+      </p>
+      {showList && (
         <ul id={listId} role="listbox" aria-label="Treffer" className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-zinc-700 bg-zinc-900 py-1 shadow-xl">
-          {failed && <li className="px-3 py-2 text-sm text-rose-300">Die Suche ist fehlgeschlagen.</li>}
-          {!failed && items.length === 0 && <li className="px-3 py-2 text-sm text-zinc-500">Kein aktives Mitglied gefunden.</li>}
+          {failed && <li role="presentation" className="px-3 py-2 text-sm text-rose-300">Die Suche ist fehlgeschlagen.</li>}
+          {!failed && loading && <li role="presentation" className="px-3 py-2 text-sm text-zinc-400">Suche …</li>}
+          {!failed && !loading && items.length === 0 && <li role="presentation" className="px-3 py-2 text-sm text-zinc-500">Kein aktives Mitglied gefunden.</li>}
           {items.map((m, i) => (
-            <li key={m.id} role="option" aria-selected={i === active}>
+            <li key={m.id} id={optionId(i)} role="option" aria-selected={i === active}>
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}

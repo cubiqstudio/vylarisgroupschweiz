@@ -9,6 +9,7 @@ import {
   agingSummary,
   daysOverdue,
   feeItemDescription,
+  invoiceLinkExpiry,
   paymentStateLabel,
   periodLabel,
   planInvoiceRun,
@@ -30,7 +31,7 @@ import { dueDateForLevel, reminderStateOf, type ReminderState } from "./fees-rem
 import type { PaymentMethod } from "./constants";
 import { formatChf, openAmount } from "./money";
 import { parseInvoiceReference } from "./qr-bill";
-import { fiscalStartOf, getVereinSettings, missingForReminders, reminderFeeFor } from "./settings";
+import { fiscalStartOf, getVereinSettings, missingForReminders, reminderFeeFor, type VereinSettings } from "./settings";
 import { emailSchema } from "./validation";
 
 const conflict = (message: string): never => {
@@ -169,6 +170,11 @@ export type RunOutcome = {
   created: number;
 };
 
+/** Die Sperre eines Rechnungslaufs gilt höchstens so lange (Schutz vor einem abgebrochenen Lauf). */
+const RUN_LOCK_MS = 5 * 60 * 1000;
+
+type RunMember = Parameters<typeof createInvoiceRecord>[1]["member"];
+
 export async function runPeriod(
   admin: Actor,
   periodId: string,
@@ -203,22 +209,57 @@ export async function runPeriod(
   };
   if (opts.dryRun || plan.entries.length === 0) return outcome;
 
+  // Sperre gegen gleichzeitige Läufe (Doppelklick, zwei Sitzungen): nur ein Aufruf bekommt sie, sie läuft nach wenigen Minuten ab.
+  const lockedAt = new Date();
+  const lock = await db.feePeriod.updateMany({
+    where: { id: periodId, OR: [{ runLockedAt: null }, { runLockedAt: { lt: new Date(lockedAt.getTime() - RUN_LOCK_MS) } }] },
+    data: { runLockedAt: lockedAt },
+  });
+  if (lock.count === 0) conflict("Für dieses Beitragsjahr läuft gerade ein Rechnungslauf. Bitte warte einen Moment und lade die Seite neu.");
+  try {
+    const created = await createRunInvoices(admin, period, plan.entries, byId, settings, opts);
+    await db.$transaction(async (tx) => {
+      await tx.feePeriod.update({ where: { id: periodId }, data: { invoicedAt: new Date() } });
+      await logAudit(tx, {
+        actor: auditActor(admin),
+        action: "invoice.run",
+        objectType: "FeePeriod",
+        objectId: periodId,
+        summary: `Rechnungslauf ${period.year}: ${created} Rechnungen als Entwurf erstellt (CHF ${formatChf(plan.totalRappen)})`,
+        after: { year: period.year, created, totalRappen: plan.totalRappen, prorate: opts.prorate, roundToFive: opts.roundToFive },
+      });
+    });
+    return { ...outcome, created };
+  } finally {
+    await db.feePeriod.updateMany({ where: { id: periodId, runLockedAt: lockedAt }, data: { runLockedAt: null } });
+  }
+}
+
+/** Legt die Rechnungen des Laufs an (je Mitglied eine Transaktion; ein bereits vorhandenes Duplikat wird übersprungen). */
+async function createRunInvoices(
+  admin: Actor,
+  period: { id: string; year: number; label: string },
+  entries: ReadonlyArray<{ memberId: string; amountRappen: number; months: number | null }>,
+  byId: ReadonlyMap<string, RunMember>,
+  settings: VereinSettings,
+  opts: { categoryId: string | null; issueDate?: Date },
+): Promise<number> {
   const issueDate = opts.issueDate ?? todayZurich();
   const dueDate = addDays(issueDate, settings.paymentDays ?? 0);
   const subject = periodLabel(period.year, period.label);
   let created = 0;
-  for (const entry of plan.entries) {
+  for (const entry of entries) {
     const member = byId.get(entry.memberId)!;
     await db.$transaction(async (tx) => {
       // Doppelt abgesichert: zwischen Vorschau und Lauf könnte eine Rechnung entstanden sein.
-      const dup = await tx.invoice.findFirst({ where: { memberId: member.id, periodId, status: { not: "STORNIERT" } }, select: { id: true } });
+      const dup = await tx.invoice.findFirst({ where: { memberId: member.id, periodId: period.id, status: { not: "STORNIERT" } }, select: { id: true } });
       if (dup) return;
       await createInvoiceRecord(tx, {
         member,
         subject,
         issueDate,
         dueDate,
-        periodId,
+        periodId: period.id,
         notes: "",
         items: [{ description: feeItemDescription(period.label, period.year, entry.months), quantity: 1, unitRappen: entry.amountRappen, categoryId: opts.categoryId }],
         settings,
@@ -227,18 +268,7 @@ export async function runPeriod(
       created += 1;
     });
   }
-  await db.$transaction(async (tx) => {
-    await tx.feePeriod.update({ where: { id: periodId }, data: { invoicedAt: new Date() } });
-    await logAudit(tx, {
-      actor: auditActor(admin),
-      action: "invoice.run",
-      objectType: "FeePeriod",
-      objectId: periodId,
-      summary: `Rechnungslauf ${period.year}: ${created} Rechnungen als Entwurf erstellt (CHF ${formatChf(plan.totalRappen)})`,
-      after: { year: period.year, created, totalRappen: plan.totalRappen, prorate: opts.prorate, roundToFive: opts.roundToFive },
-    });
-  });
-  return { ...outcome, created };
+  return created;
 }
 
 // ---- Mahnwesen --------------------------------------------------------------------------------------------------------------
@@ -301,7 +331,7 @@ async function deliverReminderMail(invoiceId: string, reminderId: string, level:
     return { mailSent: false, message };
   }
   const token = newViewToken();
-  await db.invoice.update({ where: { id: invoiceId }, data: { viewTokenHash: sha256(token) } });
+  await db.invoice.update({ where: { id: invoiceId }, data: { viewTokenHash: sha256(token), viewTokenExpiresAt: invoiceLinkExpiry(new Date(), inv.dueDate) } });
   const sent = await sendReminderMail({ to: email.data, firstName: inv.member.firstName }, inv, { level, dueDate: reminder.dueDate, feeRappen: reminder.feeRappen }, token);
   if (sent.ok) {
     await db.reminder.update({ where: { id: reminderId }, data: { sentAt: new Date(), mailSent: true, mailError: "" } });
@@ -505,17 +535,21 @@ export async function commitPaymentImport(
       continue;
     }
     try {
-      const r = await recordPayment(admin, {
-        invoiceId: result.invoice.id,
-        receivedAt: row.date ?? todayZurich(),
-        amount: result.amountRappen,
-        method: opts.method,
-        reference: row.reference,
-        note: "Aus Zahlungsliste importiert",
-        assetAccountId: opts.assetAccountId,
-        incomeAccountId: opts.incomeAccountId,
-      });
-      out.push({ line: row.line, ok: true, message: `Gebucht auf ${result.invoice.number}${r.booking.status === "PENDING" ? " (noch nicht in der Kassa gebucht)" : ""}.`, result: r });
+      const r = await recordPayment(
+        admin,
+        {
+          invoiceId: result.invoice.id,
+          receivedAt: row.date ?? todayZurich(),
+          amount: result.amountRappen,
+          method: opts.method,
+          reference: row.reference,
+          note: "Aus Zahlungsliste importiert",
+          assetAccountId: opts.assetAccountId,
+          incomeAccountId: opts.incomeAccountId,
+        },
+        { rejectDuplicate: true }, // gleichzeitige Importe derselben Datei erzeugen keine doppelten Zahlungen
+      );
+      out.push({ line: row.line, ok: true, message: `Gebucht auf ${result.invoice.number}${r.booking.status === "PENDING" ? " (noch nicht in der Kasse gebucht)" : ""}.`, result: r });
     } catch (e) {
       out.push({ line: row.line, ok: false, message: e instanceof ApiError ? e.message : "Fehler beim Erfassen." });
     }

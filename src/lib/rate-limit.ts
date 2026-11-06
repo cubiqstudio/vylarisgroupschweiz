@@ -22,19 +22,38 @@ export function resetRateLimit(key: string) {
 }
 
 /**
- * Client-IP für Rate-Limits. Welchem Header man trauen darf, hängt vom Betrieb ab (Umgebungsvariable TRUST_PROXY):
- *  - "cloudflare": Betrieb hinter Cloudflare Tunnel. Cloudflare setzt CF-Connecting-IP selbst (Clients können ihn nicht vorgeben).
- *    Fehlt er, zählt der LETZTE X-Forwarded-For-Eintrag (den hängt der nächste Proxy an).
- *  - sonst (Caddy/Direktbetrieb): Caddy ersetzt X-Forwarded-For durch die echte Client-IP; der erste Eintrag zählt.
+ * Client-IP aus den Proxy-Headern (reine Funktion, testbar). Der Eintrag wird von RECHTS gezählt: Jeder vertrauenswürdige Proxy hängt die
+ * Adresse seines Gegenübers hinten an; was Clients vorne in X-Forwarded-For schreiben, hat keinen Einfluss.
+ *  - cloudflare: CF-Connecting-IP (setzt Cloudflare selbst), sonst der letzte X-Forwarded-For-Eintrag.
+ *  - sonst: der `hops`-te Eintrag von rechts (Standard 1 = ein vertrauenswürdiger Proxy, z. B. Caddy; hält die Kette kürzer, der erste).
+ */
+export function pickClientIp(h: { forwardedFor: string | null; cfConnectingIp: string | null; realIp: string | null; trustProxy: string; hops: number }): string {
+  const entries = (h.forwardedFor ?? "").split(",").map((e) => e.trim()).filter(Boolean);
+  if (h.trustProxy.toLowerCase() === "cloudflare") {
+    const cf = h.cfConnectingIp?.trim();
+    if (cf) return cf;
+    return entries[entries.length - 1] || h.realIp || "unknown";
+  }
+  if (entries.length > 0) {
+    const hops = Number.isInteger(h.hops) && h.hops >= 1 ? h.hops : 1;
+    return entries[Math.max(0, entries.length - hops)]!;
+  }
+  return h.realIp ?? "unknown";
+}
+
+/**
+ * Client-IP für Rate-Limits. Welchem Header man trauen darf, hängt vom Betrieb ab:
+ *  - TRUST_PROXY=cloudflare: Betrieb hinter Cloudflare Tunnel (CF-Connecting-IP).
+ *  - TRUST_PROXY_HOPS (Standard 1): Anzahl vertrauenswürdiger Proxys vor der App; gezählt wird X-Forwarded-For von rechts.
+ * Der Proxy muss die Adresse seines Gegenübers anhängen oder den Header ersetzen. Reicht er einen vom Client gesetzten Header
+ * unverändert durch (und hängt nichts an), lassen sich die IP-Limits umgehen.
  */
 export function clientIp(req: Request): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  if ((process.env.TRUST_PROXY ?? "").toLowerCase() === "cloudflare") {
-    const cf = req.headers.get("cf-connecting-ip")?.trim();
-    if (cf) return cf;
-    const last = fwd?.split(",").pop()?.trim();
-    return last || req.headers.get("x-real-ip") || "unknown";
-  }
-  if (fwd) return fwd.split(",")[0]!.trim();
-  return req.headers.get("x-real-ip") ?? "unknown";
+  return pickClientIp({
+    forwardedFor: req.headers.get("x-forwarded-for"),
+    cfConnectingIp: req.headers.get("cf-connecting-ip"),
+    realIp: req.headers.get("x-real-ip"),
+    trustProxy: process.env.TRUST_PROXY ?? "",
+    hops: Number(process.env.TRUST_PROXY_HOPS ?? "1"),
+  });
 }

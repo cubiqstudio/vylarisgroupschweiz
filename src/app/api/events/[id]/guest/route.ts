@@ -17,7 +17,9 @@ const tooMany = (retryAfter: number) =>
 
 /**
  * Anmeldung eines Gastes (ohne Konto) zu einem öffentlichen Anlass, der Gäste zulässt.
- * Bestätigung und Abmelde-Link gehen per Mail an die angegebene Adresse. Honeypot und Rate-Limits gegen Missbrauch.
+ * Double-Opt-In: Die Anmeldung ist zunächst unbestätigt (kein Platz, keine Warteliste); an die angegebene Adresse geht ein Link zur Bestätigung
+ * (48 Stunden gültig). Erst der Klick darauf vergibt Platz oder Warteliste und löst die Mail mit dem Abmelde-Link aus. Honeypot und Rate-Limits gegen Missbrauch.
+ * Die Antwort ist für neue und bereits angemeldete Adressen identisch (keine Auskunft über Dritte).
  */
 export const POST = handle(async (req: Request, { params }: IdContext) => {
   assertSameOrigin(req);
@@ -32,7 +34,7 @@ export const POST = handle(async (req: Request, { params }: IdContext) => {
   if (typeof body !== "object" || body === null || Array.isArray(body)) throw new ApiError(400, "BAD_JSON", "Der Body muss ein JSON-Objekt sein.");
   // Honeypot: Bots füllen das versteckte Feld «website». Wir tun so, als wäre alles gut – ohne zu speichern.
   const trap = (body as Record<string, unknown>).website;
-  if (typeof trap === "string" && trap !== "") return ok({ status: "ANGEMELDET" as const, seats: 1 }, 201, { headers: { "Cache-Control": "no-store" } });
+  if (typeof trap === "string" && trap !== "") return ok({ received: true as const }, 201, { headers: { "Cache-Control": "no-store" } });
 
   const input = guestRegistrationSchema.parse(body);
 
@@ -42,6 +44,9 @@ export const POST = handle(async (req: Request, { params }: IdContext) => {
   const mailLimit = rateLimit(`event-guest-email:${id}:${input.email}`, PER_EMAIL_LIMIT, WINDOW_MS);
   if (!mailLimit.ok) return tooMany(mailLimit.retryAfter);
 
-  const outcome = await registerForEvent({ eventId: id, who: { kind: "guest", name: input.name, email: input.email, consent: input.consent }, seats: input.seats, note: input.note });
-  return ok({ status: outcome.status, seats: outcome.seats }, outcome.created ? 201 : 200, { headers: { "Cache-Control": "no-store" } });
+  await registerForEvent({ eventId: id, who: { kind: "guest", name: input.name, email: input.email, consent: input.consent }, seats: input.seats, note: input.note });
+  // Immer dieselbe Antwort, ob die Adresse neu ist oder schon angemeldet war: Wer das Formular missbraucht, erfährt nichts über Dritte.
+  // Auch eine unbestätigte, noch offene Anmeldung ergibt dieselbe Antwort; die Bestätigungsmail geht dann höchstens alle paar Minuten erneut hinaus.
+  // Der tatsächliche Stand (angemeldet oder Warteliste) steht erst in der Mail nach der Bestätigung.
+  return ok({ received: true as const }, 201, { headers: { "Cache-Control": "no-store" } });
 });

@@ -1,4 +1,4 @@
-// Fachlogik der Kassa (rein, ohne Seiteneffekte, ohne Datenbank): Salden, Jahresrechnung, Monatsbilanz, Budgetvergleich,
+// Fachlogik der Kasse (rein, ohne Seiteneffekte, ohne Datenbank): Salden, Jahresrechnung, Monatsbilanz, Budgetvergleich,
 // Buchungsregeln, Abschlussregeln und die Vorlage für den Kontenplan.
 //
 // Einfache Buchhaltung (Einnahmen-/Ausgabenrechnung mit Vermögensübersicht):
@@ -9,7 +9,7 @@
 //  - Eine Gegenbuchung (Storno) übernimmt Richtung und Konten der Originalbuchung, hebt aber jede Wirkung auf (Vorzeichen -1).
 //  - Das Ergebnis eines Geschäftsjahres ist Einnahmen minus Ausgaben und entspricht der Veränderung der Vermögenskonten, solange jede
 //    Einnahme und Ausgabe ein Vermögenskonto trägt.
-import { canAccess } from "./permissions";
+import { canAccess, canCloseFiscalYear as canCloseFiscalYearByRole } from "./permissions";
 import { fiscalYearRange, formatDateCh, zurichParts, type FiscalStart } from "./dates";
 
 // ---- Typen -------------------------------------------------------------------------------------------------------------
@@ -168,10 +168,13 @@ export function fiscalMonths(year: number, start: FiscalStart): FiscalMonth[] {
   });
 }
 
-/** Monatsnummer (0 bis 11) des Datums im Geschäftsjahr oder null, wenn es nicht hineinfällt. */
+/**
+ * Monatsnummer (0 bis 11) des Datums im Geschäftsjahr oder null, wenn es nicht hineinfällt. Ein «Monat» des Geschäftsjahres beginnt am
+ * Beginntag (Beginn 15.7.: Monat 0 = 15.7. bis 14.8.), damit jede Buchung des Jahres genau einem Monat zugerechnet wird.
+ */
 export function monthIndexOf(date: Date, year: number, start: FiscalStart): number | null {
   const p = zurichParts(date);
-  const idx = (p.year - year) * 12 + (p.month - start.month);
+  const idx = (p.year - year) * 12 + (p.month - start.month) - (p.day < start.day ? 1 : 0);
   return idx >= 0 && idx < 12 ? idx : null;
 }
 
@@ -377,12 +380,11 @@ export function reversalText(original: { voucherNo: string; text: string }, reas
 export const canWriteLedger = (roles: readonly string[]): boolean => canAccess(roles, "ledger", "write");
 
 /**
- * Geschäftsjahr abschliessen, wieder öffnen oder genehmigen: Kassier (Schreibrecht in der Kassa) und Präsident sowie Inhaber und
- * Administration. Revisor, Vize-Präsident und übrige Rollen nur lesen.
+ * Geschäftsjahr abschliessen, wieder öffnen oder genehmigen: eigenes Einzelrecht «fiscalYearClose» (Rollen und Rechte), wirksam nur
+ * zusammen mit mindestens Leserecht auf die Kasse. Voreinstellung: Inhaber, Administration, Präsident/in und Kassier/in. Das normale
+ * Buchen bleibt am Schreibrecht (canWriteLedger). Die Regel selbst steht in permissions.ts; die Matrix hängt an `roles`.
  */
-export function canCloseFiscalYear(roles: readonly string[]): boolean {
-  return canWriteLedger(roles) || roles.includes("PRAESIDENT");
-}
+export const canCloseFiscalYear = (roles: readonly string[]): boolean => canCloseFiscalYearByRole(roles);
 
 // ---- Abschluss ---------------------------------------------------------------------------------------------------------------
 

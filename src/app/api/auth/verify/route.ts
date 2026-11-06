@@ -23,8 +23,9 @@ export const POST = handle(async (req: Request) => {
   const userId = await consumeToken(parsed.data.token, "EMAIL_VERIFY");
   if (!userId) throw new ApiError(400, "INVALID_TOKEN", INVALID);
 
-  // Bereits gesetzte Bestätigungszeitpunkte nicht überschreiben.
+  // Bereits gesetzte Bestätigungszeitpunkte nicht überschreiben. Der Mail-Link ist der Nachweis für die Verknüpfung mit einem Mitglied.
   await db.user.updateMany({ where: { id: userId, emailVerifiedAt: null }, data: { emailVerifiedAt: new Date() } });
+  await db.user.update({ where: { id: userId }, data: { emailVerifiedViaMail: true } });
   // Gehört die bestätigte Adresse einem aktiven Mitglied, das Konto verknüpfen (best effort, nie blockierend).
   try {
     await linkAccountByVerifiedEmail(userId);

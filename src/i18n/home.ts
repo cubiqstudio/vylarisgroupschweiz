@@ -14,6 +14,8 @@ export const home = defineMessages({
   },
   values: {
     eyebrow: "Warum VylarisGroup",
+    boardPhotoAlt: "Der Vorstand der VylarisGroup: drei Vorstandsmitglieder",
+    boardPhotoCaption: "Der Vorstand der VylarisGroup",
     heading: "In kleinen Schritten zum grossen Ziel.",
     items: [
       {

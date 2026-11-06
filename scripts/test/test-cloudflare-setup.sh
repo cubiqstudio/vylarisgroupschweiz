@@ -57,17 +57,18 @@ ENVF="$WORK/env"
 
 echo "1. Erstlauf"
 start_mock
-printf 'FOO=bar\n' >"$ENVF"; chmod 644 "$ENVF"
+printf 'FOO=bar\nCRON_SECRET=geheimer-wert-des-taeglichen-laufs-0123456789\n' >"$ENVF"; chmod 644 "$ENVF"
 run_setup "$TOK"
 check "Exit-Code 0" test "$RC" -eq 0
 check "genau ein Tunnel 'vylaris-schweiz'" jqs '(.tunnels | length) == 1 and ([.tunnels[].name] == ["vylaris-schweiz"])'
 check "2 DNS-Einträge (vylaris.ch und www), beide CNAME proxied" \
   jqs '([.dns[][]] | length) == 2 and all(.dns[][]; .type == "CNAME" and .proxied == true and (.content | endswith(".cfargotunnel.com")))'
 # shellcheck disable=SC2016 # jq-Ausdruck, keine Shell-Variablen
-check "Ingress: vylaris.ch und www.vylaris.ch → http://app:3000 + 404" \
-  jqs '(.configs | to_entries[0].value.ingress) as $i | ($i | length) == 3 and ([$i[0:2][].hostname] == ["vylaris.ch", "www.vylaris.ch"]) and ($i[0:2] | all(.service == "http://app:3000")) and ($i[2] == {"service": "http_status:404"})'
+check "Ingress: /api/cron/* → 404, danach vylaris.ch und www.vylaris.ch → http://app:3000, sonst 404" \
+  jqs '(.configs | to_entries[0].value.ingress) as $i | ($i | length) == 5 and ([$i[0:2][].hostname] == ["vylaris.ch", "www.vylaris.ch"]) and ($i[0:2] | all(.path == "^/api/cron(/|$)" and .service == "http_status:404")) and ([$i[2:4][].hostname] == ["vylaris.ch", "www.vylaris.ch"]) and ($i[2:4] | all(.service == "http://app:3000" and (has("path") | not))) and ($i[4] == {"service": "http_status:404"})'
 check ".env enthält CLOUDFLARE_TUNNEL_TOKEN" grep -q '^CLOUDFLARE_TUNNEL_TOKEN=.\+' "$ENVF"
 check ".env behält bestehende Werte" grep -q '^FOO=bar$' "$ENVF"
+check ".env behält CRON_SECRET (täglicher Lauf) unverändert und gibt es nicht aus" bash -c "grep -q '^CRON_SECRET=geheimer-wert-des-taeglichen-laufs-0123456789\$' '$ENVF' && ! printf '%s' \"\$1\" | grep -q 'geheimer-wert-des-taeglichen-laufs'" _ "$OUT"
 check ".env hat Rechte 600" test "$(stat -c %a "$ENVF")" = 600
 check "API-Token nicht in .env" no_secret_in "$ENVF"
 check "API-Token/Tunnel-Token nicht in der Ausgabe" out_clean

@@ -146,7 +146,7 @@ export default async function AdminMeetingPage({ params, searchParams }: Props) 
       {tab === "uebersicht" && (
         <div className="space-y-6">
           <MeetingStatusActions meeting={{ id: m.id, title: m.title, status: m.status, invitationCount: m.invitationCount, minutesApproved: locked }} canWrite={canWrite} />
-          <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
             <MeetingForm
               canWrite={canWrite}
               kindLocked={m.invitationCount > 0 || m.invitationSentAt !== null || locked}
