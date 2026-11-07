@@ -1,19 +1,20 @@
 import "server-only";
 import { intlTag } from "@/i18n";
-import { parseIsoDate, resolveShow, visibleImprint, type LegalContent } from "@/lib/legal-toggles";
+import { latestPrivacyDate, resolveShow, visibleImprint, type LegalContent } from "@/lib/legal-toggles";
 import { getLegalSettings } from "@/lib/settings";
 import { site } from "@/lib/site";
 
 /**
  * Stand der Datenschutzerklärung, solange in den Einstellungen noch keiner gespeichert ist (ISO-Datum).
- * Im Betrieb gilt der Wert aus «Einstellungen → Rechtliches» (legal.privacyUpdatedAt): Er wird beim Speichern automatisch
- * erneuert, wenn sich die Erklärung dadurch ändert. Die Seite zeigt ihn als «Stand: 5.11.2026» an.
+ * Im Betrieb gilt das spätere Datum von «Einstellungen → Rechtliches» (legal.privacyUpdatedAt, wird beim Speichern automatisch
+ * erneuert, wenn sich die Erklärung dadurch ändert) und diesem Wert (latestPrivacyDate). Die Seite zeigt es als «Stand: 7.11.2026» an.
+ * Bei jeder inhaltlichen Änderung der Texte im Code diesen Wert auf das Änderungsdatum setzen.
  */
-export const PRIVACY_UPDATED_AT = "2026-11-05";
+export const PRIVACY_UPDATED_AT = "2026-11-07";
 
 /** Stand-Datum in der Schreibweise der aktiven Sprache (de-CH: 5.11.2026). */
 export function formatPrivacyUpdatedAt(iso?: string): string {
-  const date = parseIsoDate(iso) || PRIVACY_UPDATED_AT;
+  const date = latestPrivacyDate(iso, PRIVACY_UPDATED_AT);
   return new Intl.DateTimeFormat(intlTag(), {
     day: "numeric",
     month: "numeric",

@@ -69,7 +69,7 @@ export async function Datenschutz() {
     has("kontakt") && <>wenn du uns über das Kontaktformular kontaktierst{paren("kontakt")}</>,
     has("konto") && <>wenn du ein Nutzerkonto anlegst und verwendest{paren("konto", "lizenzen", "mail")}</>,
     has("newsletter") && <>wenn du dich für den Newsletter anmeldest{paren("newsletter")}</>,
-    has("mitglieder") && <>wenn du dich als Mitglied bewirbst oder Mitglied bist{paren("mitglieder", "ausweis", "beitraege", "versammlungen")}</>,
+    has("mitglieder") && <>wenn du dich als Mitglied bewirbst oder Mitglied bist{paren("mitglieder", "ausweis", "tuerkontrolle", "beitraege", "versammlungen")}</>,
     has("anlaesse") && <>wenn du dich für einen Anlass anmeldest{paren("anlaesse")}</>,
   ].filter(Boolean) as ReactNode[];
 
@@ -584,6 +584,56 @@ export async function Datenschutz() {
         </Sec>
       )}
 
+      {has("tuerkontrolle") && (
+        <Sec id="tuerkontrolle">
+          <p>
+            An Anlässen kann der Verein die Mitgliedschaft an der Tür mit der Android-App «Vylaris Scanner» prüfen. Die App
+            funktioniert nur auf Geräten, die der Vorstand in der Verwaltung gekoppelt hat; der Vorstand kann ein Gerät
+            jederzeit sperren, ein gesperrtes Gerät erhält keine Angaben mehr.
+          </p>
+          <h3>Bearbeitete Daten</h3>
+          <ul>
+            <li>
+              Prüfung des Ausweises: Die App sendet nur die Kennung aus dem QR-Code deines Mitgliederausweises{paren("ausweis")} an
+              diese Website. Die Website antwortet, ob deine Mitgliedschaft gültig ist, und liefert Name, Mitgliedernummer, Status,
+              Eintrittsdatum, Mitgliedschaftsart und aktuelle Ämter. Das gilt auch, wenn die Mitgliedschaft nicht mehr aktiv ist.
+            </li>
+            <li>
+              Manuelle Suche: Ist der Ausweis nicht zur Hand, sucht die Türkontrolle nach Name oder Mitgliedernummer. Die Suche zeigt
+              dieselben Angaben und findet auch frühere Mitglieder, deren Daten nicht anonymisiert sind{paren("mitglieder")}.
+            </li>
+            <li>
+              Anmeldung zu einem Anlass: Wählt die Türkontrolle einen Anlass, zeigt sie dazu deine Anmeldung{paren("anlaesse")}: Status,
+              Zahl der Plätze, den Zeitpunkt einer Anwesenheit und deine Anmerkung. Die Anmerkung ist ein Freitext und kann
+              Gesundheitsangaben enthalten, etwa Allergien, wenn du sie dort eingetragen hast.
+            </li>
+            <li>
+              Check-in: Trägt die Türkontrolle dich als anwesend ein (auch von Hand oder rückgängig), vermerkt die Website die
+              Anwesenheit bei deiner Anmeldung. Im Änderungsprotokoll{paren("audit")} stehen die Mitgliedernummer, der Anlass, der
+              Zeitpunkt und das verwendete Gerät; dein Name steht dort nicht.
+            </li>
+          </ul>
+          <h3>Zweck und Grundlage</h3>
+          <p>
+            Wir bearbeiten die Angaben, um an der Tür zu prüfen, ob eine Person Mitglied ist und für den Anlass angemeldet ist, und
+            um die Anwesenheit festzuhalten. Grundlage ist das Mitgliedschaftsverhältnis und das Interesse des Vereins an einer
+            geordneten Durchführung seiner Anlässe.
+          </p>
+          <h3>Empfänger und Zugriff</h3>
+          <p>
+            Die Angaben gehen nur an ein gültiges, vom Vorstand gekoppeltes Gerät und werden dort angezeigt. Die Angaben werden in
+            der App nur angezeigt; sie sind nicht dafür vorgesehen, dort gespeichert zu werden. Es erfolgt keine Weitergabe an
+            Dritte. Abfragen werden nicht protokolliert, nur Eingriffe (Check-in und dessen Rücknahme).
+          </p>
+          <h3>Aufbewahrung und Löschung</h3>
+          <p>
+            Es gelten dieselben Aufbewahrungs- und Löschregeln wie für die Mitgliederdaten und die Anmeldungen
+            {paren("mitglieder", "anlaesse", "aufbewahrung")}. Einträge im Änderungsprotokoll bleiben bestehen{paren("audit")}.
+          </p>
+          {rights()}
+        </Sec>
+      )}
+
       {has("beitraege") && (
         <Sec id="beitraege">
           <p>
@@ -802,7 +852,8 @@ export async function Datenschutz() {
             </li>
             <li>
               die Handlung (etwa Mitglied geändert oder ausgetreten, Rolle geändert, Rechnung erstellt oder storniert,
-              Buchung korrigiert, Jahr abgeschlossen, Einstellungen geändert, Export von Mitgliederlisten) und das
+              Buchung korrigiert, Jahr abgeschlossen, Einstellungen geändert, Export von Mitgliederlisten, Check-in
+              an der Türkontrolle mit Mitgliedernummer und Gerät, aber ohne Name) und das
               betroffene Objekt mit Typ und Kennung
             </li>
             <li>

@@ -301,7 +301,17 @@ export const PRIVACY_SECTIONS = [
     item: {
       group: "verein",
       label: "Digitaler Mitgliederausweis",
-      description: "Mitgliederausweis im Mitgliederportal.",
+      description: "Mitgliederausweis im Mitgliederportal (Abschnitt entfällt ganz, wenn ausgeschaltet).",
+    },
+  },
+  {
+    id: "tuerkontrolle",
+    title: "Türkontrolle mit der App",
+    item: {
+      group: "verein",
+      label: "Türkontrolle mit der App",
+      description:
+        "Prüfung des Ausweises und manuelle Suche mit der Scanner-App an der Tür. Nur ausschalten, wenn keine Geräte gekoppelt sind (Seite «Scanner» in der Verwaltung).",
     },
   },
   {
@@ -507,6 +517,17 @@ export function parseIsoDate(v: string | undefined | null): string {
   if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return "";
   const d = new Date(`${v}T00:00:00Z`);
   return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v ? "" : v;
+}
+
+/**
+ * Angezeigter Stand: das spätere von gespeichertem Datum (Einstellungen) und Datum der Texte im Code (`codeDate`).
+ * So zeigt eine Bestandsinstallation nach einem Update, das die Erklärung ändert, nicht den älteren gespeicherten Stand.
+ * Ungültige oder fehlende Werte zählen nicht; ISO-Daten lassen sich als Text vergleichen.
+ */
+export function latestPrivacyDate(stored: string | undefined | null, codeDate: string): string {
+  const s = parseIsoDate(stored);
+  const c = parseIsoDate(codeDate);
+  return s > c ? s : c || s;
 }
 
 /** Heutiges Datum in Zürcher Zeit als «JJJJ-MM-TT». */

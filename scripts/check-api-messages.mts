@@ -17,8 +17,8 @@ import { swissText } from "../src/i18n/server-messages.ts";
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 /** Öffentliche Routen und Hilfsordner unter src/app/api (der Admin-Bereich bleibt deutsch und ist ausgenommen). */
-const API_DIRS = ["auth", "account", "contact", "newsletter", "avatar", "blog", "services", "status", "health", "_lib"];
-const LIB_FILES = ["validation", "validation-licenses", "licenses", "api", "account", "mailer", "rate-limit", "tokens", "auth", "team"].map((n) => `src/lib/${n}.ts`);
+const API_DIRS = ["auth", "account", "contact", "newsletter", "avatar", "blog", "services", "status", "health", "scanner", "_lib"];
+const LIB_FILES = ["validation", "validation-licenses", "licenses", "api", "account", "mailer", "rate-limit", "tokens", "auth", "team", "scanner", "scanner-lib", "scanner-data"].map((n) => `src/lib/${n}.ts`);
 const EXTRA_FILES = ["src/middleware.ts"];
 
 function walk(dir: string): string[] {

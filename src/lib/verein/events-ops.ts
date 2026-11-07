@@ -394,6 +394,24 @@ async function registrationOf(tx: Tx, eventId: string, regId: string) {
   return reg;
 }
 
+/** Regel für die Anwesenheit (Verwaltung und Scanner-Schnittstelle): Sie lässt sich nur bei angemeldeten Personen erfassen oder zurücknehmen. */
+export function assertAttendanceAllowed(status: string): void {
+  if (status !== "ANGEMELDET") throw new ApiError(409, "CONFLICT", "Die Anwesenheit lässt sich nur bei angemeldeten Personen erfassen.");
+}
+
+/**
+ * Setzt die Anwesenheit atomar (nur Anmeldungen mit Status ANGEMELDET): Der Check-in trägt nur ein, wenn noch keine Anwesenheit steht,
+ * das Zurücknehmen nur, wenn eine steht. So ergeben zwei gleichzeitige Check-ins nie zwei Einträge. Gibt zurück, ob DIESER Aufruf etwas geändert hat.
+ * (Die Verwaltung überschreibt den Zeitpunkt bewusst weiter von Hand, siehe adminRegistrationAction.)
+ */
+export async function markAttendance(tx: Tx, registrationId: string, attended: boolean, now: Date): Promise<boolean> {
+  const res = await tx.eventRegistration.updateMany({
+    where: attended ? { id: registrationId, status: "ANGEMELDET", attendedAt: null } : { id: registrationId, status: "ANGEMELDET", attendedAt: { not: null } },
+    data: { attendedAt: attended ? now : null },
+  });
+  return res.count === 1;
+}
+
 const noCapacity = () => new ApiError(409, "NO_CAPACITY", "Es sind nicht genug Plätze frei. Mit «Trotzdem anmelden» wird die Kapazität bewusst überschritten.");
 
 /** Der Vorstand trägt eine Person von Hand ein (Mitglied oder Gast). */
@@ -472,7 +490,7 @@ export async function adminRegistrationAction(admin: CurrentAdmin, eventId: stri
         return { ev, status, promoted: [], removed: null, promotedSelf: null };
       }
       case "attendance": {
-        if (reg.status !== "ANGEMELDET") throw new ApiError(409, "CONFLICT", "Die Anwesenheit lässt sich nur bei angemeldeten Personen erfassen.");
+        assertAttendanceAllowed(reg.status);
         await tx.eventRegistration.update({ where: { id: reg.id }, data: { attendedAt: input.attended ? now : null } });
         return { ev, status: reg.status, promoted: [], removed: null, promotedSelf: null };
       }

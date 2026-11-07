@@ -333,6 +333,20 @@ model ApiClient {
   revokedAt    DateTime?
 }
 
+// Scanner-Gerät (Android-App «Vylaris Scanner», Türkontrolle): Zugang per Bearer-Token (vgst_…), nur als SHA-256-Hash gespeichert.
+// Schnittstelle: docs/verein-scanner.md, Code: src/lib/scanner*.ts, src/app/api/scanner/v1/**.
+model ScannerDevice {
+  id         String    @id @default(cuid())
+  label      String
+  tokenHash  String    @unique
+  tokenHint  String // Anfang des Tokens zur Wiedererkennung
+  canCheckIn Boolean   @default(true)
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+}
+
 // =====================================================================================================================
 // VEREIN (ZGB Art. 60 ff.)
 // Konventionen:
