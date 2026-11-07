@@ -36,7 +36,8 @@ const PRINT_CSS = `
 @media print {
   html, body { background: #fff !important; }
   body *:not(:has(.invoice-sheet)):not(.invoice-sheet):not(.invoice-sheet *) { display: none !important; }
-  .invoice-sheet { position: absolute !important; left: 0 !important; top: 0 !important; margin: 0 !important; box-shadow: none !important; }
+  .invoice-wrap { position: static !important; overflow: visible !important; padding: 0 !important; }
+  .invoice-sheet { position: absolute !important; left: 0 !important; top: 0 !important; margin: 0 !important; box-shadow: none !important; min-height: 296mm !important; }
 }
 `;
 
@@ -72,7 +73,7 @@ export function InvoiceDocument({
   const payable = inv.status === "OFFEN" || inv.status === "ENTWURF";
 
   return (
-    <div className="overflow-x-auto pb-6">
+    <div className="invoice-wrap overflow-x-auto pb-6">
       <style>{PRINT_CSS}</style>
       <article
         className="invoice-sheet mx-auto shadow-lg"
