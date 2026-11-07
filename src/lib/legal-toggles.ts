@@ -301,7 +301,7 @@ export const PRIVACY_SECTIONS = [
     item: {
       group: "verein",
       label: "Digitaler Mitgliederausweis",
-      description: "Mitgliederausweis im Mitgliederportal.",
+      description: "Mitgliederausweis im Mitgliederportal und Türkontrolle mit der Scanner-App (Abschnitt entfällt ganz, wenn ausgeschaltet).",
     },
   },
   {

@@ -31,6 +31,7 @@ export const AUDIT_OBJECT_LABEL: Record<string, string> = {
   SiteSetting: "Systemeinstellung",
   User: "Website-Konto",
   MinutesRevision: "Protokollfassung",
+  ScannerDevice: "Scanner-Gerät",
 };
 
 /** Bezeichnung des Objekttyps (unbekannte Typen erscheinen unverändert). */
@@ -63,6 +64,7 @@ const PREFIX_LABEL: Record<string, string> = {
   export: "Export",
   newsletter: "Newsletter",
   user: "Website-Konto",
+  scanner: "Scanner",
 };
 
 const VERB_LABEL: Record<string, string> = {
@@ -138,6 +140,14 @@ const ACTION_LABEL: Record<string, string> = {
   "fiscalyear.unlock": "Geschäftsjahr wieder geöffnet",
   "fiscalyear.approve": "Jahresrechnung genehmigt",
   "fiscalyear.unapprove": "Genehmigung der Jahresrechnung aufgehoben",
+  // Türkontrolle mit der Scanner-App (Geräteverwaltung: Verwaltung; Check-in und Rücknahme: das Gerät)
+  "scanner.checkin": "Scanner: Check-in",
+  "scanner.undo": "Scanner: Check-in zurückgenommen",
+  "scanner.device.create": "Scanner-Gerät angelegt",
+  "scanner.device.revoke": "Scanner-Gerät gesperrt",
+  "scanner.device.activate": "Scanner-Gerät wieder aktiviert",
+  "scanner.device.update": "Scanner-Gerät geändert",
+  "scanner.device.delete": "Scanner-Gerät gelöscht",
   approve: "Genehmigt",
 };
 
@@ -205,6 +215,13 @@ export const AUDIT_FIELD_LABEL: Record<string, string> = {
   dueDate: "Fällig am",
   leftAt: "Austritt am",
   joinedAt: "Eintritt am",
+  // Scanner-Geräte und Check-ins
+  label: "Bezeichnung",
+  canCheckIn: "Darf einchecken",
+  active: "Aktiv",
+  memberNumber: "Mitgliedernummer",
+  attendedAt: "Anwesend seit",
+  attended: "Anwesend",
 };
 
 export const auditFieldLabel = (field: string): string => AUDIT_FIELD_LABEL[field] ?? field;

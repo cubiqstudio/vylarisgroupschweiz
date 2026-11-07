@@ -575,6 +575,17 @@ export async function Datenschutz() {
           <p>
             Der Ausweis ist nur nach Anmeldung in deinem Konto sichtbar. Es erfolgt keine Weitergabe an Dritte.
           </p>
+          <h3>Türkontrolle mit der App</h3>
+          <p>
+            An Anlässen kann der Verein den QR-Code deines Ausweises mit der Android-App «Vylaris Scanner» prüfen. Die App
+            funktioniert nur auf Geräten, die der Vorstand in der Verwaltung gekoppelt hat; ein verlorenes Gerät sperrt der
+            Vorstand sofort. Beim Scannen sendet die App nur die Kennung aus dem QR-Code an diese Website. Die Website
+            antwortet, ob deine Mitgliedschaft gültig ist, und liefert Name, Mitgliedernummer, Eintrittsdatum,
+            Mitgliedschaftsart und Ämter sowie bei einem gewählten Anlass den Stand deiner Anmeldung. Diese Angaben werden
+            nur angezeigt. Trägt die Türkontrolle dich als anwesend ein (Check-in), vermerkt die Website die Anwesenheit bei
+            deiner Anmeldung{paren("anlaesse")} und hält im Änderungsprotokoll die Mitgliedernummer, den Anlass, den
+            Zeitpunkt und das verwendete Gerät fest{paren("audit")}; dein Name steht dort nicht.
+          </p>
           <h3>Aufbewahrung und Löschung</h3>
           <p>
             Für den Ausweis gelten dieselben Aufbewahrungs- und Löschregeln wie für die Mitgliederdaten
@@ -802,7 +813,8 @@ export async function Datenschutz() {
             </li>
             <li>
               die Handlung (etwa Mitglied geändert oder ausgetreten, Rolle geändert, Rechnung erstellt oder storniert,
-              Buchung korrigiert, Jahr abgeschlossen, Einstellungen geändert, Export von Mitgliederlisten) und das
+              Buchung korrigiert, Jahr abgeschlossen, Einstellungen geändert, Export von Mitgliederlisten, Check-in
+              an der Türkontrolle mit Mitgliedernummer und Gerät, aber ohne Name) und das
               betroffene Objekt mit Typ und Kennung
             </li>
             <li>

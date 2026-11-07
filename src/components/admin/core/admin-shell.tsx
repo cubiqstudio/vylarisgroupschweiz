@@ -28,6 +28,7 @@ import {
   UserCog,
   Building2,
   SlidersHorizontal,
+  ScanQrCode,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -75,6 +76,7 @@ const NAV: AdminNavGroup<NavItem>[] = [
       { href: "/admin/verein/protokoll", label: "Änderungsprotokoll", icon: ScrollText, module: "audit" },
       { href: "/admin/verein/zugaenge", label: "Zugänge und Rollen", icon: UserCog, module: "system" },
       { href: "/admin/verein/rollen", label: "Rollen und Rechte", icon: SlidersHorizontal, module: "system" },
+      { href: "/admin/scanner", label: "Scanner", icon: ScanQrCode, module: "system" },
       { href: "/admin/settings", label: "Einstellungen", icon: Settings, module: "system" },
       { href: "/admin/account", label: "Mein Konto", icon: KeyRound, module: "self" },
     ],

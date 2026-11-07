@@ -395,6 +395,7 @@ Antwortformat: Erfolg `{ "data": … }`, Fehler `{ "error": { "code", "message",
 | `POST /api/auth/register`, `/verify`, `/resend` | Registrierung, E-Mail bestätigen, Bestätigungsmail erneut senden (rate-limitiert) |
 | `POST /api/auth/forgot`, `/reset` | Passwort-Reset anfordern bzw. mit Token setzen (rate-limitiert) |
 | `POST /api/licenses/verify` | Lizenz prüfen (Bearer-Token eines API-Zugangs, signierte Antwort, siehe [Lizenzen & Prüf-API](#lizenzen--prüf-api)) |
+| `/api/scanner/v1/…` (`me`, `events`, `scan`, `members`, `events/[id]/attendance`) | Schnittstelle der Android-App «Vylaris Scanner» für die Türkontrolle (Bearer-Token eines gekoppelten Geräts, rate-limitiert), siehe [docs/verein-scanner.md](docs/verein-scanner.md) |
 | `GET /api/avatar/[id]` | Profilbild eines Teammitglieds (nur mit Sitzung) |
 
 | Konto (beliebige Sitzung) | |
@@ -412,6 +413,7 @@ Antwortformat: Erfolg `{ "data": … }`, Fehler `{ "error": { "code", "message",
 | `/api/admin/tickets[/id]` · `/tickets/[id]/reply` | Liste (Filter, Suche, Pagination), Status/Notiz/Zuständigkeit ändern, löschen, per Mail antworten |
 | `/api/admin/newsletter/…` | Kampagnen (anlegen, bearbeiten, Testversand, Versand), Vorschau, Abonnenten (inkl. CSV-Export), Ein/Aus-Schalter |
 | `/api/admin/licenses[/id]` · `/webspace-requests[/id]` · `/products[/id]` · `/api-clients[/id]` | Lizenzen: Schlüssel und Anträge entscheiden, Produkte und API-Zugänge verwalten |
+| `/api/admin/scanner-devices[/id]` | Scanner-Geräte der Türkontrolle anlegen (Token einmalig), sperren, aktivieren, löschen (Modul «System») |
 | `/api/admin/stats` | Kennzahlen für die Übersicht |
 | `PATCH /api/admin/account/password` | Admin-Passwort ändern |
 | `/api/admin/settings` · `/settings/legal` · `/settings/mail` · `/settings/site` · `/settings/tickets` | Einstellungen lesen bzw. (PUT) speichern: Impressum-Daten, SMTP, Registrierung ein/aus, Ticket-Mails |

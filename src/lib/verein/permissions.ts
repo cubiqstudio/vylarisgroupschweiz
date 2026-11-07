@@ -465,6 +465,8 @@ const PATH_MODULES: ReadonlyArray<readonly [prefix: string, module: VereinModule
   ["/admin/verein/protokoll", "audit"],
   ["/admin/verein", "verein_settings"],
   ["/api/admin/access", "system"],
+  ["/api/admin/scanner-devices", "system"],
+  ["/admin/scanner", "system"],
   ["/api/admin/audit", "audit"],
   ["/api/admin/members", "members"],
   ["/admin/members", "members"],

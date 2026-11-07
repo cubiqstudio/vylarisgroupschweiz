@@ -170,6 +170,8 @@ Jedes Modul besitzt seine Routen, Komponenten (`src/components/admin/<modul>/**`
 | dokumente-aufgaben | `/admin/documents/**`, `/admin/tasks/**`, `/api/admin/documents/**`, `/api/admin/tasks/**`, `/api/documents/**`, `/account/verein/dokumente`, `/verein/statuten` | `Document`, `DocumentVersion`, `BoardTask` |
 | uebersicht-einstellungen | `/admin` (Dashboard), `/admin/verein/**` (Einstellungen, Finanzen, Zugänge, Protokoll), `/api/admin/settings/verein/**`, `/api/admin/access/**`, `/api/admin/audit/**`, `/account/verein` (Übersicht, Mitgliederausweis), Newsletter-Segmente | `AuditLog` (lesen), Einstellungen `verein.*`, `AdminUser` (Rollen), `NewsletterCampaign.segment*` |
 
+Schnittstelle für die Türkontrolle: Die getrennte Android-App «Vylaris Scanner» greift über `/api/scanner/v1/**` (Bearer-Token eines gekoppelten Geräts, Modell `ScannerDevice`) auf Mitgliederausweis, Anlass-Anmeldungen und Anwesenheit zu. Die Geräteverwaltung liegt unter `/admin/scanner` und `/api/admin/scanner-devices/**` (Modul `system`). Beschreibung der Schnittstelle, Kopplung und des Datenschutzes: [verein-scanner.md](verein-scanner.md).
+
 Gemeinsamer Kern (nur über Rückfrage ändern): `prisma/schema.prisma` (Grundstruktur, `Counter`), `src/lib/verein/*`, `src/components/admin/core/*`, Navigation, `src/lib/api.ts`, `src/lib/auth.ts`.
 
 Mitglieder-Seiten (`/account/verein/**`) liegen im gemeinsamen Rahmen `src/app/(site)/account/verein/layout.tsx` (zweite Reiterebene). Platzhalterseiten tragen im Kopf den Vermerk «Platzhalter (Besitzer: …)» und sind zu ersetzen.
@@ -272,6 +274,7 @@ await db.$transaction(async (tx) => {
 - Werte werden als JSON-Text abgelegt, ohne Geheimnisse (Schlüssel mit `pass`, `secret`, `token`, `hash`, `key` werden verborgen), gekürzt und ohne Zirkelbezüge (`serializeAuditValue`).
 - Aktionsnamen: `<objekt>.<verb>` (`member.create`, `member.exit`, `invoice.cancel`, `payment.create`, `transaction.reverse`, `fiscalyear.lock`, `settings.update`, `role.change`, `export.members`).
 - Akteure: `auditActor(admin)`, `auditActorMember(member)`, `SYSTEM_ACTOR`.
+- Türkontrolle: `scanner.device.create|revoke|activate|update|delete` (Admin als Akteur, nie mit Token) sowie `scanner.checkin` und `scanner.undo` (Akteur `SYSTEM` mit Namen «Scanner: <Bezeichnung>», Mitgliedernummer, keine Namen). Lesbare Bezeichnungen: `src/lib/verein/audit-view.ts`.
 - Das Protokoll wird nie bearbeitet oder gelöscht. Lesen dürfen es Rollen mit `audit` (`/admin/verein/protokoll`).
 
 ## 9. Gemeinsame Helfer (`src/lib/verein`)
