@@ -29,7 +29,7 @@ test("Schalter: Schlüssel sind eindeutig und vollständig", () => {
   for (const k of ["name", "address", "board", "email", "phone", "contactForm", "register", "vat", "liabilityContent", "liabilityLinks", "copyright", "privacyLink"]) {
     assert.ok((t.IMPRINT_KEYS as string[]).includes(k), `Impressum-Schalter ${k}`);
   }
-  for (const k of ["konto", "kontakt", "newsletter", "lizenzen", "links", "tunnel", "cookies", "mitglieder", "beitraege", "versammlungen", "anlaesse", "dokumente", "ausweis", "audit"]) {
+  for (const k of ["konto", "kontakt", "newsletter", "lizenzen", "links", "tunnel", "cookies", "mitglieder", "beitraege", "versammlungen", "anlaesse", "dokumente", "ausweis", "tuerkontrolle", "audit"]) {
     assert.ok((t.PRIVACY_KEYS as string[]).includes(k), `Datenschutz-Schalter ${k}`);
   }
   // Grundabschnitte sind nicht schaltbar
@@ -178,6 +178,43 @@ test("privacyPlan: Nummern passen sich an, Grundabschnitte bleiben", () => {
 
   const allOff = t.privacyPlan(Object.fromEntries(t.PRIVACY_KEYS.map((k) => [k, false])) as import("../../src/lib/legal-toggles.ts").PrivacyShow);
   assert.equal(allOff.sections.length, t.PRIVACY_ALWAYS.length);
+});
+
+test("Türkontrolle: eigener Abschnitt, unabhängig vom Ausweis, bei bestehender Konfiguration angezeigt", () => {
+  // Bestehende gespeicherte Schalter ohne den neuen Schlüssel bleiben gültig; der neue Abschnitt gilt als angezeigt.
+  const stored = { "legal.show.privacy.ausweis": "false", "legal.show.privacy.newsletter": "false" };
+  const { privacy } = t.resolveShow(stored, EMPTY);
+  assert.equal(privacy.ausweis, false);
+  assert.equal(privacy.tuerkontrolle, true);
+  const plan = t.privacyPlan(privacy);
+  assert.equal(plan.numberOf("ausweis"), undefined);
+  assert.notEqual(plan.numberOf("tuerkontrolle"), undefined, "Abschnitt bleibt trotz abgeschaltetem Ausweis");
+  assert.equal(plan.sections.find((x) => x.id === "tuerkontrolle")?.title, "Türkontrolle mit der App");
+  assert.equal(t.privacyHref(privacy, "tuerkontrolle"), "/datenschutz#tuerkontrolle");
+  // Eigener Schalter: ausgeschaltet entfällt nur dieser Abschnitt, ein Hinweis nennt ihn.
+  const off = t.resolveShow({ "legal.show.privacy.tuerkontrolle": "false" }, EMPTY).privacy;
+  assert.equal(t.privacyPlan(off).numberOf("tuerkontrolle"), undefined);
+  assert.notEqual(t.privacyPlan(off).numberOf("ausweis"), undefined);
+  assert.equal(t.privacyHref(off, "tuerkontrolle"), "/datenschutz");
+  assert.match(t.privacyWarnings(off)[0], /Türkontrolle mit der App/);
+  // Er erscheint im Admin (Gruppe «verein») und wird gespeichert und zurückgelesen.
+  assert.equal(t.PRIVACY_ITEMS.find((i) => i.key === "tuerkontrolle")?.group, "verein");
+  assert.equal(t.privacySettingKey("tuerkontrolle"), "legal.show.privacy.tuerkontrolle");
+  assert.equal(t.resolveShow(t.showToSettings({}, { tuerkontrolle: false }), EMPTY).privacy.tuerkontrolle, false);
+  assert.deepEqual(legalSettingsSchema.parse({ privacyShow: { tuerkontrolle: false } }).privacyShow, { tuerkontrolle: false });
+  // Eine Änderung am Schalter erneuert den Stand der Erklärung.
+  const snap = { street: "A", zipCity: "B", country: "Schweiz", email: "x@y.ch", phone: "1", showPhone: true, privacy };
+  assert.equal(t.privacyChanged(snap, { ...snap, privacy: off }), true);
+});
+
+test("latestPrivacyDate: das spätere von gespeichertem Datum und Datum im Code", () => {
+  assert.equal(t.latestPrivacyDate("", "2026-11-07"), "2026-11-07");
+  assert.equal(t.latestPrivacyDate(undefined, "2026-11-07"), "2026-11-07");
+  assert.equal(t.latestPrivacyDate("2026-11-05", "2026-11-07"), "2026-11-07", "älteres gespeichertes Datum: Code gilt");
+  assert.equal(t.latestPrivacyDate("2026-12-01", "2026-11-07"), "2026-12-01", "jüngeres gespeichertes Datum bleibt");
+  assert.equal(t.latestPrivacyDate("2026-11-07", "2026-11-07"), "2026-11-07");
+  assert.equal(t.latestPrivacyDate("unsinn", "2026-11-07"), "2026-11-07");
+  assert.equal(t.latestPrivacyDate("2026-02-30", "2026-11-07"), "2026-11-07");
 });
 
 test("formatSectionRefs", () => {

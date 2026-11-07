@@ -6,7 +6,7 @@ import { membersQuerySchema } from "@/lib/scanner-lib";
 
 export const dynamic = "force-dynamic";
 
-export const GET = scannerRoute({ heavy: true }, async (_device, req) => {
+export const GET = scannerRoute({ heavy: true, search: true }, async (_device, req) => {
   const sp = new URL(req.url).searchParams;
   const input = { q: sp.get("q") ?? "", eventId: sp.get("eventId") };
   assertNoNul(input);

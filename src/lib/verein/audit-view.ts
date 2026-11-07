@@ -215,13 +215,12 @@ export const AUDIT_FIELD_LABEL: Record<string, string> = {
   dueDate: "Fällig am",
   leftAt: "Austritt am",
   joinedAt: "Eintritt am",
-  // Scanner-Geräte und Check-ins
+  // Scanner-Geräte und Check-ins (memberNumber schreiben auch Rechnungen und Mitglieder, personen die Anmeldungen und Check-ins)
   label: "Bezeichnung",
   canCheckIn: "Darf einchecken",
   active: "Aktiv",
   memberNumber: "Mitgliedernummer",
-  attendedAt: "Anwesend seit",
-  attended: "Anwesend",
+  personen: "Personen",
 };
 
 export const auditFieldLabel = (field: string): string => AUDIT_FIELD_LABEL[field] ?? field;

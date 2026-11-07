@@ -4,6 +4,7 @@ import { Notice } from "@/components/admin/core/notice";
 import { PageTitle } from "@/components/admin/core/page-title";
 import { ScannerManager } from "@/components/admin/scanner/scanner-manager";
 import type { ScannerDeviceDto } from "@/components/admin/scanner/types";
+import { getLegalSettings } from "@/lib/settings";
 import { site } from "@/lib/site";
 import { requireModulePage } from "@/lib/verein/guard";
 import { canAccess } from "@/lib/verein/permissions";
@@ -14,7 +15,8 @@ export const metadata: Metadata = { title: "Scanner" };
 
 export default async function Page() {
   const admin = await requireModulePage("system");
-  const rows = await listScannerDevices();
+  const [rows, legal] = await Promise.all([listScannerDevices(), getLegalSettings()]);
+  const privacyOff = !legal.privacyShow.tuerkontrolle;
   const devices: ScannerDeviceDto[] = rows.map((r) => ({
     id: r.id,
     label: r.label,
@@ -42,6 +44,12 @@ export default async function Page() {
           <li>Das Token wird nur einmal angezeigt. Danach ist nur noch der Anfang des Tokens sichtbar; geht es verloren, legst du ein neues Gerät an.</li>
         </ol>
       </Card>
+
+      {privacyOff && (
+        <Notice variant="warning" className="mb-6">
+          Der Abschnitt zur Türkontrolle in der Datenschutzerklärung ist ausgeschaltet. Schalte ihn unter Einstellungen &gt; Rechtliches wieder ein, solange Geräte gekoppelt sind.
+        </Notice>
+      )}
 
       <Notice variant="warning" className="mb-6">
         <strong className="font-semibold">Telefon verloren oder gestohlen?</strong> Sperre das Gerät hier sofort: Sein Token ist dann ungültig und es gibt keine Mitgliederdaten mehr heraus. Taucht das Telefon wieder auf, gibst du das Gerät mit «Wieder aktivieren» frei.

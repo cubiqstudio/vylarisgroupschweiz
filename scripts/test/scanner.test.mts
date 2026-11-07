@@ -653,6 +653,37 @@ test("/members: Sonderzeichen (%, _, Backslash) in der Suche sind gewöhnliche Z
   assert.deepEqual(many, Array.from({ length: 20 }, (_, i) => 600 + i), "sortiert nach Nachname");
 });
 
+test("/members: Umlaute und Gross-/Kleinschreibung auch auf SQLite (Özdemir/özdemir, Müller/MÜLLER)", async () => {
+  const dev = await makeDevice();
+  await db.member.deleteMany();
+  await db.member.create({ data: { memberNumber: 701, firstName: "Ayşe", lastName: "Özdemir", status: "AKTIV" } });
+  await db.member.create({ data: { memberNumber: 702, firstName: "Jürg", lastName: "Müller", status: "AKTIV" } });
+  await db.member.create({ data: { memberNumber: 703, firstName: "Éric", lastName: "Meier", status: "AKTIV" } });
+  await db.member.create({ data: { memberNumber: 704, firstName: "Otto", lastName: "Ostermann", status: "AKTIV" } });
+  await db.member.create({ data: { memberNumber: 705, firstName: "Anonym", lastName: "Özdemir", status: "AUSGETRETEN", anonymizedAt: new Date() } });
+  // zerlegte Schreibweise (u + Trema) wird wie die zusammengesetzte gefunden
+  await db.member.create({ data: { memberNumber: 706, firstName: "Gisela", lastName: "Mu\u0308ller-Frei", status: "AKTIV" } });
+  const nrs = async (q: string) => (await call(MEMBERS, "GET", `/api/scanner/v1/members?q=${encodeURIComponent(q)}`, { token: dev.token })).json.data.entries.map((e: Entry) => e.member.memberNumber);
+  for (const q of ["Özdemir", "özdemir", "ÖZDEMIR", "zdemir", "öz", "Ayşe özdemir", "ayşe", "AYŞE"]) assert.deepEqual(await nrs(q), [701], q);
+  for (const q of ["Müller", "MÜLLER", "müller"]) assert.deepEqual((await nrs(q)).sort(), [702, 706], `${q}: beide Schreibweisen von «ü»`);
+  for (const q of ["jürg", "JÜRG müller", "Jürg MÜLLER"]) assert.deepEqual(await nrs(q), [702], q);
+  assert.deepEqual(await nrs("éric"), [703]);
+  assert.deepEqual(await nrs("ÉRIC"), [703]);
+  assert.equal((await call(MEMBERS, "GET", `/api/scanner/v1/members?q=${encodeURIComponent("ü")}`, { token: dev.token })).status, 422, "ein Zeichen ist zu kurz");
+  assert.deepEqual(await nrs("üö"), [], "ohne Treffer");
+  assert.deepEqual(await nrs("Müller Özdemir"), [], "jedes Wort muss im selben Mitglied vorkommen");
+  assert.deepEqual(await nrs("özdemir ayşe"), [701]);
+  // Teilwort neben dem Umlaut ist nur Vorauswahl; die genaue Prüfung entscheidet (kein «Ostermann» für «Öster»)
+  assert.deepEqual(await nrs("Öster"), [], "Ö ist nicht O");
+  assert.deepEqual(await nrs("öster"), []);
+  // Reine Funktionen
+  const q = lib.parseMemberQuery("özdemir");
+  assert.equal(lib.needsExactFilter(q), true);
+  assert.equal(lib.needsExactFilter(lib.parseMemberQuery("meier")), false);
+  assert.equal(lib.matchesMemberQuery({ firstName: "Ayşe", lastName: "ÖZDEMIR" }, q), true);
+  assert.equal(lib.matchesMemberQuery({ firstName: "Jürg", lastName: "Mu\u0308ller" }, lib.parseMemberQuery("MÜLLER")), true);
+});
+
 // ---- Anlässe und Zahlen ---------------------------------------------------------------------------------------------------------
 
 test("/events: Zeitfenster, Sortierung, höchstens 20; Zahlen zählen nur ANGEMELDET und WARTELISTE (UNBESTAETIGT nirgends)", async () => {
@@ -782,6 +813,30 @@ test("Rate-Limit: je Gerät 600 pro Minute; /scan und /members zusätzlich 300 p
   assert.equal((await call(ME, "GET", "/api/scanner/v1/me", { token: heavy.token })).status, 200, "die übrigen Routen bleiben bis 600 offen");
 });
 
+test("Rate-Limit: /members höchstens 60 pro Minute und Gerät (eigene, engere Grenze), /scan bleibt bei 300", async () => {
+  const dev = await makeDevice();
+  for (let i = 0; i < 60; i++) {
+    const r = await call(MEMBERS, "GET", "/api/scanner/v1/members?q=ab", { token: dev.token });
+    assert.equal(r.status, 200, `Suche ${i + 1}`);
+  }
+  const over = await call(MEMBERS, "GET", "/api/scanner/v1/members?q=ab", { token: dev.token });
+  assert.equal(over.status, 429);
+  assert.equal(over.json.error?.code, "RATE_LIMITED");
+  assert.equal(over.json.error?.message, "Zu viele Anfragen.");
+  const wait = Number(over.headers.get("retry-after"));
+  assert.ok(wait >= 1 && wait <= 60, `Retry-After ${wait}`);
+  assert.equal(over.headers.get("cache-control"), "no-store");
+  // Die übrigen Routen desselben Geräts bleiben offen
+  assert.equal((await call(SCAN, "POST", "/api/scanner/v1/scan", { token: dev.token, body: { token: "x" } })).status, 200);
+  assert.equal((await call(ME, "GET", "/api/scanner/v1/me", { token: dev.token })).status, 200);
+  assert.equal((await call(EVENTS, "GET", "/api/scanner/v1/events", { token: dev.token })).status, 200);
+  // Ein anderes Gerät hat seine eigene Grenze
+  const other = await makeDevice();
+  assert.equal((await call(MEMBERS, "GET", "/api/scanner/v1/members?q=ab", { token: other.token })).status, 200);
+  assert.equal(lib.SCANNER_LIMITS.deviceSearch.limit, 60);
+  assert.equal(lib.SCANNER_LIMITS.deviceHeavy.limit, 300);
+});
+
 // ---- Antwortformen -------------------------------------------------------------------------------------------------------------------
 
 test("Antwortformen: {data} bzw. {error:{code,message}}, Zeitpunkte ISO UTC, Daten JJJJ-MM-TT, deutsche Meldungen", async () => {
@@ -826,11 +881,69 @@ test("isoDay und Mitglied: reine Daten als Kalendertag, Ämter mit Standardbezei
   assert.equal(lib.isoDay(dates.dateOnly(2026, 12, 31)), "2026-12-31");
   const info = lib.toScannerMember({
     id: "m1", memberNumber: 3, firstName: "A", lastName: "B", status: "AKTIV", membershipTypeName: "Passivmitglied",
-    joinedAt: dates.dateOnly(2020, 1, 1), leftAt: null, offices: [{ kind: "VIZEPRAESIDENT", title: "" }, { kind: "SONSTIGES", title: "Webmaster" }],
+    joinedAt: dates.dateOnly(2020, 1, 1), leftAt: null, exitNoticeAt: null, offices: [{ kind: "VIZEPRAESIDENT", title: "" }, { kind: "SONSTIGES", title: "Webmaster" }],
   });
   assert.deepEqual(info.offices, ["Vize-Präsident/in", "Webmaster"]);
   assert.equal(info.membershipType, "Passivmitglied");
   assert.equal(info.validUntil, null);
+});
+
+test("validUntil: nur bei aktivem Mitglied mit vorgemerktem Austritt, sonst null (auch bei Verstorbenen)", () => {
+  const base = { id: "m1", memberNumber: 3, firstName: "A", lastName: "B", membershipTypeName: null, joinedAt: null, offices: [] };
+  const left = dates.dateOnly(2026, 12, 31);
+  const notice = dates.dateOnly(2026, 6, 30);
+  const v = (status: string, leftAt: Date | null, exitNoticeAt: Date | null) => lib.toScannerMember({ ...base, status, leftAt, exitNoticeAt }).validUntil;
+  assert.equal(v("AKTIV", left, notice), "2026-12-31");
+  assert.equal(v("AKTIV", left, null), null, "ohne Kündigung kein Austritt vorgemerkt");
+  assert.equal(v("AKTIV", null, notice), null, "ohne Austrittsdatum nichts anzugeben");
+  assert.equal(v("AKTIV", null, null), null);
+  for (const status of ["AUSGETRETEN", "AUSGESCHLOSSEN", "VERSTORBEN"]) assert.equal(v(status, left, notice), null, status);
+  assert.equal(v("VERSTORBEN", dates.dateOnly(2026, 3, 1), null), null, "kein Todesdatum");
+});
+
+test("validUntil und Ämter über die Schnittstelle: Verstorbene geben kein Datum preis, aktuelle Ämter nach Kalendertag Zürich", async () => {
+  const dev = await makeDevice();
+  const scan = async (id: string) => (await call(SCAN, "POST", "/api/scanner/v1/scan", { token: dev.token, body: { token: scanBody(id) } })).json.data.member as MemberJson;
+  const dead = await makeMember({ status: "VERSTORBEN", leftAt: dates.dateOnly(2026, 3, 1), exitNoticeAt: dates.dateOnly(2026, 2, 1) });
+  const gone = await makeMember({ status: "AUSGETRETEN", leftAt: dates.dateOnly(2025, 12, 31), exitNoticeAt: dates.dateOnly(2025, 6, 1) });
+  const plannedExit = await makeMember({ exitNoticeAt: dates.dateOnly(2026, 6, 1), leftAt: dates.dateOnly(2099, 12, 31) });
+  const noNotice = await makeMember({ leftAt: dates.dateOnly(2099, 12, 31), exitNoticeAt: null });
+  assert.equal((await scan(dead.id)).validUntil, null);
+  assert.equal((await scan(gone.id)).validUntil, null);
+  assert.equal((await scan(plannedExit.id)).validUntil, "2099-12-31");
+  assert.equal((await scan(noNotice.id)).validUntil, null);
+
+  const today = dates.todayZurich();
+  const day = (offset: number) => dates.addDays(today, offset);
+  const m = await makeMember();
+  const office = (title: string, validFrom: Date, validUntil: Date | null) => db.office.create({ data: { kind: "SONSTIGES", title, memberId: m.id, validFrom, validUntil } });
+  await office("Offen", day(-100), null);
+  await office("Endet heute", day(-50), today);
+  await office("Endet bald", day(-10), day(30));
+  await office("Beginnt heute", today, null);
+  await office("Zukunft", day(1), null);
+  await office("Zukunft mit Ende", day(10), day(60));
+  await office("Beendet", day(-200), day(-1));
+  assert.deepEqual((await scan(m.id)).offices, ["Offen", "Endet heute", "Endet bald", "Beginnt heute"]);
+  // Die Suche liefert dieselben Ämter
+  const found = await call(MEMBERS, "GET", `/api/scanner/v1/members?q=${m.memberNumber}`, { token: dev.token });
+  assert.deepEqual(found.json.data.entries[0].member.offices, ["Offen", "Endet heute", "Endet bald", "Beginnt heute"]);
+  // Wie in der Verwaltung: dieselbe Regel (officeState) mit demselben Kalendertag
+  const members = await import("../../src/lib/verein/members-lib.ts");
+  const rows = await db.office.findMany({ where: { memberId: m.id } });
+  assert.deepEqual(
+    rows.filter((o) => members.officeState(o, today) === "LAUFEND").map((o) => o.title).sort(),
+    ["Beginnt heute", "Endet bald", "Endet heute", "Offen"],
+  );
+  // Der Kalendertag zählt in Zürcher Zeit: kurz nach Mitternacht (Winterzeit) ist es schon der nächste Tag
+  const info = cardData.currentOffices(
+    [
+      { kind: "SONSTIGES", title: "A", validFrom: dates.dateOnly(2026, 1, 2), validUntil: null },
+      { kind: "SONSTIGES", title: "B", validFrom: dates.dateOnly(2025, 1, 1), validUntil: dates.dateOnly(2026, 1, 1) },
+    ],
+    new Date("2026-01-01T23:30:00Z"),
+  );
+  assert.deepEqual(info.map((o) => o.title), ["A"]);
 });
 
 // ---- Middleware ------------------------------------------------------------------------------------------------------------------

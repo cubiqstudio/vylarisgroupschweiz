@@ -46,9 +46,9 @@ function limit(key: string, w: Window): void {
 
 /**
  * Zugang prüfen: grobe Grenze je IP, Token (Fehlversuche je IP stark begrenzt, Token raten lohnt nicht), Grenze je Gerät,
- * bei /scan und /members zusätzlich die engere Grenze je Gerät.
+ * bei /scan und /members zusätzlich die engere Grenze je Gerät, bei /members ausserdem die Suchgrenze (60 pro Minute).
  */
-export async function requireScannerDevice(req: Request, opts: { heavy?: boolean } = {}): Promise<ScannerDevice> {
+export async function requireScannerDevice(req: Request, opts: { heavy?: boolean; search?: boolean } = {}): Promise<ScannerDevice> {
   const ip = clientIp(req);
   limit(`scanner-ip:${ip}`, SCANNER_LIMITS.ip);
   const device = await authenticateScannerDevice(req.headers.get("authorization"));
@@ -58,6 +58,7 @@ export async function requireScannerDevice(req: Request, opts: { heavy?: boolean
   }
   limit(`scanner-device:${device.id}`, SCANNER_LIMITS.device);
   if (opts.heavy) limit(`scanner-heavy:${device.id}`, SCANNER_LIMITS.deviceHeavy);
+  if (opts.search) limit(`scanner-search:${device.id}`, SCANNER_LIMITS.deviceSearch);
   return device;
 }
 
@@ -70,7 +71,7 @@ export function assertCanCheckIn(device: Pick<ScannerDevice, "canCheckIn">): voi
  * Rahmen jeder Route der Schnittstelle: Zugang prüfen, Fehler auf JSON-Antworten abbilden (handle), Antwort ohne Zwischenspeicher
  * und mit Retry-After bei 429. Die Routen unter /api/scanner/v1 sind native Aufrufe der App: kein Cookie, kein CORS, keine Origin-Prüfung.
  */
-export function scannerRoute<A extends unknown[]>(opts: { heavy?: boolean }, fn: (device: ScannerDevice, req: Request, ...rest: A) => Promise<Response>) {
+export function scannerRoute<A extends unknown[]>(opts: { heavy?: boolean; search?: boolean }, fn: (device: ScannerDevice, req: Request, ...rest: A) => Promise<Response>) {
   return async (req: Request, ...rest: A): Promise<Response> => {
     let retryAfter: number | null = null;
     const res = await handle(async () => {

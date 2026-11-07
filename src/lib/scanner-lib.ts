@@ -18,6 +18,8 @@ export const SCANNER_LIMITS = {
   device: { limit: 600, windowMs: 60_000 },
   /** Zusätzlich für /scan und /members je Gerät */
   deviceHeavy: { limit: 300, windowMs: 60_000 },
+  /** Zusätzlich nur für /members (Suche in den Mitgliederdaten) je Gerät: enger, damit sich das Verzeichnis nicht abgrasen lässt */
+  deviceSearch: { limit: 60, windowMs: 60_000 },
 } as const;
 
 /** `lastUsedAt` eines Geräts wird höchstens so oft nachgeführt. */
@@ -83,25 +85,29 @@ export function parseMemberQuery(q: string): MemberQuery {
   return { kind: "name", words: t.split(/\s+/).filter(Boolean).slice(0, 5) };
 }
 
-/** Zeichen, die in einem LIKE-Muster etwas bedeuten (Prisma `contains` maskiert sie nicht): %, _ und der Backslash. */
-const LIKE_SPECIAL = /[%_\\]/;
-const LIKE_SPLIT = /[%_\\]+/;
+/**
+ * Zeichen, bei denen der Datenbankfilter nicht genau genug ist: %, _ und der Backslash (Prisma `contains` maskiert sie nicht) sowie alle
+ * Nicht-ASCII-Zeichen (SQLite vergleicht mit LIKE nur ASCII ohne Rücksicht auf die Schreibweise: «özdemir» fände «Özdemir» nicht).
+ */
+const NEEDS_EXACT = /[%_\\]|[^\x00-\x7F]/;
+const EXACT_SPLIT = /(?:[%_\\]|[^\x00-\x7F])+/;
 
-/** Hat die Suche Wörter mit %, _ oder Backslash? Dann reicht der Datenbankfilter nicht, die Treffer werden zusätzlich genau geprüft (matchesMemberQuery). */
-export const needsExactFilter = (query: MemberQuery): boolean => query.kind === "name" && query.words.some((w) => LIKE_SPECIAL.test(w));
+/** Hat die Suche Wörter mit %, _, Backslash oder Nicht-ASCII-Zeichen? Dann reicht der Datenbankfilter nicht, die Treffer werden zusätzlich genau geprüft (matchesMemberQuery). */
+export const needsExactFilter = (query: MemberQuery): boolean => query.kind === "name" && query.words.some((w) => NEEDS_EXACT.test(w));
 
 /**
  * Filter für die manuelle Suche: nie anonymisierte Mitglieder, nie ANTRAG/ABGELEHNT. Namen: jedes Wort muss im Vor- oder Nachnamen vorkommen
  * (ohne Gross-/Kleinschreibung, in SQLite und PostgreSQL über containsCI, nicht über providerspezifische Optionen).
- * Weil `contains` die Zeichen %, _ und \ als Muster liest, werden Wörter damit an diesen Zeichen zerlegt: Die Datenbank prüft nur die Teile ohne
- * Sonderzeichen (grobe Vorauswahl), den genauen Treffer entscheidet matchesMemberQuery. So wird kein Suchbegriff je zum Muster.
+ * Weil `contains` die Zeichen %, _ und \ als Muster liest und SQLite Umlaute nicht ohne Rücksicht auf die Schreibweise vergleicht, werden Wörter
+ * mit diesen Zeichen oder Nicht-ASCII-Zeichen daran zerlegt: Die Datenbank prüft nur die ASCII-Teile (grobe Vorauswahl, eine notwendige Bedingung),
+ * den genauen Treffer entscheidet matchesMemberQuery. So wird kein Suchbegriff je zum Muster.
  */
 export function memberSearchWhere(query: MemberQuery): Prisma.MemberWhereInput {
   const base: Prisma.MemberWhereInput = { anonymizedAt: null, status: { notIn: ["ANTRAG", "ABGELEHNT"] } };
   if (query.kind === "number") return { ...base, memberNumber: query.number ?? -1 };
   const and: Prisma.MemberWhereInput[] = [];
   for (const word of query.words) {
-    const parts = word.split(LIKE_SPLIT).filter(Boolean);
+    const parts = word.split(EXACT_SPLIT).filter(Boolean);
     if (parts.length === 0) continue;
     and.push({ OR: [{ AND: parts.map((p) => ({ firstName: containsCI(p) })) }, { AND: parts.map((p) => ({ lastName: containsCI(p) })) }] });
   }
@@ -111,10 +117,11 @@ export function memberSearchWhere(query: MemberQuery): Prisma.MemberWhereInput {
 /** Genaue Prüfung (ohne Gross-/Kleinschreibung, Sonderzeichen wörtlich): jedes Wort kommt im Vor- oder Nachnamen vor. */
 export function matchesMemberQuery(m: { firstName: string; lastName: string }, query: MemberQuery): boolean {
   if (query.kind !== "name") return true;
-  const first = m.firstName.toLocaleLowerCase("de-CH");
-  const last = m.lastName.toLocaleLowerCase("de-CH");
+  const fold = (v: string) => v.normalize("NFC").toLocaleLowerCase("de-CH");
+  const first = fold(m.firstName);
+  const last = fold(m.lastName);
   return query.words.every((w) => {
-    const x = w.toLocaleLowerCase("de-CH");
+    const x = fold(w);
     return first.includes(x) || last.includes(x);
   });
 }
@@ -136,6 +143,13 @@ export type ScannerMember = {
 /** Reines Datum als «JJJJ-MM-TT» (der Kalendertag in Zürcher Zeit; die Website speichert Mittag UTC). */
 export const isoDay = (d: Date): string => toDateOnly(d).toISOString().slice(0, 10);
 
+/**
+ * Letzter Tag der Mitgliedschaft: nur bei aktivem Mitglied mit vorgemerktem Austritt (Kündigung und Austrittsdatum gesetzt), sonst null.
+ * Bei ausgetretenen, ausgeschlossenen und verstorbenen Mitgliedern bleibt das Feld leer (kein Todesdatum, kein Austrittsdatum).
+ */
+export const validUntilOf = (m: Pick<CardInspectMember, "status" | "leftAt" | "exitNoticeAt">): string | null =>
+  m.status === "AKTIV" && m.exitNoticeAt && m.leftAt ? isoDay(m.leftAt) : null;
+
 export function toScannerMember(m: CardInspectMember): ScannerMember {
   return {
     id: m.id,
@@ -145,7 +159,7 @@ export function toScannerMember(m: CardInspectMember): ScannerMember {
     status: m.status,
     membershipType: m.membershipTypeName,
     joinedAt: m.joinedAt ? isoDay(m.joinedAt) : null,
-    validUntil: m.leftAt ? isoDay(m.leftAt) : null,
+    validUntil: validUntilOf(m),
     offices: m.offices.map(officeTitle),
   };
 }

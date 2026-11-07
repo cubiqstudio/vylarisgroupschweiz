@@ -167,7 +167,7 @@ async function findMembers(query: MemberQuery) {
 }
 
 /** Manuelle Suche: nur Ziffern = Mitgliedernummer, sonst Teilstring im Vor- oder Nachnamen. Höchstens 20 Treffer; mit `eventId` je Treffer die Anmeldung. */
-export async function searchScannerMembers(q: string, eventId: string | null | undefined): Promise<LookupEntry[]> {
+export async function searchScannerMembers(q: string, eventId: string | null | undefined, now: Date = new Date()): Promise<LookupEntry[]> {
   const event = eventId ? await loadPublishedEvent(eventId) : null;
   const rows = await findMembers(parseMemberQuery(q));
   if (rows.length === 0) return [];
@@ -176,7 +176,7 @@ export async function searchScannerMembers(q: string, eventId: string | null | u
     : [];
   const byMember = new Map(regs.map((r) => [r.memberId, r]));
   return rows.map((row) => ({
-    member: toScannerMember(toInspectMember(row)),
+    member: toScannerMember(toInspectMember(row, now)),
     event: event ? toEventCheck(event, byMember.get(row.id) ?? null) : null,
   }));
 }

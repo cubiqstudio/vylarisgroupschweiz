@@ -215,6 +215,11 @@ test("Anzeige des Protokolls: alle Scanner-Aktionen sind lesbar (auch Check-in u
   assert.equal(view.auditObjectLabel("ScannerDevice"), "Scanner-Gerät");
   assert.equal(view.auditFieldLabel("canCheckIn"), "Darf einchecken");
   assert.equal(view.auditFieldLabel("label"), "Bezeichnung");
+  assert.equal(view.auditFieldLabel("personen"), "Personen");
+  assert.equal(view.auditFieldLabel("memberNumber"), "Mitgliedernummer");
+  // Nie geschriebene Bezeichnungen sind entfernt (der Code protokolliert weder attended noch attendedAt)
+  assert.equal(view.auditFieldLabel("attendedAt"), "attendedAt");
+  assert.equal(view.auditFieldLabel("attended"), "attended");
   const changes = view.auditChanges('{"canCheckIn":true}', '{"canCheckIn":false}');
   assert.deepEqual(changes, [{ field: "canCheckIn", label: "Darf einchecken", before: "ja", after: "nein" }]);
 });

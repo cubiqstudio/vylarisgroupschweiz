@@ -5,6 +5,8 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { authSecretString } from "@/lib/session";
 import { publicUrl } from "./links";
+import { todayZurich } from "./dates";
+import { officeState } from "./members-lib";
 import { cardValidity, shortDisplayName, signCardToken, verifyCardToken } from "./membership-card";
 import { getVereinName } from "./profile";
 
@@ -46,7 +48,9 @@ export type CardInspectMember = {
   membershipTypeName: string | null;
   joinedAt: Date | null;
   leftAt: Date | null;
-  /** Offene Ämter (Amtsende leer) */
+  /** Vorgemerkter Austritt (Datum der Kündigung); zusammen mit `leftAt` und Status AKTIV gibt es ein Ende der Mitgliedschaft. */
+  exitNoticeAt: Date | null;
+  /** Aktuelle Ämter: Beginn heute oder früher, Ende leer oder heute oder später (Kalendertag Zürich, Regel officeState) */
   offices: Array<{ kind: string; title: string }>;
 };
 
@@ -56,7 +60,7 @@ export type CardInspection =
   | { valid: false; reason: "inactive"; member: CardInspectMember | null }
   | { valid: false; reason: "malformed" | "unknown" | "outdated"; member: null };
 
-/** Felder für die Türkontrolle (Ausweisprüfung und Suche): Gültigkeit, Anzeige und offene Ämter. */
+/** Felder für die Türkontrolle (Ausweisprüfung und Suche): Gültigkeit, Anzeige und Ämter (die aktuellen filtert toInspectMember). */
 export const CARD_MEMBER_SELECT = {
   id: true,
   memberNumber: true,
@@ -69,12 +73,18 @@ export const CARD_MEMBER_SELECT = {
   anonymizedAt: true,
   cardVersion: true,
   membershipType: { select: { name: true } },
-  offices: { where: { validUntil: null }, orderBy: [{ validFrom: "asc" }, { id: "asc" }], select: { kind: true, title: true } },
+  offices: { orderBy: [{ validFrom: "asc" }, { id: "asc" }], select: { kind: true, title: true, validFrom: true, validUntil: true } },
 } as const satisfies Prisma.MemberSelect;
 
 export type CardMemberRow = Prisma.MemberGetPayload<{ select: typeof CARD_MEMBER_SELECT }>;
 
-export const toInspectMember = (m: CardMemberRow): CardInspectMember => ({
+/** Aktuelle Ämter nach der Regel der Verwaltung (officeState, Kalendertag Zürich), in der Reihenfolge der Abfrage. */
+export const currentOffices = (offices: CardMemberRow["offices"], now: Date = new Date()): Array<{ kind: string; title: string }> => {
+  const today = todayZurich(now);
+  return offices.filter((o) => officeState(o, today) === "LAUFEND").map(({ kind, title }) => ({ kind, title }));
+};
+
+export const toInspectMember = (m: CardMemberRow, now: Date = new Date()): CardInspectMember => ({
   id: m.id,
   memberNumber: m.memberNumber,
   firstName: m.firstName,
@@ -83,7 +93,8 @@ export const toInspectMember = (m: CardMemberRow): CardInspectMember => ({
   membershipTypeName: m.membershipType?.name ?? null,
   joinedAt: m.joinedAt,
   leftAt: m.leftAt,
-  offices: m.offices,
+  exitNoticeAt: m.exitNoticeAt,
+  offices: currentOffices(m.offices, now),
 });
 
 /**
@@ -97,6 +108,6 @@ export async function inspectCardToken(token: string, now: Date = new Date()): P
   const m = await db.member.findUnique({ where: { id: parsed.memberId }, select: CARD_MEMBER_SELECT });
   if (!m) return { valid: false, reason: "unknown", member: null };
   if (m.cardVersion !== parsed.version) return { valid: false, reason: "outdated", member: null };
-  if (!cardValidity(m, now).valid) return { valid: false, reason: "inactive", member: m.anonymizedAt ? null : toInspectMember(m) };
-  return { valid: true, reason: null, member: toInspectMember(m) };
+  if (!cardValidity(m, now).valid) return { valid: false, reason: "inactive", member: m.anonymizedAt ? null : toInspectMember(m, now) };
+  return { valid: true, reason: null, member: toInspectMember(m, now) };
 }
