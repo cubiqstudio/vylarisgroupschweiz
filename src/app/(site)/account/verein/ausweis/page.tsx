@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronDown, ShieldCheck } from "lucide-react";
+import { CopyField } from "@/components/admin/licenses/copy-field";
 import { CardPrintStyles } from "@/components/verein/print-styles-card";
 import { MembershipCard } from "@/components/verein/membership-card";
 import { PrintButton } from "@/components/verein/print-button";
@@ -13,7 +14,8 @@ import { requireMemberPage } from "@/lib/verein/guard";
 import { getPortalMember } from "@/lib/verein/members-data";
 import { cardValidity, memberSinceText, qrShape } from "@/lib/verein/membership-card";
 import { cardVerifyUrl } from "@/lib/verein/membership-card-data";
-import { getVereinName } from "@/lib/verein/profile";
+import { site } from "@/lib/site";
+import { getVereinProfile, profileDisplayName } from "@/lib/verein/profile";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +30,9 @@ export default async function Page() {
   const m = (await getMessages(vereinUebersicht)).card;
   const data = await getPortalMember(member.id);
   const validity = data ? cardValidity(data) : { valid: false, text: "" };
-  const clubName = await getVereinName();
+  // Vorderseite: eingetragener Vereinsname aus den Einstellungen, sonst der Name der Website («VylarisGroup Schweiz»).
+  const clubName = profileDisplayName(await getVereinProfile().catch(() => ({ name: "" })), site.name);
+  const verifyUrl = data ? cardVerifyUrl(data.id, data.cardVersion) : "";
 
   return (
     <section aria-labelledby="card-heading">
@@ -53,17 +57,29 @@ export default async function Page() {
             clubName={clubName}
             memberName={`${data.firstName} ${data.lastName}`.trim()}
             memberNumber={data.memberNumber}
-            typeName={data.membershipType?.name ?? ""}
             sinceText={memberSinceText(data.joinedAt)}
-            validityText={validity.text}
-            valid
-            qr={qrShape(cardVerifyUrl(data.id, data.cardVersion))}
+            qr={qrShape(verifyUrl)}
             logoSrc={findBrandAsset("logo-mark-on-dark")}
-            labels={{ card: m.label, memberNo: m.memberNo, type: m.type, verifyHint: m.verifyHint, qrAlt: m.verifyHint }}
+            labels={{ card: m.label, memberNo: m.memberNo, front: m.faceFront, back: m.faceBack, qrAlt: m.qrAlt }}
           />
-          <p className="ausweis-hide-print mt-4 max-w-xl text-xs text-zinc-500">
-            {m.validNow(formatDateCh(new Date()))}. {m.privacy}
-          </p>
+          <div className="ausweis-hide-print mt-6 max-w-[58rem] space-y-4">
+            <p className="flex items-start gap-2 text-sm text-zinc-300">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" aria-hidden />
+              <span>{m.status(validity.text, formatDateCh(new Date()))}</span>
+            </p>
+            <p className="max-w-2xl text-xs text-zinc-500">{m.privacy}</p>
+            <details className="group rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-zinc-200 [&::-webkit-details-marker]:hidden">
+                {m.nfc.title}
+                <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" aria-hidden />
+              </summary>
+              <div className="mt-3 space-y-3">
+                <CopyField label={m.nfc.field} value={verifyUrl} />
+                <p className="text-sm leading-relaxed text-zinc-400">{m.nfc.text}</p>
+                <p className="text-sm leading-relaxed text-zinc-400">{m.nfc.warning}</p>
+              </div>
+            </details>
+          </div>
         </div>
       ) : (
         <Card className="mt-6 px-6 py-10 text-center">

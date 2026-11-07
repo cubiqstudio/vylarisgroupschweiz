@@ -563,8 +563,10 @@ export async function Datenschutz() {
           </p>
           <h3>Bearbeitete Daten</h3>
           <p>
-            Der Ausweis wird aus deinen Mitgliederdaten erzeugt, insbesondere aus Name, Mitgliedernummer,
-            Mitgliedschaftsart und Status{paren("mitglieder")}. Er wird dir nach der Anmeldung in deinem Konto angezeigt.
+            Der Ausweis wird aus deinen Mitgliederdaten erzeugt. Er zeigt Name, Mitgliedernummer, Eintrittsdatum und einen
+            QR-Code mit einer signierten Prüfadresse, die selbst keine Personendaten enthält{paren("mitglieder")}. Ob ein Ausweis
+            angezeigt wird, hängt vom Status deiner Mitgliedschaft ab. Er wird dir nach der Anmeldung in deinem Konto angezeigt
+            und kann von dir als PDF gespeichert oder ausgedruckt werden.
           </p>
           <h3>Zweck und Grundlage</h3>
           <p>

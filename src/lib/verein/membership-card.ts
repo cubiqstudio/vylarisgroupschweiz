@@ -78,6 +78,18 @@ export function cardValidity(m: CardMember, now: Date = new Date()): CardValidit
 /** Text unter dem Namen: «Mitglied seit 5.11.2026» oder leer, wenn kein Eintrittsdatum erfasst ist. */
 export const memberSinceText = (joinedAt: Date | null): string => (joinedAt ? `Mitglied seit ${formatDateCh(joinedAt)}` : "");
 
+/** Ruhezone des QR-Codes in Modulen (Norm: mindestens 4, damit Scanner den Code zuverlässig finden). */
+export const QR_QUIET_MODULES = 4;
+
+/** viewBox für den QR-Code samt Ruhezone: «-4 -4 N+8 N+8» (der Code selbst liegt in 0 … N, die weisse Kachel füllt die ganze viewBox). */
+export function qrViewBox(modules: number): string {
+  const side = modules + 2 * QR_QUIET_MODULES;
+  return `${-QR_QUIET_MODULES} ${-QR_QUIET_MODULES} ${side} ${side}`;
+}
+
+/** Kantenlänge des eigentlichen QR-Codes (ohne Ruhezone) in Millimetern, wenn die weisse Kachel `tileMm` breit ist. */
+export const qrEdgeMm = (modules: number, tileMm: number): number => (tileMm * modules) / (modules + 2 * QR_QUIET_MODULES);
+
 export type QrShape = {
   /** Anzahl Module je Seite */
   modules: number;
