@@ -1,5 +1,6 @@
 import type { Messages } from "@/i18n";
 import type { beitraege } from "@/i18n/verein-beitraege";
+import { PaymentDetailsBlock } from "@/components/verein/payment-details-block";
 import { QrBillSlip } from "@/components/verein/qr-bill-slip";
 import { formatDateCh } from "@/lib/verein/dates";
 import { balanceOf } from "@/lib/verein/fees-calc";
@@ -40,9 +41,10 @@ const PRINT_CSS = `
 `;
 
 /**
- * Rechnung im A4-Format mit dem Zahlteil der QR-Rechnung am unteren Rand. Wird im Admin, im Portal und auf der Seite mit dem Mail-Link
- * verwendet. Zum Drucken oder «Als PDF speichern» genügt der Druckdialog des Browsers. Ist der Zahlteil nicht möglich (fehlende Angaben,
- * bezahlt, storniert), steht eine klare Meldung statt einer ungültigen QR-Rechnung.
+ * Rechnung im A4-Format mit dem Zahlteil der QR-Rechnung am unteren Rand (Schweizer Konto) oder dem Block «Einzahlungsangaben» (ausländische
+ * IBAN, ohne QR-Code). Wird im Admin, im Portal und auf der Seite mit dem Mail-Link verwendet. Zum Drucken oder «Als PDF speichern» genügt der
+ * Druckdialog des Browsers. Sind die Zahlungsangaben nicht möglich (fehlende Angaben), steht eine klare Meldung statt einer ungültigen QR-Rechnung.
+ * Bezahlte und stornierte Rechnungen zeigen keine Zahlungsangaben.
  */
 export function InvoiceDocument({
   inv,
@@ -164,15 +166,20 @@ export function InvoiceDocument({
           {payable && <p style={{ margin: "7mm 0 0", fontSize: "9.5pt" }}>{d.thanks}</p>}
         </div>
 
-        {payable && bill?.ok && (
+        {payable && bill?.ok && bill.mode === "QR_BILL" && (
           <div style={{ flex: "0 0 auto", marginTop: "auto", breakInside: "avoid", pageBreakInside: "avoid", paddingTop: "5mm" }}>
             <QrBillSlip display={bill.display} payload={bill.payload} m={m.slip} />
           </div>
         )}
+        {payable && bill?.ok && bill.mode === "DETAILS" && (
+          <div style={{ flex: "0 0 auto", marginTop: "auto", breakInside: "avoid", pageBreakInside: "avoid", paddingTop: "5mm" }}>
+            <PaymentDetailsBlock details={bill.details} dueDate={formatDateCh(inv.dueDate)} m={m.paymentDetails} />
+          </div>
+        )}
         {payable && bill && !bill.ok && (
           <div style={{ padding: "0 20mm 15mm", fontSize: "10pt" }} role="alert">
-            <p style={{ margin: 0, fontWeight: 700 }}>{d.billUnavailable}</p>
-            <p style={{ margin: "1mm 0 0" }}>{d.billUnavailableHint}</p>
+            <p style={{ margin: 0, fontWeight: 700 }}>{bill.mode === "DETAILS" ? d.detailsUnavailable : d.billUnavailable}</p>
+            <p style={{ margin: "1mm 0 0" }}>{bill.mode === "DETAILS" ? d.detailsUnavailableHint : d.billUnavailableHint}</p>
             {showBillProblems && (
               <ul style={{ margin: "2mm 0 0", paddingLeft: "5mm" }}>
                 {bill.problems.map((p) => (

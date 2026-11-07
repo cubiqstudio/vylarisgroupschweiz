@@ -11,9 +11,10 @@ import { site } from "@/lib/site";
 import { auditActor, diffObjects, logAudit } from "./audit";
 import { INVOICE_STATUSES, type InvoiceStatus } from "./constants";
 import { addDays, startOfDayZurich, todayZurich, yearOf } from "./dates";
-import { composeInvoiceBill, type BillContext, type InvoiceBill } from "./fees-bill";
+import { billUnavailableMessage, composeInvoiceBill, type BillContext, type InvoiceBill } from "./fees-bill";
 import {
   addressBlockOf,
+  billModeOf,
   invoiceLinkExpiry,
   isInvoiceLinkActive,
   itemsTotal,
@@ -149,9 +150,9 @@ export async function getInvoiceByViewToken(token: string): Promise<InvoiceDetai
   return inv && isInvoiceLinkActive(inv, new Date()) ? inv : null;
 }
 
-// ---- QR-Rechnung ------------------------------------------------------------------------------------------------------
+// ---- Zahlungsangaben (QR-Rechnung oder Einzahlungsangaben) ---------------------------------------------------------------
 
-/** Konto und Vereinsanschrift für die QR-Rechnung (Vereinseinstellungen und Einstellungen → Rechtliches). */
+/** Konto und Vereinsanschrift für die Zahlungsangaben der Rechnung (Vereinseinstellungen und Einstellungen → Rechtliches). */
 export async function loadBillContext(settings?: VereinSettings): Promise<BillContext> {
   const s = settings ?? (await getVereinSettings());
   const legal = await getLegalSettings().catch(() => null);
@@ -159,8 +160,16 @@ export async function loadBillContext(settings?: VereinSettings): Promise<BillCo
     accountHolder: s.accountHolder,
     iban: s.iban,
     qrIban: s.qrIban,
+    bic: s.bic,
+    bank: s.bank,
+    payeeName: s.payeeName,
     legal: { street: legal?.street ?? "", zipCity: legal?.zipCity ?? "", country: legal?.country ?? "" },
   };
+}
+
+/** Art der Zahlungsangaben, die heute auf Rechnungen stehen (QR-Rechnung oder Einzahlungsangaben); null, solange kein Konto hinterlegt ist. */
+export async function currentBillMode() {
+  return billModeOf(await getVereinSettings());
 }
 
 export async function billForInvoice(inv: Pick<InvoiceDetail, "number" | "year" | "seq" | "totalRappen" | "paidRappen" | "paymentReference" | "recipientName" | "recipientAddress">): Promise<InvoiceBill> {
@@ -352,7 +361,7 @@ export type SendChannel = "MAIL" | "POST";
 
 /**
  * Versendet einen Entwurf (wird «Offen») oder sendet eine offene Rechnung erneut (MAIL).
- * Vor dem Versand werden Einstellungen, QR-Rechnung, Fälligkeit und Empfänger geprüft; so geht nie eine Mail mit ungültigem Zahlteil hinaus.
+ * Vor dem Versand werden Einstellungen, Zahlungsangaben (QR-Rechnung oder Einzahlungsangaben), Fälligkeit und Empfänger geprüft; so geht nie eine Mail mit ungültigem Zahlteil hinaus.
  */
 export async function sendInvoice(admin: Actor, id: string, channel: SendChannel): Promise<{ number: string; resent: boolean }> {
   const settings = await getVereinSettings();
@@ -367,14 +376,14 @@ export async function sendInvoice(admin: Actor, id: string, channel: SendChannel
     throw new ApiError(409, "CONFLICT", "Die Fälligkeit liegt in der Vergangenheit. Passe Rechnungsdatum und Fälligkeit im Entwurf an.");
   }
   const bill = await billForInvoice(inv);
-  if (!bill.ok) throw new ApiError(409, "BILL_INVALID", `Die QR-Rechnung kann noch nicht erstellt werden: ${bill.problems.join(" ")}`);
+  if (!bill.ok) throw new ApiError(409, "BILL_INVALID", `${billUnavailableMessage(bill.mode)}: ${bill.problems.join(" ")}`);
 
   if (channel === "MAIL") {
     const email = emailSchema.safeParse(inv.member.email);
     if (!email.success || inv.member.anonymizedAt) conflict("Beim Mitglied ist keine gültige E-Mail-Adresse hinterlegt. Wähle «Per Post zustellen» oder ergänze die Adresse.");
     const token = newViewToken();
     await db.invoice.update({ where: { id }, data: { viewTokenHash: sha256(token), viewTokenExpiresAt: invoiceLinkExpiry(new Date(), inv.dueDate) } });
-    const sent = await sendInvoiceMail({ to: email.data!, firstName: inv.member.firstName }, inv, token);
+    const sent = await sendInvoiceMail({ to: email.data!, firstName: inv.member.firstName }, inv, token, bill);
     if (!sent.ok) throw new ApiError(502, "MAIL_FAILED", `Die E-Mail konnte nicht versendet werden: ${sent.error}`);
   }
 
@@ -547,7 +556,7 @@ export async function bookExistingPayment(admin: Actor, paymentId: string, accou
 
 // ---- Darstellung der Rechnung (Druckansicht) --------------------------------------------------------------------------
 
-/** Alles, was die Rechnungsansicht braucht: Absender, QR-Rechnung (nur für zahlbare Rechnungen) und die Rechnung in schlanker Form. */
+/** Alles, was die Rechnungsansicht braucht: Absender, Zahlungsangaben (QR-Rechnung oder Einzahlungsangaben, nur für zahlbare Rechnungen) und die Rechnung in schlanker Form. */
 export async function loadInvoiceRender(inv: InvoiceDetail) {
   const ctx = await loadBillContext();
   const payable = inv.status === "OFFEN" || inv.status === "ENTWURF";

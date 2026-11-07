@@ -30,7 +30,7 @@ type Commit = { results: Array<{ line: number; ok: boolean; message: string }>; 
 
 const MAX_FILE_BYTES = 1_000_000;
 
-/** Zahlungsabgleich: CSV mit Referenz und Betrag einlesen, Rechnungen zuordnen, gewählte Zeilen als Zahlungen erfassen. */
+/** Zahlungsabgleich: CSV mit Betrag und Referenz bzw. Verwendungszweck einlesen, Rechnungen zuordnen, gewählte Zeilen als Zahlungen erfassen. */
 export function PaymentImport({ accounts }: { accounts: { assets: AccountOption[]; incomes: AccountOption[] } }) {
   const router = useRouter();
   const toast = useToast();
@@ -99,7 +99,7 @@ export function PaymentImport({ accounts }: { accounts: { assets: AccountOption[
     <Card className="p-5">
       <h2 className="text-sm font-semibold text-white">Zahlungen aus einer Liste einlesen</h2>
       <p className="mt-1 max-w-2xl text-sm text-zinc-400">
-        Lade eine CSV-Datei aus dem E-Banking hoch oder füge sie ein. Erwartet werden eine Kopfzeile mit den Spalten «Referenz» und «Betrag» (optional «Datum» und «Text»). Du siehst zuerst die Zuordnung zu den Rechnungen und bestätigst dann, was gebucht wird.
+        Lade eine CSV-Datei aus dem E-Banking oder von deinem Zahlungsanbieter hoch oder füge sie ein. Erwartet werden eine Kopfzeile mit der Spalte «Betrag» (in CHF) und mindestens «Referenz» oder «Text» bzw. «Verwendungszweck» (optional «Datum»). Zugeordnet wird über die Zahlungsreferenz (auch eine Creditor Reference «RF…» im Verwendungszweck) oder die Rechnungsnummer im Text. Du siehst zuerst die Zuordnung zu den Rechnungen und bestätigst dann, was gebucht wird.
       </p>
       {error && (
         <Notice variant="error" className="mt-4">

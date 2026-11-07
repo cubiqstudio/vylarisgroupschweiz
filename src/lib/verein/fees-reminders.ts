@@ -4,6 +4,7 @@
 // und das Gesetz, nicht diese Software.
 import { daysBetween, reminderDueDate } from "./dates";
 import { MAX_REMINDER_LEVEL } from "./constants";
+import type { BillMode } from "./fees-calc";
 import { openAmount } from "./money";
 import { reminderDaysFor, type VereinSettings } from "./settings-schema";
 
@@ -83,11 +84,19 @@ export function defaultReminderParagraphs(c: ReminderTextContext): string[] {
   return [first, second, "Hast du die Zahlung inzwischen veranlasst, betrachte diese Mitteilung bitte als gegenstandslos. Bei Fragen melde dich gerne bei uns."];
 }
 
-export type InvoiceTextContext = { invoiceNumber: string; subject: string; totalText: string; dueDateText: string };
+export type InvoiceTextContext = { invoiceNumber: string; subject: string; totalText: string; dueDateText: string; /** Standard: QR-Rechnung */ mode?: BillMode };
 
+/**
+ * Standardtext der Rechnungsmail. Je nach Konto des Vereins: bei einem Schweizer Konto mit QR-Zahlteil, bei einer ausländischen IBAN
+ * mit den Einzahlungsangaben (kein QR-Code, keine «QR-Rechnung»).
+ */
 export function defaultInvoiceParagraphs(c: InvoiceTextContext): string[] {
-  return [
-    `Für dich liegt die Rechnung ${c.invoiceNumber}${c.subject ? ` («${c.subject}»)` : ""} über ${c.totalText} bereit. Sie ist zahlbar bis ${c.dueDateText}.`,
-    "Über den Link siehst du die Rechnung mit dem Zahlteil (QR-Rechnung). Du kannst sie ausdrucken oder im Browser als PDF speichern und mit deiner Banking-App den QR-Code einlesen.",
-  ];
+  const first = `Für dich liegt die Rechnung ${c.invoiceNumber}${c.subject ? ` («${c.subject}»)` : ""} über ${c.totalText} bereit. Sie ist zahlbar bis ${c.dueDateText}.`;
+  if (c.mode === "DETAILS") {
+    return [
+      first,
+      "Über den Link siehst du die Rechnung mit den Einzahlungsangaben. Du kannst sie ausdrucken oder im Browser als PDF speichern. Bitte gib bei der Überweisung die Zahlungsreferenz an, damit wir deine Zahlung zuordnen können.",
+    ];
+  }
+  return [first, "Über den Link siehst du die Rechnung mit dem Zahlteil (QR-Rechnung). Du kannst sie ausdrucken oder im Browser als PDF speichern und mit deiner Banking-App den QR-Code einlesen."];
 }

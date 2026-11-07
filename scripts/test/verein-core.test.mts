@@ -423,6 +423,12 @@ test("iban: Prüfsumme und QR-IBAN", () => {
   assert.equal(iban.isQrIban("CH44 3199 9123 0008 8901 2"), true); // Beispiel aus dem Style Guide QR-Rechnung
   assert.equal(iban.formatIban("ch9300762011623852957"), "CH93 0076 2011 6238 5295 7");
   assert.equal(iban.isValidIban("abc"), false);
+  // Länge je Land (IBAN-Register): DE hat 22 Zeichen, IE ebenfalls; Prüfsumme allein genügt nicht
+  assert.equal(iban.isValidIban("IE29 AIBK 9311 5212 3456 78"), true);
+  assert.equal(iban.isValidIban("DE89 3704 0044 0532 0130 0"), false);
+  assert.equal(iban.isValidSwissIban("IE29 AIBK 9311 5212 3456 78"), false);
+  assert.equal(iban.isForeignIban("IE29 AIBK 9311 5212 3456 78"), true);
+  assert.equal(iban.isForeignIban("CH93 0076 2011 6238 5295 7"), false);
 });
 
 test("iban: QR-Referenz und Creditor Reference", () => {

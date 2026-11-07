@@ -27,6 +27,8 @@ export const FINANCE_SETTING_FIELDS = [
   "iban",
   "qrIban",
   "bank",
+  "bic",
+  "payeeName",
   "paymentDays",
   "reminderAfterDays",
   "reminderDays1",

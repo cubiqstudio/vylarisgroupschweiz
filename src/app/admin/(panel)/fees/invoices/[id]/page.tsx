@@ -10,6 +10,7 @@ import { PaymentRowActions } from "@/components/admin/fees/payment-row-actions";
 import { Chf, InvoiceStatusPill, ReminderPill, TD, TH, TableWrap } from "@/components/admin/fees/shared";
 import { PAYMENT_METHOD_LABEL, type PaymentMethod } from "@/lib/verein/constants";
 import { formatDateCh, formatDateTimeCh } from "@/lib/verein/dates";
+import { billReferenceOf, billUnavailableMessage } from "@/lib/verein/fees-bill";
 import { billForInvoice, getInvoiceDetail } from "@/lib/verein/fees-data";
 import { balanceOf } from "@/lib/verein/fees-calc";
 import { formatChf } from "@/lib/verein/money";
@@ -41,7 +42,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
     ["Betrag", <Chf key="t" rappen={inv.totalRappen} withCurrency />],
     ["Bezahlt", <Chf key="p" rappen={inv.paidRappen} withCurrency />],
     [overpaidRappen > 0 ? "Überzahlung" : "Noch offen", <Chf key="o" rappen={overpaidRappen > 0 ? overpaidRappen : openRappen} withCurrency />],
-    ["Referenz", bill?.ok ? (bill.display.reference ?? "–") : inv.paymentReference || "–"],
+    ["Referenz", (bill ? billReferenceOf(bill) : null) ?? (inv.paymentReference || "–")],
     ["Versendet", inv.sentAt ? formatDateTimeCh(inv.sentAt) : "noch nicht"],
     ["Beitragsjahr", inv.period ? String(inv.period.year) : "–"],
   ];
@@ -76,7 +77,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
       )}
       {bill && !bill.ok && (
         <Notice variant="warning" className="mb-6">
-          <p className="font-medium">Die QR-Rechnung kann noch nicht erstellt werden:</p>
+          <p className="font-medium">{billUnavailableMessage(bill.mode)}:</p>
           <ul className="mt-1 list-disc pl-5">
             {bill.problems.map((p) => (
               <li key={p}>{p}</li>

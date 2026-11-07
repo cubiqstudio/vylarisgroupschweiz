@@ -172,6 +172,8 @@ Jedes Modul besitzt seine Routen, Komponenten (`src/components/admin/<modul>/**`
 
 Schnittstelle für die Türkontrolle: Die getrennte Android-App «Vylaris Scanner» greift über `/api/scanner/v1/**` (Bearer-Token eines gekoppelten Geräts, Modell `ScannerDevice`) auf Mitgliederausweis, Anlass-Anmeldungen und Anwesenheit zu. Die Geräteverwaltung liegt unter `/admin/scanner` und `/api/admin/scanner-devices/**` (Modul `system`). Beschreibung der Schnittstelle, Kopplung und des Datenschutzes: [verein-scanner.md](verein-scanner.md).
 
+Mitgliederausweis (Aufbau): Vorderseite (Logo, Vereinsname, «Mitgliederausweis») und Rückseite (Name, Mitgliedernummer, Eintrittsdatum, QR-Code), Komponente `src/components/verein/membership-card.tsx`, Seite `/account/verein/ausweis`. Die Druckdatei ist eine Kartenvorlage im Format CR80 / ISO 7810 ID-1 (85.6 × 54 mm, 2 Seiten, randlos, Sicherheitszone 4 mm; Regeln in `print-styles-card.tsx`, nur auf dieser Seite aktiv). Der QR-Inhalt (signierte Prüfadresse) ist unverändert; dieselbe Adresse zeigt die Seite zum Kopieren für NFC-Karten (NDEF-«URL»). Einzelheiten: [verein-uebersicht.md](verein-uebersicht.md).
+
 Gemeinsamer Kern (nur über Rückfrage ändern): `prisma/schema.prisma` (Grundstruktur, `Counter`), `src/lib/verein/*`, `src/components/admin/core/*`, Navigation, `src/lib/api.ts`, `src/lib/auth.ts`.
 
 Mitglieder-Seiten (`/account/verein/**`) liegen im gemeinsamen Rahmen `src/app/(site)/account/verein/layout.tsx` (zweite Reiterebene). Platzhalterseiten tragen im Kopf den Vermerk «Platzhalter (Besitzer: …)» und sind zu ersetzen.
@@ -291,7 +293,7 @@ await db.$transaction(async (tx) => {
 | `csv.ts` | CSV für Excel (Semikolon, BOM, CRLF), Schutz vor Formel-Injektion, `csvResponse` |
 | `ics.ts` | iCalendar für Anlässe und Versammlungen, `icsResponse` |
 | `files.ts` | Upload-Prüfung (Grösse, Typ am Inhalt erkannt, SHA-256), sichere Dateinamen, `downloadHeaders` |
-| `iban.ts` | IBAN, QR-IBAN, QR-Referenz und Creditor Reference prüfen und bauen |
+| `iban.ts` | IBAN (Prüfsumme und Länge je Land), BIC/SWIFT, QR-IBAN, QR-Referenz und Creditor Reference prüfen und bauen |
 | `pagination.ts` | `listParams`, `pageMeta`, `searchWhere`, `listHref` |
 | `validation.ts` | gemeinsame Zod-Bausteine (E-Mail, Betrag, Datum, Telefon, …) |
 | `settings-schema.ts`, `settings.ts` | Vereinseinstellungen: Schlüssel, Zod-Schema, Lesen und Schreiben mit Protokoll |
@@ -315,9 +317,11 @@ Die Einstellungen liegen in `SiteSetting` (Schlüssel/Wert), Schlüssel mit Prä
 | Feld | Schlüssel | Voreinstellung |
 | --- | --- | --- |
 | `accountHolder` | `verein.account.holder` | leer |
-| `iban` | `verein.account.iban` | leer (gültige Schweizer IBAN, keine QR-IBAN) |
-| `qrIban` | `verein.account.qrIban` | leer (QR-IBAN, Institutskennung 30000–31999) |
-| `bank` | `verein.account.bank` | leer |
+| `iban` | `verein.account.iban` | leer (Hauptkonto: jede gültige IBAN, aber keine QR-IBAN) |
+| `qrIban` | `verein.account.qrIban` | leer (nur Schweizer Konten, Institutskennung 30000–31999) |
+| `bank` | `verein.account.bank` | leer (z. B. «SumUp Payments Limited»; erscheint in den Einzahlungsangaben) |
+| `bic` | `verein.account.bic` | leer (BIC/SWIFT, 8 oder 11 Zeichen) |
+| `payeeName` | `verein.account.payeeName` | leer (Zahlungsempfänger, falls abweichend vom Kontoinhaber) |
 | `paymentDays` | `verein.fees.paymentDays` | nicht festgelegt |
 | `reminderAfterDays` | `verein.fees.reminderAfterDays` | nicht festgelegt |
 | `reminderDays1`, `reminderDays2`, `reminderDays3` | `verein.fees.reminderDays1` … `3` | nicht festgelegt |
@@ -354,6 +358,30 @@ Zwei Voreinstellungen haben eine Grundlage im Gesetz bzw. sind neutral und sind 
 
 Die Mitgliedschaftsarten «Aktivmitglied» und «Passivmitglied» legt der Seed als Vorlagen an, mit Beitrag 0 CHF und dem Hinweis, dass der Verein Beitrag und Rechte festlegt.
 
+### Konto und Zahlungsangaben
+
+Der Verein hat **ein Hauptkonto** (`iban`). Es darf eine beliebige gültige IBAN sein (Prüfsumme nach ISO 13616 mod 97 und Länge je Land nach IBAN-Register, für unbekannte Länder 15–34 Zeichen); gespeichert wird normalisiert (ohne Leerzeichen, Grossbuchstaben, `normalizeIban`). Welche Zahlungsangaben auf der Rechnung stehen, bestimmt das Land der IBAN (`billModeOf`, `chooseBillAccount` in `fees-calc.ts`, `composeInvoiceBill` in `fees-bill.ts`):
+
+| Hauptkonto | Rechnung | Referenz |
+| --- | --- | --- |
+| Schweizer oder liechtensteinische IBAN (CH/LI) | Schweizer **QR-Rechnung** (Empfangsschein und Zahlteil mit QR-Code) | Creditor Reference (`SCOR`, «RF…») |
+| CH/LI-IBAN mit zusätzlicher **QR-IBAN** (`qrIban`) | QR-Rechnung mit der QR-IBAN | QR-Referenz (`QRR`, 27 Ziffern) |
+| **Ausländische IBAN** (z. B. IE bei SumUp) | **Einzahlungsangaben** statt QR-Rechnung: Zahlungsempfänger (Vereinsname und Anschrift, oder der abweichende Zahlungsempfänger), IBAN in Vierergruppen, BIC/SWIFT und Bank (wenn erfasst), Währung CHF und Betrag, Zahlungsreferenz, Zahlbar bis | immer Creditor Reference «RF…» (ISO 11649, international gültig), nie `QRR` |
+
+- **Warum keine QR-Rechnung mit ausländischer IBAN:** Die Swiss Payment Standards erlauben in der QR-Rechnung nur IBAN mit Länderkürzel CH oder LI. Mit einer ausländischen IBAN wird deshalb kein Swiss-QR-Code erzeugt (`validateQrBill` lehnt sie ab). Es gibt auch keinen EPC-QR («GiroCode»): Er kennt nur Euro, die Rechnungen lauten auf CHF.
+- **Einstellungen:** Vereinseinstellungen → Finanzen. Die Oberfläche zeigt live Land und Art der IBAN («Schweizer IBAN», «Ausländische IBAN (IE) – keine Schweizer QR-Rechnung möglich») und bei ausländischer IBAN einen Hinweis: Rechnungen lauten auf CHF; Zahlungen aus der Schweiz auf ein Euro-Konto im Ausland sind für die Zahlenden Auslandüberweisungen mit Umrechnung und möglichen Gebühren, ob das Konto CHF-Zahlungen annimmt, klärt der Verein mit dem Zahlungsanbieter. Eine QR-IBAN neben einer ausländischen IBAN wird beim Speichern abgelehnt (`accountConflicts`).
+- **Anschrift:** Name und Anschrift des Zahlungsempfängers sind die des Vereins (Kontoinhaber bzw. abweichender Zahlungsempfänger, Anschrift aus Einstellungen → Rechtliches). Das Land der Anschrift hängt nie vom Land der IBAN ab (ohne Angabe: Schweiz).
+- **Darstellung:** Rechnungsansicht im Admin und unter `/rechnung/…`, Portal und Druck (A4) zeigen den Block «Einzahlungsangaben» (`payment-details-block.tsx`) am Ende der Rechnung, wo sonst der Zahlteil steht. Rechnungs- und Mahnmails (`fees-mail-text.ts`) enthalten bei ausländischer IBAN die Einzahlungsangaben als Text und sprechen weder von «QR-Rechnung» noch von «Zahlteil».
+- **Bestehende Rechnungen:** Die Zahlungsangaben werden bei jeder Ansicht aus den aktuellen Einstellungen berechnet. Wechselt das Hauptkonto, zeigen auch bereits versendete, noch offene Rechnungen das neue Konto; die Referenz wird (bei einem Wechsel auf eine ausländische IBAN) als Creditor Reference neu gebildet, die gespeicherte Referenz bleibt für den Zahlungsabgleich gültig. Bereits ausgedruckte oder versendete Rechnungen mit altem Konto sollte der Verein bei einem Kontowechsel neu versenden.
+
+### Zahlungseingang
+
+Zahlungen werden über die **Zahlungsreferenz** (QR-Referenz oder Creditor Reference «RF…», auch gruppiert und auch im Verwendungszweck) oder die **Rechnungsnummer** im Text (`2026-0001`) einer Rechnung zugeordnet (`fees-import.ts`). Die Zuordnung setzt keine Schweizer IBAN voraus, weder beim eigenen Konto noch bei der Gegenseite.
+
+- **CSV-Import** (Beiträge → «Zahlungen aus einer Liste einlesen»): Kopfzeile mit «Betrag» (in CHF) und mindestens «Referenz» oder «Text»/«Verwendungszweck» (auch `Amount`, `Description`, `Reference`), optional «Datum». Das genügt für den CSV-Export eines ausländischen Zahlungsanbieters mit Verwendungszweck. Der Import zeigt zuerst die Zuordnung, gebucht wird erst nach Bestätigung. Ein CAMT-Import (ISO 20022 XML) ist nicht vorhanden.
+- **Manuell erfassen**, wenn das Format des Anbieters nicht passt (andere Spalten, Währung nicht CHF, kein CSV): Rechnung öffnen → «Zahlung erfassen» (Datum, Betrag in CHF, Referenz optional), oder unter Beiträge → «Zahlung ohne Rechnung erfassen» für Zahlungen ohne Rechnung (z. B. Spenden). Teil- und Überzahlungen werden angezeigt; die Buchung in die Kasse erfolgt in derselben Transaktion.
+- Zahlt jemand in einer anderen Währung als CHF, weicht der gutgeschriebene Betrag vom Rechnungsbetrag ab: Der Betrag in CHF wird manuell erfasst, die Rechnung bleibt sonst offen (Teilzahlung).
+
 ## 11. Datenschutz und Aufbewahrung
 
 - Zweckbindung und Datensparsamkeit: Pflichtangaben sind Name und eine Kontaktmöglichkeit. Adresse, Telefon und Geburtsdatum sind optional bzw. nur, wenn der Verein sie braucht. Mit dem Beitrittsantrag bestätigen Personen Statuten und Datenschutzhinweis (`Member.consentAt`).
@@ -378,7 +406,7 @@ Zeitgesteuerte Arbeiten laufen nicht im Webserver, sondern werden von aussen aus
 ## 12. Prüfen
 
 - `npm run typecheck`, `npm run lint` (ohne Warnungen)
-- `npm run test` enthält `scripts/test/verein-core.test.mts` (Geld, Datum, Fristen, CSV, Audit, Rechte, Nummern, IBAN, ICS, Uploads, Einstellungen), `scripts/test/permissions.test.mts` (einstellbare Rechte: Auflösung, Schranken, Aussperr- und Ausweitungsschutz, kaputte Daten) und `scripts/test/permissions-db.test.mts` (eigene Temp-SQLite: Speichern nur mit System-Recht, Protokoll, Dokumentensichtbarkeit)
+- `npm run test` enthält `scripts/test/verein-core.test.mts` (Geld, Datum, Fristen, CSV, Audit, Rechte, Nummern, IBAN, ICS, Uploads, Einstellungen), `scripts/test/foreign-iban.test.mts` (ausländische IBAN: IBAN- und BIC-Prüfung, Einstellungen, QR-Rechnung oder Einzahlungsangaben, Mailtexte, Zahlungsabgleich), `scripts/test/permissions.test.mts` (einstellbare Rechte: Auflösung, Schranken, Aussperr- und Ausweitungsschutz, kaputte Daten) und `scripts/test/permissions-db.test.mts` (eigene Temp-SQLite: Speichern nur mit System-Recht, Protokoll, Dokumentensichtbarkeit)
 - `npx tsx scripts/check-admin-guards.mts` prüft die Wächter (Teil von `npm run check`)
 - Datenbank lokal: `DATABASE_URL="file:./dev.db" flock /tmp/prisma.lock npx prisma db push --skip-generate && flock /tmp/prisma.lock npx prisma generate`
 

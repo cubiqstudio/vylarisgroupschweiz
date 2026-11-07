@@ -85,6 +85,8 @@ const FINANCE_FIELDS: readonly VereinSettingField[] = [
   "iban",
   "qrIban",
   "bank",
+  "bic",
+  "payeeName",
   "paymentDays",
   "reminderAfterDays",
   "reminderDays1",

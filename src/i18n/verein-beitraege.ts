@@ -1,6 +1,6 @@
 import { defineMessages } from "@/i18n";
 
-/** Texte zu Rechnungen für Mitglieder und Besucher mit Link: Portal «Beiträge», Rechnungsdokument, QR-Zahlteil. */
+/** Texte zu Rechnungen für Mitglieder und Besucher mit Link: Portal «Beiträge», Rechnungsdokument, QR-Zahlteil bzw. Einzahlungsangaben (bei ausländischer IBAN). */
 export const beitraege = defineMessages({
   meta: {
     title: "Beiträge und Rechnungen",
@@ -10,6 +10,7 @@ export const beitraege = defineMessages({
   portal: {
     heading: "Beiträge und Rechnungen",
     intro: "Hier siehst du deine Rechnungen des Vereins mit dem Stand der Zahlung. Zum Bezahlen öffnest du die Rechnung und liest den QR-Code mit deiner Banking-App ein.",
+    introDetails: "Hier siehst du deine Rechnungen des Vereins mit dem Stand der Zahlung. Zum Bezahlen öffnest du die Rechnung und überweist den Betrag mit den Einzahlungsangaben (IBAN und Zahlungsreferenz) in deiner Banking-App.",
     emptyTitle: "Noch keine Rechnungen",
     emptyText: "Sobald dir der Verein eine Rechnung stellt, erscheint sie hier.",
     open: "Offen",
@@ -52,6 +53,24 @@ export const beitraege = defineMessages({
     thanks: "Vielen Dank für deine Unterstützung des Vereins.",
     billUnavailable: "Der Zahlteil kann nicht angezeigt werden",
     billUnavailableHint: "Die Angaben für die QR-Rechnung sind unvollständig. Bitte melde dich beim Vorstand.",
+    detailsUnavailable: "Die Einzahlungsangaben können nicht angezeigt werden",
+    detailsUnavailableHint: "Die Angaben zum Konto des Vereins sind unvollständig. Bitte melde dich beim Vorstand.",
+  },
+  /** Block «Einzahlungsangaben» statt QR-Zahlteil, wenn das Konto des Vereins eine ausländische IBAN hat. */
+  paymentDetails: {
+    title: "Einzahlungsangaben",
+    payee: "Zahlungsempfänger",
+    iban: "IBAN",
+    bic: "BIC/SWIFT",
+    bank: "Bank",
+    currency: "Währung",
+    amount: "Betrag",
+    reference: "Zahlungsreferenz",
+    referenceHint: "Bitte bei der Überweisung im Feld «Zahlungsreferenz» bzw. «Verwendungszweck» angeben.",
+    message: "Zahlungszweck",
+    due: "Zahlbar bis",
+    foreignNote: (country: string) =>
+      `Das Konto des Vereins wird im Ausland geführt (IBAN-Länderkürzel ${country}). Der Betrag lautet auf Schweizer Franken (CHF). Bei Überweisungen aus anderen Währungen können Umrechnung und Gebühren anfallen.`,
   },
   slip: {
     receipt: "Empfangsschein",

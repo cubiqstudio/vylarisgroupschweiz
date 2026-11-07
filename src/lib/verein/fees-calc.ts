@@ -1,9 +1,9 @@
 // Fachlogik der Beiträge und Rechnungen (rein, ohne Datenbank): Status, Teil- und Überzahlungen, Sammelrechnungslauf, Adressblock,
-// Referenzwahl der QR-Rechnung, offene Posten und Altersgruppen. Die Datenbankzugriffe stehen in ./fees-data.ts.
+// Referenzwahl der Rechnung (QR-Rechnung oder Einzahlungsangaben), offene Posten und Altersgruppen. Die Datenbankzugriffe stehen in ./fees-data.ts.
 import { daysBetween, toDateOnly, zurichParts } from "./dates";
 import { openAmount, prorateAnnual, roundToFiveRappen, sumRappen } from "./money";
 import { buildInvoiceQrReference, buildInvoiceScorReference, referenceTypeOf, type QrBillReferenceType } from "./qr-bill";
-import { isQrIban, normalizeIban } from "./iban";
+import { isForeignIban, isQrIban, normalizeIban } from "./iban";
 import type { InvoiceStatus } from "./constants";
 
 export { openAmount };
@@ -206,14 +206,31 @@ export function addressBlockOf(m: AddressSource): string {
 
 export const recipientNameOf = (m: { firstName: string; lastName: string }): string => `${m.firstName.trim()} ${m.lastName.trim()}`.trim();
 
-// ---- Referenz der QR-Rechnung ---------------------------------------------------------------------------------------
-
-export type BillAccount = { account: string; referenceType: QrBillReferenceType; reference: string };
+// ---- Konto und Referenz der Rechnung ---------------------------------------------------------------------------------------
 
 /**
- * Wählt Konto und Referenz der QR-Rechnung aus den Vereinseinstellungen:
+ * Art der Zahlungsangaben auf der Rechnung:
+ *  - QR_BILL: Schweizer QR-Rechnung (Zahlteil mit QR-Code), nur mit IBAN oder QR-IBAN aus der Schweiz/Liechtenstein.
+ *  - DETAILS: Einzahlungsangaben (IBAN, BIC, Zahlungsreferenz) als Text, wenn das Hauptkonto eine ausländische IBAN ist.
+ *    Die Swiss Payment Standards erlauben in der QR-Rechnung nur CH/LI; mit einer ausländischen IBAN darf keine erzeugt werden.
+ */
+export type BillMode = "QR_BILL" | "DETAILS";
+
+export type BillAccount = { account: string; referenceType: QrBillReferenceType; reference: string; mode: BillMode };
+
+/** Art der Zahlungsangaben nach den Einstellungen; null, wenn weder IBAN noch QR-IBAN hinterlegt ist. */
+export function billModeOf(settings: { iban: string; qrIban: string }): BillMode | null {
+  const iban = normalizeIban(settings.iban);
+  if (iban && isForeignIban(iban)) return "DETAILS";
+  if (iban || normalizeIban(settings.qrIban)) return "QR_BILL";
+  return null;
+}
+
+/**
+ * Wählt Konto und Referenz der Rechnung aus den Vereinseinstellungen. Es gibt ein Hauptkonto:
+ *  - ausländische IBAN → Einzahlungsangaben mit Creditor Reference (RF…, ISO 11649; QR-Referenz und QR-IBAN gibt es nur in der Schweiz), sonst
  *  - QR-IBAN vorhanden → QR-Referenz (27 Stellen), sonst
- *  - normale IBAN → Creditor Reference (RF…).
+ *  - normale Schweizer IBAN → Creditor Reference (RF…).
  * Eine gespeicherte Referenz bleibt gültig, solange sie zum verfügbaren Konto passt (QR-Referenz ↔ QR-IBAN, RF ↔ IBAN).
  * null, wenn kein Konto hinterlegt ist.
  */
@@ -225,12 +242,12 @@ export function chooseBillAccount(
   const iban = normalizeIban(settings.iban);
   const stored = invoice.paymentReference.replace(/\s/g, "");
   const storedType = stored ? referenceTypeOf(stored) : null;
+  const scor = () => (storedType === "SCOR" ? stored : buildInvoiceScorReference(invoice.year, invoice.seq));
+  if (iban && isForeignIban(iban)) return { account: iban, referenceType: "SCOR", reference: scor(), mode: "DETAILS" };
   if (qrIban && isQrIban(qrIban)) {
-    return { account: qrIban, referenceType: "QRR", reference: storedType === "QRR" ? stored : buildInvoiceQrReference(invoice.year, invoice.seq) };
+    return { account: qrIban, referenceType: "QRR", reference: storedType === "QRR" ? stored : buildInvoiceQrReference(invoice.year, invoice.seq), mode: "QR_BILL" };
   }
-  if (iban) {
-    return { account: iban, referenceType: "SCOR", reference: storedType === "SCOR" ? stored : buildInvoiceScorReference(invoice.year, invoice.seq) };
-  }
+  if (iban) return { account: iban, referenceType: "SCOR", reference: scor(), mode: "QR_BILL" };
   return null;
 }
 

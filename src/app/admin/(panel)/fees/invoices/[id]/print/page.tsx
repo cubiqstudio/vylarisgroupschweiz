@@ -13,7 +13,7 @@ import { idSchema } from "@/lib/verein/validation";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Rechnung drucken" };
 
-/** Druckansicht der Rechnung mit QR-Zahlteil (A4). Im Druckdialog «Als PDF speichern» wählen. */
+/** Druckansicht der Rechnung mit QR-Zahlteil bzw. Einzahlungsangaben (A4). Im Druckdialog «Als PDF speichern» wählen. */
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   await requireModulePage("fees");
   const parsed = idSchema.safeParse((await params).id);

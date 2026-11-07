@@ -18,6 +18,7 @@ import {
 } from "./fees-calc";
 import {
   assertInvoicingReady,
+  billForInvoice,
   createInvoiceRecord,
   newViewToken,
   recordPayment,
@@ -26,7 +27,7 @@ import {
   type PaymentResult,
 } from "./fees-data";
 import { sendReminderMail } from "./fees-mail";
-import { matchRow, parseBankCsv, type ImportRow, type MatchInvoice, type MatchResult } from "./fees-import";
+import { creditorReferencesIn, matchRow, parseBankCsv, type ImportRow, type MatchInvoice, type MatchResult } from "./fees-import";
 import { dueDateForLevel, reminderStateOf, type ReminderState } from "./fees-reminders";
 import type { PaymentMethod } from "./constants";
 import { formatChf, openAmount } from "./money";
@@ -332,7 +333,8 @@ async function deliverReminderMail(invoiceId: string, reminderId: string, level:
   }
   const token = newViewToken();
   await db.invoice.update({ where: { id: invoiceId }, data: { viewTokenHash: sha256(token), viewTokenExpiresAt: invoiceLinkExpiry(new Date(), inv.dueDate) } });
-  const sent = await sendReminderMail({ to: email.data, firstName: inv.member.firstName }, inv, { level, dueDate: reminder.dueDate, feeRappen: reminder.feeRappen }, token);
+  const bill = await billForInvoice(inv);
+  const sent = await sendReminderMail({ to: email.data, firstName: inv.member.firstName }, inv, { level, dueDate: reminder.dueDate, feeRappen: reminder.feeRappen }, token, bill);
   if (sent.ok) {
     await db.reminder.update({ where: { id: reminderId }, data: { sentAt: new Date(), mailSent: true, mailError: "" } });
     return { mailSent: true, message: "Per E-Mail versendet." };
@@ -476,16 +478,22 @@ export async function listPayments(q: string, skip: number, take: number): Promi
 export type ImportLine = { row: ImportRow; result: MatchResult };
 
 async function matchImport(rows: readonly ImportRow[]): Promise<ImportLine[]> {
-  const refs = [...new Set(rows.map((r) => r.reference.toUpperCase()).filter(Boolean))];
+  const refs = new Set(rows.map((r) => r.reference.toUpperCase()).filter(Boolean));
   const keys = new Set<string>();
   for (const r of rows) {
     const parsed = r.reference ? parseInvoiceReference(r.reference) : null;
     if (parsed) keys.add(`${parsed.year}-${parsed.seq}`);
     const m = /\b(\d{4})-(\d{4,})\b/.exec(r.text);
     if (m) keys.add(`${Number(m[1])}-${Number(m[2])}`);
+    // Creditor Reference im Verwendungszweck (z. B. Kontoauszug eines ausländischen Anbieters)
+    for (const rf of creditorReferencesIn(r.text)) {
+      refs.add(rf);
+      const p = parseInvoiceReference(rf);
+      if (p) keys.add(`${p.year}-${p.seq}`);
+    }
   }
   const or: Prisma.InvoiceWhereInput[] = [];
-  if (refs.length) or.push({ paymentReference: { in: refs } });
+  if (refs.size > 0) or.push({ paymentReference: { in: [...refs] } });
   for (const k of keys) {
     const [year, seq] = k.split("-").map(Number);
     or.push({ year, seq });

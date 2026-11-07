@@ -73,6 +73,9 @@ test("Übersicht: Einrichtungshilfe gruppiert fehlende Einstellungen mit Link", 
   const complete = { ...empty, accountHolder: "Verein", iban: "CH9300762011623852957", paymentDays: 30 };
   const g2 = overview.groupMissingSettings(settings.missingForInvoicing(complete), [], []);
   assert.equal(g2.length, 0, "Gruppen ohne fehlende Angaben entfallen");
+  // ausländische IBAN (z. B. IE bei SumUp) gilt als vollständig: kein Fehler in der Einrichtungshilfe
+  const completeIe = { ...empty, accountHolder: "Verein", iban: "IE29AIBK93115212345678", paymentDays: 30 };
+  assert.equal(overview.groupMissingSettings(settings.missingForInvoicing(completeIe), [], []).length, 0);
 
   assert.equal(overview.settingsHrefFor("invitationDays"), "/admin/verein");
   assert.equal(overview.settingsHrefFor("reminderFee2Rappen"), "/admin/verein/finanzen");
@@ -99,6 +102,11 @@ test("Einstellungen: Allgemein und Finanzen sind getrennt und strikt", () => {
   if (ok.success) assert.equal(ok.data.settings.iban, "CH9300762011623852957", "IBAN wird normalisiert");
   // falsche Prüfziffer
   assert.equal(forms.financeSettingsInputSchema.safeParse({ settings: { iban: "CH9400762011623852957" } }).success, false);
+  // ausländische IBAN ist als Hauptkonto zulässig (Einzahlungsangaben statt QR-Rechnung), mit falscher Prüfziffer nicht
+  const foreign = forms.financeSettingsInputSchema.safeParse({ settings: { iban: "ie29 aibk 9311 5212 3456 78" } });
+  assert.equal(foreign.success, true);
+  if (foreign.success) assert.equal(foreign.data.settings.iban, "IE29AIBK93115212345678");
+  assert.equal(forms.financeSettingsInputSchema.safeParse({ settings: { iban: "IE30AIBK93115212345678" } }).success, false);
   // Tage nur ganzzahlig im erlaubten Bereich
   assert.equal(forms.financeSettingsInputSchema.safeParse({ settings: { paymentDays: 400 } }).success, false);
   assert.equal(forms.generalSettingsInputSchema.safeParse({ settings: { fiscalStartDay: 29 } }).success, false);
@@ -301,6 +309,24 @@ test("Ausweis: QR-Code als Pfad", () => {
   assert.ok(shape.modules >= 21);
   assert.match(shape.pathD, /^M\d+ \d+h\d+v1h-\d+z/);
   assert.doesNotMatch(shape.pathD, /[<>"]/);
+});
+
+test("Ausweis: «Mitglied seit» ohne führende Nullen, Tag und Monat einstellig", () => {
+  assert.equal(card.memberSinceText(d(2026, 1, 5)), "Mitglied seit 5.1.2026");
+  assert.equal(card.memberSinceText(d(2026, 12, 31)), "Mitglied seit 31.12.2026");
+});
+
+test("Ausweis: QR-Kachel mit Ruhezone von 4 Modulen, Code im Druck mindestens 18 mm", () => {
+  assert.equal(card.QR_QUIET_MODULES, 4);
+  assert.equal(card.qrViewBox(37), "-4 -4 45 45");
+  // Realistische Prüfadresse: Basis-URL, Mitglieds-ID (cuid, 25 Zeichen), Version und Signatur (43 Zeichen)
+  const url = `https://vylaris.ch/verein/pruefen/${"c".repeat(25)}.12.${"S".repeat(43)}`;
+  const { modules } = card.qrShape(url);
+  const TILE_MM = 24; // weisse Kachel auf der Rückseite
+  assert.ok(card.qrEdgeMm(modules, TILE_MM) >= 18, `Kantenlänge ${card.qrEdgeMm(modules, TILE_MM)} mm`);
+  assert.ok(((TILE_MM - card.qrEdgeMm(modules, TILE_MM)) / 2 / TILE_MM) * (modules + 8) >= 4 - 1e-9, "Ruhezone mindestens 4 Module");
+  // Sehr lange Adressen (grosse QR-Version) bleiben über 18 mm, solange die Kachel 24 mm misst
+  assert.ok(card.qrEdgeMm(61, TILE_MM) >= 18 && card.qrEdgeMm(24, TILE_MM) >= 18);
 });
 
 // ---- Newsletter-Segmente -----------------------------------------------------------------------------------------------------------

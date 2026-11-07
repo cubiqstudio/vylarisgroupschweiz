@@ -1,6 +1,10 @@
 // Zahlungsabgleich per CSV (rein, ohne Datenbank): liest eine Liste mit Referenz und Betrag (z. B. aus dem E-Banking) und ordnet
 // die Zeilen anhand der Referenz den Rechnungen zu. Die Datei wird nie ausgeführt, nur gelesen; Zellen werden als Text behandelt.
+// Die Zuordnung hängt weder von einer Schweizer IBAN ab noch von einem Schweizer Format: Massgeblich sind die Referenz (QR-Referenz oder
+// Creditor Reference «RF…», auch im Verwendungszweck) oder die Rechnungsnummer im Text. Das gilt auch für Kontoauszüge eines
+// ausländischen Zahlungsanbieters, solange sie als CSV mit Betrag und Referenz oder Verwendungszweck vorliegen.
 import { parseDateOnly } from "./dates";
+import { isValidCreditorReference } from "./iban";
 import { parseChf } from "./money";
 import { parseInvoiceReference } from "./qr-bill";
 
@@ -66,7 +70,7 @@ const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g
 const REF_HEADERS = ["referenz", "zahlungsreferenz", "reference", "referenznummer", "esr", "qrreferenz", "referenzNummer"].map(norm);
 const AMOUNT_HEADERS = ["betrag", "amount", "gutschrift", "betragchf", "chf", "kredit", "credit"].map(norm);
 const DATE_HEADERS = ["datum", "valuta", "buchungsdatum", "date", "valutadatum", "gutschriftsdatum"].map(norm);
-const TEXT_HEADERS = ["text", "buchungstext", "mitteilung", "verwendungszweck", "zahlungszweck", "details", "beschreibung", "notiz"].map(norm);
+const TEXT_HEADERS = ["text", "buchungstext", "mitteilung", "verwendungszweck", "zahlungszweck", "details", "beschreibung", "notiz", "description", "remittanceinformation"].map(norm);
 
 function columnIndex(headers: string[], names: string[]): number {
   const h = headers.map(norm);
@@ -80,8 +84,8 @@ function columnIndex(headers: string[], names: string[]): number {
 export type ParsedImport = { rows: ImportRow[]; error: string | null };
 
 /**
- * Liest eine Zahlungsliste. Erwartet eine Kopfzeile mit mindestens den Spalten «Referenz» und «Betrag»;
- * optional «Datum» (Valuta) und «Text». Lesbare Zeilen haben einen positiven Betrag (Gutschrift).
+ * Liest eine Zahlungsliste. Erwartet eine Kopfzeile mit der Spalte «Betrag» und mindestens «Referenz» oder «Text» (Verwendungszweck);
+ * optional «Datum» (Valuta). Lesbare Zeilen haben einen positiven Betrag (Gutschrift). Betrag in CHF.
  */
 export function parseBankCsv(input: string): ParsedImport {
   if (input.length > IMPORT_MAX_CHARS) return { rows: [], error: "Die Datei ist zu gross (höchstens 1 MB)." };
@@ -94,11 +98,13 @@ export function parseBankCsv(input: string): ParsedImport {
   const amount = columnIndex(headers, AMOUNT_HEADERS);
   const date = columnIndex(headers, DATE_HEADERS);
   const text = columnIndex(headers, TEXT_HEADERS);
-  if (ref < 0 || amount < 0) return { rows: [], error: "Die Kopfzeile braucht die Spalten «Referenz» und «Betrag» (optional «Datum» und «Text»)." };
+  if (amount < 0 || (ref < 0 && text < 0)) {
+    return { rows: [], error: "Die Kopfzeile braucht die Spalte «Betrag» und mindestens «Referenz» oder «Text» bzw. «Verwendungszweck» (optional «Datum»)." };
+  }
 
   const rows: ImportRow[] = all.slice(1).map((cells, i) => {
     const line = i + 2;
-    const reference = (cells[ref] ?? "").replace(/\s/g, "").slice(0, 60);
+    const reference = ref >= 0 ? (cells[ref] ?? "").replace(/\s/g, "").slice(0, 60) : "";
     const rawAmount = (cells[amount] ?? "").trim();
     const parsedAmount = rawAmount === "" ? null : parseChf(rawAmount);
     const rawDate = date >= 0 ? (cells[date] ?? "").trim() : "";
@@ -120,7 +126,29 @@ export type MatchResult =
   | { kind: "MATCH"; invoice: MatchInvoice; amountRappen: number; note: string }
   | { kind: "NO_REFERENCE" | "UNKNOWN" | "NOT_PAYABLE" | "INVALID" | "DUPLICATE"; message: string };
 
-/** Findet die Rechnung zu einer Referenz: zuerst die gespeicherte Referenz, dann Jahr/Nummer aus einer von uns erzeugten Referenz, zuletzt die Rechnungsnummer im Text. */
+/**
+ * Creditor References («RF…», ISO 11649) im Text, z. B. im Verwendungszweck eines ausländischen Kontoauszugs: auch in Vierergruppen
+ * («RF18 5390 0754 7034»). Nur Referenzen mit korrekter Prüfziffer; ohne Leerzeichen und in Grossbuchstaben.
+ */
+export function creditorReferencesIn(text: string): string[] {
+  const found: string[] = [];
+  for (const m of text.toUpperCase().matchAll(/\bRF\d{2}(?: ?[A-Z0-9]{1,5}){1,6}/g)) {
+    const compact = m[0].replace(/\s/g, "");
+    for (let len = Math.min(25, compact.length); len >= 5; len--) {
+      const candidate = compact.slice(0, len);
+      if (isValidCreditorReference(candidate)) {
+        if (!found.includes(candidate)) found.push(candidate);
+        break;
+      }
+    }
+  }
+  return found;
+}
+
+/**
+ * Findet die Rechnung zu einer Referenz: zuerst die gespeicherte Referenz, dann Jahr/Nummer aus einer von uns erzeugten Referenz,
+ * dann eine Creditor Reference im Text, zuletzt die Rechnungsnummer im Text.
+ */
 export function findInvoiceForReference(reference: string, text: string, byReference: ReadonlyMap<string, MatchInvoice>, byKey: ReadonlyMap<string, MatchInvoice>): MatchInvoice | null {
   const ref = reference.replace(/\s/g, "").toUpperCase();
   if (ref) {
@@ -131,6 +159,13 @@ export function findInvoiceForReference(reference: string, text: string, byRefer
       const viaKey = byKey.get(`${parsed.year}-${parsed.seq}`);
       if (viaKey) return viaKey;
     }
+  }
+  for (const rf of creditorReferencesIn(text)) {
+    const hit = byReference.get(rf);
+    if (hit) return hit;
+    const parsed = parseInvoiceReference(rf);
+    const viaKey = parsed ? byKey.get(`${parsed.year}-${parsed.seq}`) : undefined;
+    if (viaKey) return viaKey;
   }
   const num = /\b(\d{4})-(\d{4,})\b/.exec(text);
   if (num) return byKey.get(`${Number(num[1])}-${Number(num[2])}`) ?? null;
@@ -145,7 +180,7 @@ export function matchRow(
   isDuplicate: (invoiceId: string, row: ImportRow) => boolean,
 ): MatchResult {
   if (row.error || row.amountRappen === null) return { kind: "INVALID", message: row.error || "Zeile nicht lesbar." };
-  if (!row.reference && !/\b\d{4}-\d{4,}\b/.test(row.text)) return { kind: "NO_REFERENCE", message: "Keine Referenz angegeben." };
+  if (!row.reference && !/\b\d{4}-\d{4,}\b/.test(row.text) && creditorReferencesIn(row.text).length === 0) return { kind: "NO_REFERENCE", message: "Keine Referenz angegeben." };
   const invoice = findInvoiceForReference(row.reference, row.text, byReference, byKey);
   if (!invoice) return { kind: "UNKNOWN", message: "Keine Rechnung zu dieser Referenz gefunden." };
   if (invoice.status !== "OFFEN" && invoice.status !== "BEZAHLT") {

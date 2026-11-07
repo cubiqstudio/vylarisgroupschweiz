@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { getMessages } from "@/i18n/server";
 import { vereinUebersicht } from "@/i18n/verein-uebersicht";
 import { findBrandAsset } from "@/lib/brand";
+import { db } from "@/lib/db";
 import { formatDateCh } from "@/lib/verein/dates";
 import { requireMemberPage } from "@/lib/verein/guard";
 import { getPortalMember } from "@/lib/verein/members-data";
@@ -33,6 +34,9 @@ export default async function Page() {
   // Vorderseite: eingetragener Vereinsname aus den Einstellungen, sonst der Name der Website («VylarisGroup Schweiz»).
   const clubName = profileDisplayName(await getVereinProfile().catch(() => ({ name: "" })), site.name);
   const verifyUrl = data ? cardVerifyUrl(data.id, data.cardVersion) : "";
+  // NFC-Karten bekommt nur der Vorstand: der Bereich erscheint nur, wenn das Mitglied ein Admin-Konto hat. Alle anderen
+  // Mitglieder bekommen normale Plastikkarten mit QR-Code.
+  const showNfc = Boolean(await db.adminUser.findFirst({ where: { memberId: member.id }, select: { id: true } }).catch(() => null));
 
   return (
     <section aria-labelledby="card-heading">
@@ -68,6 +72,7 @@ export default async function Page() {
               <span>{m.status(validity.text, formatDateCh(new Date()))}</span>
             </p>
             <p className="max-w-2xl text-xs text-zinc-500">{m.privacy}</p>
+            {showNfc && (
             <details className="group rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-zinc-200 [&::-webkit-details-marker]:hidden">
                 {m.nfc.title}
@@ -79,6 +84,7 @@ export default async function Page() {
                 <p className="text-sm leading-relaxed text-zinc-400">{m.nfc.warning}</p>
               </div>
             </details>
+            )}
           </div>
         </div>
       ) : (

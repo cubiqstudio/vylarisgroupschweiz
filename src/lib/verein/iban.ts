@@ -1,5 +1,7 @@
 // IBAN- und Referenzprüfung für Schweizer Zahlungen (reine Funktionen).
-//  - IBAN: Prüfsumme nach ISO 13616 (mod 97). Schweiz/Liechtenstein: «CH»/«LI» + 19 Stellen = 21 Zeichen.
+//  - IBAN: Prüfsumme nach ISO 13616 (mod 97) und Länge je Land (IBAN-Register). Schweiz/Liechtenstein: «CH»/«LI» + 19 Stellen = 21 Zeichen.
+//    Jede gültige IBAN ist als Konto des Vereins zulässig; die Schweizer QR-Rechnung gibt es aber nur mit CH/LI-IBAN.
+//  - BIC/SWIFT: 8 oder 11 Zeichen (Bank, Land, Ort, optional Filiale).
 //  - QR-IBAN: IBAN, deren Institutskennung (Stellen 5–9) im Bereich 30000–31999 liegt; sie wird nur mit QR-Referenz verwendet.
 //  - QR-Referenz: 27 Ziffern, letzte Stelle = Prüfziffer nach Modulo 10, rekursiv.
 //  - Creditor Reference (SCOR, ISO 11649): «RF» + 2 Prüfziffern + bis zu 21 Zeichen.
@@ -25,17 +27,96 @@ function lettersToDigits(s: string): string {
   return [...s].map((c) => (/[A-Z]/.test(c) ? String(c.charCodeAt(0) - 55) : c)).join("");
 }
 
-/** Gültige IBAN (Format und Prüfsumme)? Ohne Länderprüfung, ausser dass die Länge 15–34 betragen muss. */
-export function isValidIban(input: string): boolean {
+/**
+ * Länge der IBAN je Land (Gesamtzahl der Zeichen) nach dem IBAN-Register (SWIFT). Länder, die hier fehlen, werden mit der
+ * allgemeinen Regel (15 bis 34 Zeichen) geprüft.
+ */
+export const IBAN_LENGTHS: Readonly<Record<string, number>> = {
+  AD: 24, AE: 23, AL: 28, AT: 20, AZ: 28, BA: 20, BE: 16, BG: 22, BH: 22, BR: 29, BY: 28, CH: 21, CR: 22, CY: 28, CZ: 24, DE: 22,
+  DK: 18, DO: 28, EE: 20, EG: 29, ES: 24, FI: 18, FO: 18, FR: 27, GB: 22, GE: 22, GI: 23, GL: 18, GR: 27, GT: 28, HR: 21, HU: 28,
+  IE: 22, IL: 23, IQ: 23, IS: 26, IT: 27, JO: 30, KW: 30, KZ: 20, LB: 28, LC: 32, LI: 21, LT: 20, LU: 20, LV: 21, MC: 27, MD: 24,
+  ME: 22, MK: 19, MR: 27, MT: 31, MU: 30, NL: 18, NO: 15, PK: 24, PL: 28, PS: 29, PT: 25, QA: 29, RO: 24, RS: 22, SA: 24, SC: 31,
+  SE: 24, SI: 19, SK: 24, SM: 27, ST: 25, SV: 28, TL: 23, TN: 24, TR: 26, UA: 29, VA: 22, VG: 24, XK: 20,
+};
+
+/** Länderkürzel einer IBAN («IE»), leer, wenn die Eingabe nicht mit zwei Buchstaben beginnt. */
+export function ibanCountryOf(input: string): string {
+  const m = /^[A-Z]{2}/.exec(normalizeIban(input));
+  return m ? m[0] : "";
+}
+
+/**
+ * Warum ist die IBAN ungültig? Meldung oder null, wenn sie gültig ist (Format, Länge je Land, Prüfsumme).
+ * Leerzeichen und Kleinschreibung werden toleriert.
+ */
+export function ibanProblem(input: string): string | null {
   const iban = normalizeIban(input);
-  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban)) return false;
-  return mod97(lettersToDigits(iban.slice(4) + iban.slice(0, 4))) === 1;
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]+$/.test(iban)) return "Das ist keine gültige IBAN: Sie beginnt mit dem Länderkürzel (z. B. CH oder IE), dann folgen zwei Prüfziffern und die Kontonummer.";
+  const country = iban.slice(0, 2);
+  const expected = IBAN_LENGTHS[country];
+  if (expected !== undefined && iban.length !== expected) return `Eine IBAN aus ${country} hat ${expected} Zeichen, die Eingabe hat ${iban.length}.`;
+  if (expected === undefined && (iban.length < 15 || iban.length > 34)) return "Eine IBAN hat 15 bis 34 Zeichen.";
+  if (mod97(lettersToDigits(iban.slice(4) + iban.slice(0, 4))) !== 1) return "Die Prüfziffern stimmen nicht. Bitte prüfe die IBAN auf Tippfehler.";
+  return null;
+}
+
+/** Gültige IBAN (Format, Länge je Land und Prüfsumme nach mod 97)? Für unbekannte Länder gilt 15 bis 34 Zeichen. */
+export function isValidIban(input: string): boolean {
+  return ibanProblem(input) === null;
 }
 
 /** Gültige Schweizer oder liechtensteinische IBAN (CH/LI, 21 Zeichen)? */
 export function isValidSwissIban(input: string): boolean {
   const iban = normalizeIban(input);
   return /^(CH|LI)\d{2}[A-Z0-9]{17}$/.test(iban) && isValidIban(iban);
+}
+
+/** Gültige IBAN eines anderen Landes als CH/LI (keine Schweizer QR-Rechnung möglich)? */
+export function isForeignIban(input: string): boolean {
+  const iban = normalizeIban(input);
+  return isValidIban(iban) && !isValidSwissIban(iban);
+}
+
+/** BIC/SWIFT ohne Leerzeichen, Grossbuchstaben. */
+export function normalizeBic(input: string): string {
+  return input.replace(/[\s ]/g, "").toUpperCase();
+}
+
+/** Gültiger BIC/SWIFT: 4 Buchstaben (Bank), 2 Buchstaben (Land), 2 Zeichen (Ort), optional 3 Zeichen (Filiale): 8 oder 11 Zeichen. */
+export function isValidBic(input: string): boolean {
+  return /^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?$/.test(normalizeBic(input));
+}
+
+/** Art eines Kontos für Rechnungen. */
+export type IbanKind = "SWISS" | "QR" | "FOREIGN";
+
+/** Art der IBAN: Schweizer/liechtensteinische IBAN, QR-IBAN, ausländische IBAN; null, wenn ungültig. */
+export function ibanKindOf(input: string): IbanKind | null {
+  const iban = normalizeIban(input);
+  if (!isValidIban(iban)) return null;
+  if (!isValidSwissIban(iban)) return "FOREIGN";
+  return isQrIban(iban) ? "QR" : "SWISS";
+}
+
+/** Rückmeldung zur Eingabe einer IBAN (Formular, Live-Anzeige). Dieselbe Prüfung wie auf dem Server. */
+export type IbanFeedback = { state: "empty" } | { state: "invalid"; message: string } | { state: "valid"; kind: IbanKind; country: string; label: string; formatted: string };
+
+export function describeIban(input: string): IbanFeedback {
+  const iban = normalizeIban(input);
+  if (iban === "") return { state: "empty" };
+  const problem = ibanProblem(iban);
+  if (problem) return { state: "invalid", message: problem };
+  const kind = ibanKindOf(iban)!;
+  const country = ibanCountryOf(iban);
+  const label =
+    kind === "FOREIGN"
+      ? `Ausländische IBAN (${country}) – keine Schweizer QR-Rechnung möglich`
+      : kind === "QR"
+        ? "QR-IBAN"
+        : country === "LI"
+          ? "Liechtensteinische IBAN (LI)"
+          : "Schweizer IBAN";
+  return { state: "valid", kind, country, label, formatted: formatIban(iban) };
 }
 
 /** QR-IBAN: Schweizer IBAN mit Institutskennung 30000–31999. */

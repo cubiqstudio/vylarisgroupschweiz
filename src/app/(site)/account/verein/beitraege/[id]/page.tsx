@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: m.meta.invoice, robots: { index: false, follow: false } };
 }
 
-/** Eine eigene Rechnung mit QR-Zahlteil. Fremde oder unbekannte IDs ergeben 404 (Abfrage immer mit memberId). */
+/** Eine eigene Rechnung mit QR-Zahlteil bzw. Einzahlungsangaben. Fremde oder unbekannte IDs ergeben 404 (Abfrage immer mit memberId). */
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const member = await requireMemberPage(`/account/verein/beitraege/${encodeURIComponent(id)}`);

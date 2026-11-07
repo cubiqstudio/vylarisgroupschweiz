@@ -7,7 +7,7 @@
 // mit einem Hinweis, bis es eingetragen ist (siehe missing…-Funktionen).
 import { z } from "zod";
 import { DEFAULT_EXIT_RULE, DEFAULT_FISCAL_START, EXIT_MODES, type ExitRule, type FiscalStart } from "./dates";
-import { isQrIban, isValidSwissIban, normalizeIban } from "./iban";
+import { ibanProblem, isForeignIban, isQrIban, isValidBic, normalizeBic, normalizeIban } from "./iban";
 import { MAX_RAPPEN } from "./money";
 import { emailSchema } from "./validation";
 
@@ -16,6 +16,8 @@ export const VEREIN_SETTING_KEYS = {
   iban: "verein.account.iban",
   qrIban: "verein.account.qrIban",
   bank: "verein.account.bank",
+  bic: "verein.account.bic",
+  payeeName: "verein.account.payeeName",
   paymentDays: "verein.fees.paymentDays",
   reminderAfterDays: "verein.fees.reminderAfterDays",
   reminderDays1: "verein.fees.reminderDays1",
@@ -43,11 +45,17 @@ export type VereinSettingField = keyof typeof VEREIN_SETTING_KEYS;
 
 /** Alle Einstellungen des Vereins in typisierter Form. null = vom Verein noch nicht festgelegt. */
 export type VereinSettings = {
-  // Konto für Rechnungen (QR-Rechnung)
+  // Konto für Rechnungen: Schweizer Konto (QR-Rechnung) oder ausländische IBAN (Einzahlungsangaben statt QR-Rechnung)
   accountHolder: string;
+  /** Hauptkonto: jede gültige IBAN. Nur CH/LI ergibt eine Schweizer QR-Rechnung. */
   iban: string;
+  /** QR-IBAN (nur Schweizer Konten, optional) */
   qrIban: string;
   bank: string;
+  /** BIC/SWIFT des Hauptkontos (optional, 8 oder 11 Zeichen) */
+  bic: string;
+  /** Zahlungsempfänger, falls abweichend vom Kontoinhaber (optional) */
+  payeeName: string;
   // Beiträge und Mahnwesen
   paymentDays: number | null;
   reminderAfterDays: number | null;
@@ -83,6 +91,8 @@ export const DEFAULT_VEREIN_SETTINGS: VereinSettings = {
   iban: "",
   qrIban: "",
   bank: "",
+  bic: "",
+  payeeName: "",
   paymentDays: null,
   reminderAfterDays: null,
   reminderDays1: null,
@@ -119,19 +129,30 @@ const ibanField = z
   .string()
   .trim()
   .transform(normalizeIban)
-  .refine((v) => v === "" || isValidSwissIban(v), "Bitte eine gültige Schweizer IBAN angeben (CH… mit 21 Zeichen).")
-  .refine((v) => v === "" || !isQrIban(v), "Das ist eine QR-IBAN. Trage sie im Feld «QR-IBAN» ein.");
+  .superRefine((v, ctx) => {
+    if (v === "") return;
+    const problem = ibanProblem(v);
+    if (problem) ctx.addIssue({ code: "custom", message: problem });
+    else if (isQrIban(v)) ctx.addIssue({ code: "custom", message: "Das ist eine QR-IBAN. Trage sie im Feld «QR-IBAN» ein." });
+  });
 const qrIbanField = z
   .string()
   .trim()
   .transform(normalizeIban)
-  .refine((v) => v === "" || isQrIban(v), "Das ist keine QR-IBAN (Institutskennung 30000–31999).");
+  .refine((v) => v === "" || isQrIban(v), "Das ist keine QR-IBAN (Schweizer IBAN mit Institutskennung 30000–31999).");
+const bicField = z
+  .string()
+  .trim()
+  .transform(normalizeBic)
+  .refine((v) => v === "" || isValidBic(v), "Bitte einen gültigen BIC/SWIFT angeben (8 oder 11 Zeichen, z. B. AIBKIE2D).");
 
 export const vereinSettingsSchema = z.object({
   accountHolder: line(70),
   iban: ibanField,
   qrIban: qrIbanField,
   bank: line(70),
+  bic: bicField,
+  payeeName: line(70),
   paymentDays: optionalDays,
   reminderAfterDays: optionalDays,
   reminderDays1: optionalDays,
@@ -203,6 +224,17 @@ export function serializeVereinSettings(patch: Partial<VereinSettings>): Record<
     else out[key] = String(v);
   }
   return out;
+}
+
+/**
+ * Widersprüche zwischen den Kontoangaben (feldübergreifend, deshalb nicht im Feld-Schema): Mit einer ausländischen IBAN als Hauptkonto
+ * gibt es keine QR-Rechnung und damit auch keine QR-IBAN. Leeres Objekt = in Ordnung.
+ */
+export function accountConflicts(s: Pick<VereinSettings, "iban" | "qrIban">): Partial<Record<"qrIban", string>> {
+  if (normalizeIban(s.qrIban) !== "" && isForeignIban(s.iban)) {
+    return { qrIban: "Mit einer ausländischen IBAN gibt es keine QR-IBAN. Lösche die QR-IBAN oder trage als IBAN das Schweizer Konto ein." };
+  }
+  return {};
 }
 
 // ---- Abgeleitete Werte -------------------------------------------------------------------------------------------

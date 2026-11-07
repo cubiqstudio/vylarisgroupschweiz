@@ -6,7 +6,7 @@ import { CheckCircle2, Loader2, Save, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { api } from "@/lib/api-client";
-import { formatIban, isQrIban, isValidSwissIban, normalizeIban } from "@/lib/verein/iban";
+import { describeIban, formatIban, normalizeBic, normalizeIban, isValidBic } from "@/lib/verein/iban";
 import { parseChf, toDecimalString } from "@/lib/verein/money";
 import type { VereinSettings } from "@/lib/verein/settings-schema";
 import type { MissingSetting } from "@/lib/verein/settings-schema";
@@ -21,6 +21,8 @@ export type FinanceSettings = Pick<
   | "iban"
   | "qrIban"
   | "bank"
+  | "bic"
+  | "payeeName"
   | "paymentDays"
   | "reminderAfterDays"
   | "reminderDays1"
@@ -34,20 +36,27 @@ export type FinanceSettings = Pick<
 const str = (n: number | null) => (n === null ? "" : String(n));
 const chf = (n: number | null) => (n === null ? "" : toDecimalString(n));
 
-/** Live-Rückmeldung zur IBAN-Eingabe (Prüfsumme wird auf dem Server nochmals geprüft). */
+/** Text des Hinweises bei ausländischer IBAN (Hauptkonto). */
+export const FOREIGN_IBAN_NOTICE =
+  "Mit einer ausländischen IBAN gibt es keine Schweizer QR-Rechnung. Auf den Rechnungen stehen stattdessen die Einzahlungsangaben (IBAN, BIC, Zahlungsreferenz). Beachte: Rechnungen lauten auf Schweizer Franken (CHF). Zahlungen aus der Schweiz auf ein Euro-Konto im Ausland sind für die Zahlenden Auslandüberweisungen mit Umrechnung und möglichen Gebühren; kläre mit dem Zahlungsanbieter, ob das Konto CHF-Zahlungen annimmt.";
+
+/** Live-Rückmeldung zur IBAN-Eingabe (dieselbe Prüfung wie auf dem Server, dort zusätzlich die Prüfsumme der QR-IBAN). */
 function IbanState({ value, kind }: { value: string; kind: "iban" | "qr" }) {
-  const v = normalizeIban(value);
-  if (v === "") return null;
-  const ok = kind === "qr" ? isQrIban(v) : isValidSwissIban(v) && !isQrIban(v);
-  const text = ok
-    ? `Gültig: ${formatIban(v)}`
-    : kind === "qr"
-      ? isValidSwissIban(v)
-        ? "Das ist keine QR-IBAN (Institutskennung 30000–31999)."
-        : "Keine gültige Schweizer IBAN."
-      : isQrIban(v)
-        ? "Das ist eine QR-IBAN. Trage sie im Feld «QR-IBAN» ein."
-        : "Keine gültige Schweizer IBAN (CH oder LI, 21 Zeichen).";
+  const f = describeIban(value);
+  if (f.state === "empty") return null;
+  let ok = f.state === "valid";
+  let text = f.state === "invalid" ? f.message : `Gültig: ${f.formatted} · ${f.label}`;
+  if (f.state === "valid") {
+    if (kind === "iban" && f.kind === "QR") {
+      ok = false;
+      text = "Das ist eine QR-IBAN. Trage sie im Feld «QR-IBAN» ein.";
+    } else if (kind === "qr" && f.kind !== "QR") {
+      ok = false;
+      text = f.kind === "FOREIGN" ? "Das ist keine QR-IBAN: QR-IBANs gibt es nur bei Schweizer Konten." : "Das ist keine QR-IBAN (Institutskennung 30000–31999).";
+    } else if (kind === "qr") {
+      text = `Gültig: ${f.formatted} · QR-IBAN`;
+    }
+  }
   return (
     <p className={`flex items-center gap-1.5 text-xs ${ok ? "text-green-800" : "text-rose-400"}`} aria-live="polite">
       {ok ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> : <XCircle className="h-3.5 w-3.5" aria-hidden />}
@@ -61,6 +70,8 @@ export function FinanceSettingsForm({ settings, missing, canWrite }: { settings:
   const toast = useToast();
   const [holder, setHolder] = useState(settings.accountHolder);
   const [bank, setBank] = useState(settings.bank);
+  const [bic, setBic] = useState(settings.bic);
+  const [payeeName, setPayeeName] = useState(settings.payeeName);
   const [iban, setIban] = useState(formatIban(settings.iban));
   const [qrIban, setQrIban] = useState(formatIban(settings.qrIban));
   const [paymentDays, setPaymentDays] = useState(str(settings.paymentDays));
@@ -75,6 +86,9 @@ export function FinanceSettingsForm({ settings, missing, canWrite }: { settings:
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
   const dis = busy || !canWrite;
+  const ibanFeedback = describeIban(iban);
+  const foreignIban = ibanFeedback.state === "valid" && ibanFeedback.kind === "FOREIGN";
+  const bicNormalized = normalizeBic(bic);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -99,6 +113,8 @@ export function FinanceSettingsForm({ settings, missing, canWrite }: { settings:
     const body = {
       accountHolder: holder.trim(),
       bank: bank.trim(),
+      bic: normalizeBic(bic),
+      payeeName: payeeName.trim(),
       iban: normalizeIban(iban),
       qrIban: normalizeIban(qrIban),
       paymentDays: days(paymentDays, "paymentDays", "Zahlungsfrist"),
@@ -151,21 +167,48 @@ export function FinanceSettingsForm({ settings, missing, canWrite }: { settings:
         Beträge, Fristen und Kontodaten trägt der Verein selbst ein. Es gibt keine Voreinstellungen: Die Statuten und Reglemente des Vereins gehen vor. Das ist keine Rechtsberatung.
       </Notice>
 
-      <SettingsSection id="konto" title="Konto für Zahlungen" description="Die Angaben erscheinen auf Rechnungen und im QR-Einzahlungsschein. Währung: Schweizer Franken (CHF). Anschrift des Vereins: Einstellungen, Rechtliches (Impressum).">
+      <SettingsSection
+        id="konto"
+        title="Konto für Zahlungen"
+        description="Die Angaben erscheinen auf den Rechnungen: bei einer Schweizer IBAN im QR-Einzahlungsschein, bei einer ausländischen IBAN als Einzahlungsangaben. Währung: Schweizer Franken (CHF). Anschrift des Vereins: Einstellungen, Rechtliches (Impressum)."
+      >
+        {foreignIban && (
+          <Notice variant="warning" className="mb-5">
+            {FOREIGN_IBAN_NOTICE}
+          </Notice>
+        )}
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Kontoinhaber" htmlFor="f-holder" error={fields.accountHolder} hint="Name des Vereins, wie er bei der Bank geführt wird.">
             <Input id="f-holder" value={holder} onChange={(e) => setHolder(e.target.value)} maxLength={70} disabled={dis} autoComplete="off" aria-invalid={fields.accountHolder ? true : undefined} />
           </Field>
-          <Field label="Bank (optional)" htmlFor="f-bank" error={fields.bank}>
-            <Input id="f-bank" value={bank} onChange={(e) => setBank(e.target.value)} maxLength={70} disabled={dis} autoComplete="off" aria-invalid={fields.bank ? true : undefined} />
+          <Field label="Zahlungsempfänger, falls abweichend (optional)" htmlFor="f-payee" error={fields.payeeName} hint="Nur ausfüllen, wenn das Konto auf einen anderen Namen lautet als der Kontoinhaber. Er erscheint als Zahlungsempfänger auf der Rechnung.">
+            <Input id="f-payee" value={payeeName} onChange={(e) => setPayeeName(e.target.value)} maxLength={70} disabled={dis} autoComplete="off" aria-invalid={fields.payeeName ? true : undefined} />
           </Field>
-          <Field label="IBAN" htmlFor="f-iban" error={fields.iban} hint="Schweizer IBAN (CH…), für Rechnungen mit Creditor Reference.">
-            <Input id="f-iban" value={iban} onChange={(e) => setIban(e.target.value)} maxLength={34} disabled={dis} autoComplete="off" spellCheck={false} aria-invalid={fields.iban ? true : undefined} className="font-mono" />
+          <Field label="IBAN" htmlFor="f-iban" error={fields.iban} hint="Jede gültige IBAN, z. B. CH… oder IE… Leerzeichen und Kleinschreibung sind erlaubt. Schweizer IBAN (CH/LI): Rechnungen mit QR-Rechnung und Creditor Reference.">
+            <Input id="f-iban" value={iban} onChange={(e) => setIban(e.target.value)} maxLength={42} disabled={dis} autoComplete="off" spellCheck={false} aria-invalid={fields.iban ? true : undefined} className="font-mono" />
             {!fields.iban && <IbanState value={iban} kind="iban" />}
           </Field>
-          <Field label="QR-IBAN (optional)" htmlFor="f-qriban" error={fields.qrIban} hint="Nur, wenn die Bank eine QR-IBAN ausgestellt hat: Rechnungen erhalten dann eine QR-Referenz.">
-            <Input id="f-qriban" value={qrIban} onChange={(e) => setQrIban(e.target.value)} maxLength={34} disabled={dis} autoComplete="off" spellCheck={false} aria-invalid={fields.qrIban ? true : undefined} className="font-mono" />
+          <Field label="BIC/SWIFT (optional)" htmlFor="f-bic" error={fields.bic} hint="8 oder 11 Zeichen. Bei ausländischer IBAN erscheint er in den Einzahlungsangaben.">
+            <Input id="f-bic" value={bic} onChange={(e) => setBic(e.target.value)} maxLength={14} disabled={dis} autoComplete="off" spellCheck={false} aria-invalid={fields.bic ? true : undefined} className="font-mono uppercase" />
+            {!fields.bic && bicNormalized !== "" && (
+              <p className={`flex items-center gap-1.5 text-xs ${isValidBic(bicNormalized) ? "text-green-800" : "text-rose-400"}`} aria-live="polite">
+                {isValidBic(bicNormalized) ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> : <XCircle className="h-3.5 w-3.5" aria-hidden />}
+                {isValidBic(bicNormalized) ? `Gültig: ${bicNormalized}` : "Ein BIC/SWIFT hat 8 oder 11 Zeichen (4 Buchstaben Bank, 2 Buchstaben Land, 2 Zeichen Ort, optional 3 Zeichen Filiale)."}
+              </p>
+            )}
+          </Field>
+          <Field label="Bank (optional)" htmlFor="f-bank" error={fields.bank} hint="Name der Bank oder des Zahlungsanbieters, z. B. «SumUp Payments Limited». Erscheint in den Einzahlungsangaben.">
+            <Input id="f-bank" value={bank} onChange={(e) => setBank(e.target.value)} maxLength={70} disabled={dis} autoComplete="off" aria-invalid={fields.bank ? true : undefined} />
+          </Field>
+          <Field label="QR-IBAN (optional)" htmlFor="f-qriban" error={fields.qrIban} hint="Nur bei Schweizer Konten und nur, wenn die Bank eine QR-IBAN ausgestellt hat: Rechnungen erhalten dann eine QR-Referenz.">
+            <Input id="f-qriban" value={qrIban} onChange={(e) => setQrIban(e.target.value)} maxLength={42} disabled={dis} autoComplete="off" spellCheck={false} aria-invalid={fields.qrIban ? true : undefined} className="font-mono" />
             {!fields.qrIban && <IbanState value={qrIban} kind="qr" />}
+            {!fields.qrIban && foreignIban && normalizeIban(qrIban) !== "" && (
+              <p className="flex items-center gap-1.5 text-xs text-rose-400" aria-live="polite">
+                <XCircle className="h-3.5 w-3.5" aria-hidden />
+                Mit einer ausländischen IBAN gibt es keine QR-IBAN. Lösche die QR-IBAN, sonst lässt sich nicht speichern.
+              </p>
+            )}
           </Field>
         </div>
       </SettingsSection>

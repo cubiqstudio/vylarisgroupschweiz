@@ -9,7 +9,7 @@ import { verein } from "@/i18n/verein";
 import { cn } from "@/lib/utils";
 import { TONE_CLASS, type Tone } from "@/lib/verein/constants";
 import { formatDateCh, isPastDue } from "@/lib/verein/dates";
-import { listInvoicesForMember } from "@/lib/verein/fees-data";
+import { currentBillMode, listInvoicesForMember } from "@/lib/verein/fees-data";
 import { openAmount } from "@/lib/verein/fees-calc";
 import { requireMemberPage } from "@/lib/verein/guard";
 import { formatChf } from "@/lib/verein/money";
@@ -26,6 +26,7 @@ export default async function Page() {
   const member = await requireMemberPage("/account/verein/beitraege");
   const m = await getMessages(beitraege);
   const invoices = await listInvoicesForMember(member.id);
+  const billMode = await currentBillMode();
   const openTotal = invoices.filter((i) => i.status === "OFFEN").reduce((sum, i) => sum + openAmount(i.totalRappen, i.paidRappen), 0);
 
   const stateOf = (i: (typeof invoices)[number]): { label: string; tone: Tone } => {
@@ -41,7 +42,7 @@ export default async function Page() {
       <h2 id="fees-heading" className="text-xl font-semibold tracking-tight text-white">
         {m.portal.heading}
       </h2>
-      <p className="mt-2 max-w-2xl text-sm text-zinc-400">{m.portal.intro}</p>
+      <p className="mt-2 max-w-2xl text-sm text-zinc-400">{billMode === "DETAILS" ? m.portal.introDetails : m.portal.intro}</p>
 
       {invoices.length === 0 ? (
         <Card className="mt-6 flex flex-col items-center px-6 py-14 text-center">

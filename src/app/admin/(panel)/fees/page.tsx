@@ -59,7 +59,7 @@ export default async function AdminFeesPage({ searchParams }: Props) {
 
   return (
     <div>
-      <PageTitle title="Beiträge" description="Beitragsjahre, Rechnungen mit QR-Zahlteil, Zahlungseingänge, Mahnungen und offene Posten.">
+      <PageTitle title="Beiträge" description="Beitragsjahre, Rechnungen mit QR-Zahlteil oder Einzahlungsangaben, Zahlungseingänge, Mahnungen und offene Posten.">
         {canWrite && (
           <Link href="/admin/fees/invoices/new" className={buttonClass("primary", "md")}>
             <Plus className="h-4 w-4" aria-hidden />

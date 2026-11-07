@@ -1,6 +1,6 @@
-import { handle, parseJson, requireAdmin } from "@/lib/api";
+import { ApiError, handle, parseJson, requireAdmin } from "@/lib/api";
 import { FINANCE_SETTING_FIELDS, financeSettingsInputSchema } from "@/lib/verein/settings-forms";
-import { getVereinSettings, saveVereinSettings } from "@/lib/verein/settings";
+import { accountConflicts, getVereinSettings, saveVereinSettings } from "@/lib/verein/settings";
 import { adminOk } from "../../../../_lib/http";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +19,11 @@ export const GET = handle(async (req: Request) => {
 export const PUT = handle(async (req: Request) => {
   const admin = await requireAdmin(req);
   const input = await parseJson(req, financeSettingsInputSchema);
-  if (Object.keys(input.settings).length > 0) await saveVereinSettings(input.settings, admin);
+  if (Object.keys(input.settings).length > 0) {
+    // Feldübergreifende Prüfung auf dem Stand nach dem Speichern: ausländische IBAN und QR-IBAN schliessen sich aus.
+    const conflicts = accountConflicts({ ...(await getVereinSettings()), ...input.settings });
+    if (conflicts.qrIban) throw new ApiError(422, "VALIDATION_ERROR", conflicts.qrIban, { "settings.qrIban": conflicts.qrIban });
+    await saveVereinSettings(input.settings, admin);
+  }
   return adminOk(await load());
 });

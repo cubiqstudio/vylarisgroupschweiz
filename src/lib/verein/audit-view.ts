@@ -169,6 +169,8 @@ export const AUDIT_FIELD_LABEL: Record<string, string> = {
   iban: "IBAN",
   qrIban: "QR-IBAN",
   bank: "Bank",
+  bic: "BIC/SWIFT",
+  payeeName: "Zahlungsempfänger (abweichend)",
   paymentDays: "Zahlungsfrist (Tage)",
   reminderAfterDays: "Tage bis zur 1. Mahnung",
   reminderDays1: "Frist 1. Mahnung (Tage)",
